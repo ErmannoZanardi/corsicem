@@ -4,8 +4,23 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Portale Iscrizione ai Corsi | Portale Formazione</title>
+    <!-- Google Fonts: Roboto -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap" rel="stylesheet">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Roboto', 'sans-serif'],
+            }
+          }
+        }
+      }
+    </script>
     <!-- React e ReactDOM da CDN -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -51,7 +66,7 @@
 
         // Stato per i corsi
         const [courses, setCourses] = useState(() => {
-          const saved = localStorage.getItem('system_courses_v6');
+          const saved = localStorage.getItem('system_courses_v7');
           return saved ? JSON.parse(saved) : [
             {
               id: 1,
@@ -122,7 +137,7 @@
         
         // Stato per le iscrizioni
         const [registrations, setRegistrations] = useState(() => {
-          const saved = localStorage.getItem('course_registrations_v6');
+          const saved = localStorage.getItem('course_registrations_v7');
           return saved ? JSON.parse(saved) : [
             {
               id: 1,
@@ -168,11 +183,11 @@
         });
 
         useEffect(() => {
-          localStorage.setItem('course_registrations_v6', JSON.stringify(registrations));
+          localStorage.setItem('course_registrations_v7', JSON.stringify(registrations));
         }, [registrations]);
 
         useEffect(() => {
-          localStorage.setItem('system_courses_v6', JSON.stringify(courses));
+          localStorage.setItem('system_courses_v7', JSON.stringify(courses));
         }, [courses]);
 
         useEffect(() => {
@@ -312,7 +327,7 @@
         }, {});
 
         return (
-          <div className="min-h-screen flex flex-col bg-slate-100 text-slate-800">
+          <div className="min-h-screen flex flex-col bg-slate-100 text-slate-800 font-sans">
             
             {/* Header istituzionale Blu Scuro */}
             <header className="bg-[#1b365d] text-white shadow-md">
@@ -348,10 +363,10 @@
               {/* Banner centrale Calendario */}
               {view === 'courses' && !selectedCourse && (
                 <div className="bg-[#162d4f] py-10 text-center border-t border-blue-900/50">
-                  <h2 className="text-2xl sm:text-4xl font-extrabold tracking-wide uppercase text-white mb-2">
+                  <h2 className="text-2xl sm:text-4xl font-black tracking-wide uppercase text-white mb-2">
                     {headerTitle}
                   </h2>
-                  <p className="text-xs sm:text-sm text-slate-300">
+                  <p className="text-xs sm:text-sm text-slate-300 font-light">
                     Formazione tecnica sui sistemi Tecnoalarm, Tecnofire, Nice e Dahua
                   </p>
                 </div>
@@ -407,16 +422,16 @@
                             {/* Header Card Bordeaux */}
                             <div className="bg-[#8b1e1e] text-white p-6 relative overflow-hidden">
                               {course.isNew && (
-                                <div className="absolute -right-12 top-4 bg-amber-400 text-slate-900 text-[10px] font-extrabold py-1 px-12 rotate-45 shadow-sm uppercase tracking-wider">
+                                <div className="absolute -right-12 top-4 bg-amber-400 text-slate-900 text-[10px] font-black py-1 px-12 rotate-45 shadow-sm uppercase tracking-wider">
                                   NOVITÀ
                                 </div>
                               )}
                               
                               <div className="flex justify-between items-center mb-3">
-                                <span className="bg-white/20 text-white text-xs font-extrabold px-3 py-1 rounded tracking-wider">
+                                <span className="bg-white/20 text-white text-xs font-black px-3 py-1 rounded tracking-wider">
                                   {course.brandName}
                                 </span>
-                                <span className="text-xs text-white/90 bg-black/20 px-2.5 py-1 rounded">
+                                <span className="text-xs text-white/90 bg-black/20 px-2.5 py-1 rounded font-medium">
                                   {course.modality}
                                 </span>
                               </div>
@@ -428,21 +443,21 @@
                               <div>
                                 <div className="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-slate-100 text-xs">
                                   <div>
-                                    <span className="text-slate-400 font-semibold uppercase block mb-1">DATA</span>
+                                    <span className="text-slate-400 font-bold uppercase block mb-1">DATA</span>
                                     <span className="font-bold text-slate-900">{course.date}</span>
                                   </div>
                                   <div>
-                                    <span className="text-slate-400 font-semibold uppercase block mb-1">ORARIO</span>
+                                    <span className="text-slate-400 font-bold uppercase block mb-1">ORARIO</span>
                                     <span className="font-bold text-slate-900">{course.time}</span>
                                   </div>
                                 </div>
 
                                 <div className="mb-4 pb-4 border-b border-slate-100 text-xs">
-                                  <span className="text-slate-400 font-semibold uppercase block mb-1">SEDE / MODALITÀ</span>
+                                  <span className="text-slate-400 font-bold uppercase block mb-1">SEDE / MODALITÀ</span>
                                   <span className="font-bold text-slate-900">{course.location}</span>
                                 </div>
 
-                                <p className="text-slate-600 text-xs leading-relaxed mb-6">
+                                <p className="text-slate-600 text-xs leading-relaxed mb-6 font-normal">
                                   {course.description}
                                 </p>
                               </div>
@@ -509,7 +524,7 @@
 
                       <div className="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
                         <div className="flex justify-between items-center mb-1">
-                          <span className="text-xs font-bold text-[#8b1e1e] uppercase tracking-wider">{selectedCourse.brandName}</span>
+                          <span className="text-xs font-black text-[#8b1e1e] uppercase tracking-wider">{selectedCourse.brandName}</span>
                           <span className="text-xs font-semibold px-2.5 py-0.5 rounded bg-blue-100 text-blue-800">
                             {selectedCourse.modality}
                           </span>
