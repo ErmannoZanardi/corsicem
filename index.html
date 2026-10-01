@@ -2,14 +2,45 @@
 <html lang="it">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="https://api.iconify.design/lucide:graduation-cap.svg?color=%232563eb" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Portale Iscrizione Corsi Tecnici</title>
-    <!-- Tailwind CSS CDN per semplicità immediata -->
+    <!-- Tailwind CSS per la grafica -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React e ReactDOM da CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel per leggere il codice JSX direttamente nel browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
   </head>
   <body class="bg-slate-50 text-slate-900 antialiased">
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+
+    <script type="text/babel">
+      function App() {
+        return (
+          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
+            <div className="bg-white shadow-xl rounded-2xl p-8 max-w-md w-full text-center border border-slate-100">
+              <div className="w-16 h-16 bg-blue-600 text-white rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl font-bold shadow-lg shadow-blue-500/30">
+                🎓
+              </div>
+              <h1 className="text-2xl font-bold text-slate-900 mb-2">
+                Portale Corsi Tecnici
+              </h1>
+              <p className="text-slate-600 mb-6">
+                Tecnoalarm, Tecnofire, Nice, Dahua - Piattaforma Iscrizioni attiva!
+              </p>
+              <div className="inline-block bg-emerald-50 text-emerald-700 px-4 py-2 rounded-full text-sm font-medium border border-emerald-200">
+                ✨ Online e Funzionante
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(<App />);
+    </script>
   </body>
 </html>
