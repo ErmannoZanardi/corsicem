@@ -1,972 +1,514 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Calendar, Clock, MapPin, Video, Users, FileText, 
-  Shield, Plus, Trash2, Search, Filter, CheckCircle2, 
-  AlertCircle, X, ChevronRight, User, Building, Phone, Mail, Lock, LogOut
-} from 'lucide-react';
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Portale Iscrizione Corsi Tecnici | Installatori Professionisti</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React e ReactDOM da CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel per JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  </head>
+  <body class="bg-slate-50 text-slate-900 antialiased font-sans">
+    <div id="root"></div>
 
-const INITIAL_COURSES = [
-  {
-    id: 1,
-    titolo: "Programmazione Avanzata Centrali Serie TP",
-    brand: "Tecnoalarm",
-    tipo: "presenza",
-    data: "15 Novembre 2026",
-    orario: "09:00 - 13:00",
-    luogo_o_link: "Sala Corsi Nord - Via Emilia 45, Bologna",
-    capienza_max: 10,
-    descrizione: "Approfondimento tecnico su programmazione via software, gestione bus RS485 e integrazione domotica delle centrali Tecnoalarm.",
-    locandina_url: "#"
-  },
-  {
-    id: 2,
-    titolo: "Sistemi di Rilevazione Incendio Analogici indirizzati",
-    brand: "Tecnofire",
-    tipo: "meet",
-    data: "18 Novembre 2026",
-    orario: "14:30 - 17:30",
-    luogo_o_link: "Link Google Meet (inviato via email)",
-    capienza_max: 15,
-    descrizione: "Configurazione dei loop, indirizzamento dei dispositivi antincendio e gestione delle cause/effetti tramite software dedicato.",
-    locandina_url: "#"
-  },
-  {
-    id: 3,
-    titolo: "Automazioni Cancelli e Protocollo Nice Opera",
-    brand: "Nice",
-    tipo: "presenza",
-    data: "22 Novembre 2026",
-    orario: "09:30 - 16:30",
-    luogo_o_link: "Showroom Centrale - Via Roma 12, Milano",
-    capienza_max: 8,
-    descrizione: "Corso pratico su centrali di comando Nice, programmazione logiche avanzate, ricevitori radio OXI e sistemi di solare fotovoltaico Solemyo.",
-    locandina_url: "#"
-  },
-  {
-    id: 4,
-    titolo: "Telecamere IP WizMind e AI Analytics Dahua",
-    brand: "Dahua",
-    tipo: "meet",
-    data: "25 Novembre 2026",
-    orario: "10:00 - 12:30",
-    luogo_o_link: "Link Google Meet (inviato via email)",
-    capienza_max: 20,
-    descrizione: "Configurazione intelligenza artificiale a bordo telecamera: riconoscimento facciale, protezione perimetro, conteggio persone e integrazione NVR.",
-    locandina_url: "#"
-  }
-];
+    <script type="text/babel">
+      const { useState, useEffect } = React;
 
-const INITIAL_REGISTRATIONS = [
-  {
-    id: 1,
-    corso_id: 1,
-    nome: "Mario Rossi",
-    azienda: "Rossi Impianti Snc",
-    indirizzo: "Via Torino 22, Milano",
-    telefono: "3331234567",
-    email: "mario@rossiimpianti.it",
-    num_partecipanti: 2,
-    data_iscrizione: "2026-10-01 10:30"
-  },
-  {
-    id: 2,
-    corso_id: 1,
-    nome: "Luca Bianchi",
-    azienda: "Tecno Elettrica Srl",
-    indirizzo: "Corso Italia 8, Bologna",
-    telefono: "3489876543",
-    email: "l.bianchi@tecnoelettrica.com",
-    num_partecipanti: 3,
-    data_iscrizione: "2026-10-02 14:15"
-  }
-];
-
-export default function App() {
-  const [courses, setCourses] = useState(() => {
-    const saved = localStorage.getItem('installator_courses');
-    return saved ? JSON.parse(saved) : INITIAL_COURSES;
-  });
-
-  const [registrations, setRegistrations] = useState(() => {
-    const saved = localStorage.getItem('installator_registrations');
-    return saved ? JSON.parse(saved) : INITIAL_REGISTRATIONS;
-  });
-
-  const [selectedBrand, setSelectedBrand] = useState('Tutti');
-  const [selectedType, setSelectedType] = useState('Tutti');
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // Modali e stati UI
-  const [activeModal, setActiveModal] = useState(null); // 'register', 'admin-login', 'admin-dashboard', 'success'
-  const [selectedCourseForReg, setSelectedCourseForReg] = useState(null);
-  const [successData, setSuccessData] = useState(null);
-  
-  // Admin PIN & Form nuovo corso
-  const [adminPin, setAdminPin] = useState('');
-  const [pinError, setPinError] = useState(false);
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
-  const [activeAdminTab, setActiveAdminTab] = useState('corsi'); // 'corsi' o 'iscritti'
-
-  // Form Nuovo Corso
-  const [newCourse, setNewCourse] = useState({
-    titolo: '',
-    brand: 'Tecnoalarm',
-    tipo: 'presenza',
-    data: '',
-    orario: '',
-    luogo_o_link: '',
-    capienza_max: 12,
-    descrizione: '',
-    locandina_url: '#'
-  });
-
-  // Form Iscrizione
-  const [regForm, setRegForm] = useState({
-    nome: '',
-    azienda: '',
-    indirizzo: '',
-    telefono: '',
-    email: '',
-    num_partecipanti: 1
-  });
-  const [formError, setFormError] = useState('');
-
-  // Sincronizzazione localStorage
-  useEffect(() => {
-    localStorage.setItem('installator_courses', JSON.stringify(courses));
-  }, [courses]);
-
-  useEffect(() => {
-    localStorage.setItem('installator_registrations', JSON.stringify(registrations));
-  }, [registrations]);
-
-  const getOccupiedSeats = (courseId) => {
-    return registrations
-      .filter(r => r.corso_id === courseId)
-      .reduce((sum, r) => sum + Number(r.num_partecipanti), 0);
-  };
-
-  // Filtro corsi
-  const filteredCourses = courses.filter(course => {
-    const matchBrand = selectedBrand === 'Tutti' || course.brand.toLowerCase() === selectedBrand.toLowerCase();
-    const matchType = selectedType === 'Tutti' || course.tipo === selectedType;
-    const matchSearch = course.titolo.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                        course.descrizione.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        course.brand.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchBrand && matchType && matchSearch;
-  });
-
-  const handleOpenRegister = (course) => {
-    setSelectedCourseForReg(course);
-    setRegForm({ nome: '', azienda: '', indirizzo: '', telefono: '', email: '', num_partecipanti: 1 });
-    setFormError('');
-    setActiveModal('register');
-  };
-
-  const handleRegisterSubmit = (e) => {
-    e.preventDefault();
-    if (!selectedCourseForReg) return;
-
-    const occupied = getOccupiedSeats(selectedCourseForReg.id);
-    const available = selectedCourseForReg.capienza_max - occupied;
-    const requested = parseInt(regForm.num_partecipanti);
-
-    if (requested > available) {
-      setFormError(`Disponibilità insufficiente! Rimangono solo ${available} posti liberi.`);
-      return;
-    }
-
-    const newReg = {
-      id: Date.now(),
-      corso_id: selectedCourseForReg.id,
-      ...regForm,
-      data_iscrizione: new Date().toISOString().replace('T', ' ').substring(0, 16)
-    };
-
-    setRegistrations([...registrations, newReg]);
-    setSuccessData({
-      course: selectedCourseForReg,
-      ...regForm
-    });
-    setActiveModal('success');
-  };
-
-  const handleAdminLogin = (e) => {
-    e.preventDefault();
-    if (adminPin === '1234') {
-      setIsAdminAuthenticated(true);
-      setPinError(false);
-      setActiveModal('admin-dashboard');
-    } else {
-      setPinError(true);
-    }
-  };
-
-  const handleAddCourseSubmit = (e) => {
-    e.preventDefault();
-    const courseToAdd = {
-      id: Date.now(),
-      ...newCourse,
-      capienza_max: Number(newCourse.capienza_max)
-    };
-    setCourses([courseToAdd, ...courses]);
-    setNewCourse({
-      titolo: '',
-      brand: 'Tecnoalarm',
-      tipo: 'presenza',
-      data: '',
-      orario: '',
-      luogo_o_link: '',
-      capienza_max: 12,
-      descrizione: '',
-      locandina_url: '#'
-    });
-    alert('Corso creato con successo!');
-  };
-
-  const handleDeleteCourse = (id) => {
-    if (confirm('Sei sicuro di voler eliminare questo corso e tutte le iscrizioni associate?')) {
-      setCourses(courses.filter(c => c.id !== id));
-      setRegistrations(registrations.filter(r => r.corso_id !== id));
-    }
-  };
-
-  const handleDeleteRegistration = (id) => {
-    if (confirm('Vuoi annullare questa iscrizione?')) {
-      setRegistrations(registrations.filter(r => r.id !== id));
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans flex flex-col">
-      
-      {}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20 font-bold text-xl">
-              F
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-slate-900 leading-tight">Formazione Tecnica Installatori</h1>
-              <p className="text-xs text-slate-500">Tecnoalarm • Tecnofire • Nice • Dahua & Altri</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => {
-                if (isAdminAuthenticated) {
-                  setActiveModal('admin-dashboard');
-                } else {
-                  setAdminPin('');
-                  setPinError(false);
-                  setActiveModal('admin-login');
-                }
-              }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold transition-colors shadow-sm"
-            >
-              <Shield className="w-4 h-4 text-blue-400" />
-              <span>Area Admin</span>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      function App() {
+        const [view, setView] = useState('courses'); // 'courses', 'register', 'admin-login', 'admin-dashboard'
+        const [selectedBrand, setSelectedBrand] = useState('all');
+        const [selectedCourse, setSelectedCourse] = useState(null);
+        const [submitted, setSubmitted] = useState(false);
+        const [adminPin, setAdminPin] = useState('');
+        const [adminError, setAdminError] = useState(false);
         
-        {/* Banner Introduttivo */}
-        <div className="bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 rounded-2xl p-6 sm:p-10 text-white mb-8 shadow-lg relative overflow-hidden">
-          <div className="absolute right-0 top-0 bottom-0 w-1/3 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none"></div>
-          <div className="max-w-2xl relative z-10">
-            <span className="inline-block px-3 py-1 bg-blue-500/30 border border-blue-400/30 text-blue-200 text-xs font-semibold uppercase tracking-wider rounded-full mb-3">
-              Aggiornamento Professionale 2026
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight mb-3">
-              Corsi di Programmazione & Installazione
-            </h2>
-            <p className="text-blue-100 text-sm sm:text-base leading-relaxed mb-6">
-              Prenota il tuo posto per i corsi tecnici specializzati sui migliori brand di sicurezza, automazione e videosorveglianza. Scegli tra sessioni in presenza o comodamente online su Google Meet.
-            </p>
-            
-            {/* Barra di Ricerca Veloce */}
-            <div className="relative">
-              <Search className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
-              <input 
-                type="text"
-                placeholder="Cerca per titolo corso, brand (es. Tecnoalarm, Dahua) o argomento..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-white text-slate-900 pl-12 pr-4 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 shadow-sm"
-              />
-            </div>
-          </div>
-        </div>
+        // Stato per le iscrizioni (salvate anche in localStorage per persistenza)
+        const [registrations, setRegistrations] = useState(() => {
+          const saved = localStorage.getItem('course_registrations');
+          return saved ? JSON.parse(saved) : [
+            {
+              id: 1,
+              fullName: 'Mario Rossi',
+              company: 'Rossi Impianti Srl',
+              vatNumber: '01234567890',
+              email: 'mario@rossiimpianti.it',
+              phone: '3331234567',
+              city: 'Milano (MI)',
+              courseTitle: 'Corso Avanzato Sistemi Antintrusione e Cloud',
+              brandName: 'Tecnoalarm',
+              date: '15-16 Ottobre 2026',
+              timestamp: '02/10/2026 10:30'
+            }
+          ];
+        });
 
-        {/* Filtri Brand e Tipo */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-          
-          {/* Filtro Brand */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1">
-              <Filter className="w-3.5 h-3.5" /> Brand:
-            </span>
-            {['Tutti', 'Tecnoalarm', 'Tecnofire', 'Nice', 'Dahua'].map((brand) => (
-              <button
-                key={brand}
-                onClick={() => setSelectedBrand(brand)}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
-                  selectedBrand === brand 
-                    ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/20' 
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {brand}
-              </button>
-            ))}
-          </div>
+        const [formData, setFormData] = useState({
+          fullName: '',
+          company: '',
+          vatNumber: '',
+          email: '',
+          phone: '',
+          city: ''
+        });
 
-          {/* Filtro Modalità */}
-          <div className="flex items-center gap-2 border-t md:border-t-0 pt-3 md:pt-0 border-slate-100">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">Modalità:</span>
-            {[
-              { id: 'Tutti', label: 'Tutti' },
-              { id: 'presenza', label: 'In Presenza' },
-              { id: 'meet', label: 'Google Meet' }
-            ].map((type) => (
-              <button
-                key={type.id}
-                onClick={() => setSelectedType(type.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  selectedType === type.id 
-                    ? 'bg-slate-900 text-white' 
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {type.label}
-              </button>
-            ))}
-          </div>
+        useEffect(() => {
+          localStorage.setItem('course_registrations', JSON.stringify(registrations));
+        }, [registrations]);
 
-        </div>
+        const courses = [
+          {
+            id: 1,
+            brand: 'tecnoalarm',
+            brandName: 'Tecnoalarm',
+            title: 'Corso Avanzato Sistemi Antintrusione e Cloud',
+            code: 'TEC-ANT-01',
+            date: '15-16 Ottobre 2026',
+            location: 'Milano / Online',
+            duration: '2 Giorni',
+            description: 'Programmazione avanzata centrali serie TP, gestione tracciati Cloud e integrazione domotica.',
+            level: 'Avanzato'
+          },
+          {
+            id: 2,
+            brand: 'tecnofire',
+            brandName: 'Tecnofire',
+            title: 'Progettazione e Normativa Impianti Rivelazione Incendio',
+            code: 'TFIRE-NOR-02',
+            date: '22 Ottobre 2026',
+            location: 'Roma / Online',
+            duration: '1 Giorno',
+            description: 'Normativa UNI 9795, configurazione centrali analogiche e indirizzamento dispositivi.',
+            level: 'Professionale'
+          },
+          {
+            id: 3,
+            brand: 'nice',
+            brandName: 'Nice',
+            title: 'Automazioni Smart e Integrazione Ecosystem',
+            code: 'NICE-AUT-03',
+            date: '5 Novembre 2026',
+            location: 'Bologna / In presenza',
+            duration: '1 Giorno',
+            description: 'Installazione e programmazione centrali per cancelli, barriere e protocolli radio bidirezionali.',
+            level: 'Base / Intermedio'
+          },
+          {
+            id: 4,
+            brand: 'dahua',
+            brandName: 'Dahua',
+            title: 'Sistemi di Videosorveglianza IP e Videoanalisi AI',
+            code: 'DAH-AI-04',
+            date: '12-13 Novembre 2026',
+            location: 'Milano / Online',
+            duration: '2 Giorni',
+            description: 'Configurazione telecamere termiche, WizSense, riconoscimento facciale e NVR di ultima generazione.',
+            level: 'Avanzato'
+          }
+        ];
 
-        {}
-        {filteredCourses.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
-            <AlertCircle className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-            <h3 className="text-lg font-bold text-slate-700 mb-1">Nessun corso trovato</h3>
-            <p className="text-sm text-slate-500">Prova a modificare i filtri di ricerca o seleziona un altro brand.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-            {filteredCourses.map((corso) => {
-              const occupied = getOccupiedSeats(corso.id);
-              const max = corso.capienza_max;
-              const available = max - occupied;
-              const isSoldOut = available <= 0;
-              const percentage = Math.min(Math.round((occupied / max) * 100), 100);
-              const isMeet = corso.tipo === 'meet';
+        const filteredCourses = selectedBrand === 'all' 
+          ? courses 
+          : courses.filter(c => c.brand === selectedBrand);
 
-              return (
-                <div 
-                  key={corso.id}
-                  className="bg-white rounded-2xl border border-slate-200 hover:border-slate-300 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between overflow-hidden"
-                >
-                  <div className="p-6">
-                    {/* Header Card */}
-                    <div className="flex items-center justify-between gap-2 mb-4">
-                      <span className="px-3 py-1 bg-slate-100 text-slate-800 text-xs font-extrabold uppercase tracking-wider rounded-full">
-                        {corso.brand}
-                      </span>
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full ${
-                        isMeet ? 'bg-purple-50 text-purple-700 border border-purple-100' : 'bg-blue-50 text-blue-700 border border-blue-100'
-                      }`}>
-                        {isMeet ? <Video className="w-3.5 h-3.5" /> : <MapPin className="w-3.5 h-3.5" />}
-                        {isMeet ? 'Google Meet' : 'In Presenza'}
-                      </span>
-                    </div>
+        const handleInputChange = (e) => {
+          setFormData({ ...formData, [e.target.name]: e.target.value });
+        };
 
-                    <h3 className="text-lg font-bold text-slate-900 mb-2 leading-snug">
-                      {corso.titolo}
-                    </h3>
+        const handleSubmit = (e) => {
+          e.preventDefault();
+          const newReg = {
+            id: Date.now(),
+            ...formData,
+            courseTitle: selectedCourse.title,
+            brandName: selectedCourse.brandName,
+            date: selectedCourse.date,
+            timestamp: new Date().toLocaleString()
+          };
+          setRegistrations([newReg, ...registrations]);
+          setSubmitted(true);
+        };
 
-                    <div className="space-y-2 text-sm text-slate-600 mb-4 bg-slate-50 p-3.5 rounded-xl border border-slate-100">
-                      <div className="flex items-center gap-2.5">
-                        <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
-                        <span className="font-medium text-slate-700">{corso.data}</span>
-                      </div>
-                      <div className="flex items-center gap-2.5">
-                        <Clock className="w-4 h-4 text-slate-400 shrink-0" />
-                        <span>{corso.orario}</span>
-                      </div>
-                      <div className="flex items-center gap-2.5">
-                        {isMeet ? <Video className="w-4 h-4 text-slate-400 shrink-0" /> : <MapPin className="w-4 h-4 text-slate-400 shrink-0" />}
-                        <span className="truncate" title={corso.luogo_o_link}>
-                          {corso.luogo_o_link}
-                        </span>
-                      </div>
-                    </div>
+        const handleAdminLogin = (e) => {
+          e.preventDefault();
+          if (adminPin === 'admin123') {
+            setAdminError(false);
+            setView('admin-dashboard');
+            setAdminPin('');
+          } else {
+            setAdminError(true);
+          }
+        };
 
-                    <p className="text-slate-600 text-sm line-clamp-3 leading-relaxed">
-                      {corso.descrizione}
+        return (
+          <div className="min-h-screen flex flex-col bg-slate-50">
+            {/* Header */}
+            <header className="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-50 shadow-md">
+              <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div className="flex items-center space-x-3 cursor-pointer" onClick={() => { setView('courses'); setSelectedCourse(null); setSubmitted(false); }}>
+                  <div className="bg-blue-600 p-2.5 rounded-xl text-white font-bold shadow-md shadow-blue-600/30">
+                    🎓
+                  </div>
+                  <div>
+                    <h1 className="text-xl font-bold tracking-tight">Portale Formazione Installatori</h1>
+                    <p className="text-xs text-slate-400">Tecnoalarm • Tecnofire • Nice • Dahua</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => { setView('courses'); setSelectedCourse(null); setSubmitted(false); }}
+                    className={`text-xs px-3 py-2 rounded-lg font-medium transition-colors ${view === 'courses' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                  >
+                    Catalogo Corsi
+                  </button>
+                  <button
+                    onClick={() => { setView('admin-login'); setAdminError(false); }}
+                    className={`text-xs px-3 py-2 rounded-lg font-medium transition-colors border border-slate-700 ${view.includes('admin') ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                  >
+                    🔒 Area Admin
+                  </button>
+                </div>
+              </div>
+            </header>
+
+            {/* Main Content */}
+            <main className="flex-grow max-w-7xl w-full mx-auto px-4 py-8">
+              
+              {/* VISTA CATALOGO CORSI */}
+              {view === 'courses' && !selectedCourse && (
+                <div>
+                  <div className="text-center max-w-2xl mx-auto mb-10">
+                    <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-3">
+                      Corsi Tecnici e Aggiornamenti Professionali
+                    </h2>
+                    <p className="text-slate-600 text-sm leading-relaxed">
+                      Seleziona il marchio di tuo interesse e prenota subito il tuo posto ai corsi di formazione tecnica avanzata per installatori autorizzati.
                     </p>
                   </div>
 
-                  {/* Footer Card & Posti */}
-                  <div className="p-6 pt-0 mt-auto">
-                    <div className="mb-4 pt-4 border-t border-slate-100">
-                      <div className="flex justify-between items-center text-xs font-semibold mb-1.5">
-                        <span className="flex items-center gap-1.5 text-slate-700">
-                          <Users className="w-3.5 h-3.5 text-slate-400" />
-                          Posti disponibili
-                        </span>
-                        <span className={isSoldOut ? "text-red-600 font-bold" : "text-slate-900"}>
-                          {isSoldOut ? "SOLD OUT" : `${available} / ${max}`}
-                        </span>
-                      </div>
-
-                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full transition-all duration-500 ${
-                            isSoldOut ? 'bg-red-500' : percentage > 80 ? 'bg-amber-500' : 'bg-blue-600'
-                          }`}
-                          style={{ width: `${percentage}%` }}
-                        ></div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap justify-center gap-2 mb-8">
+                    {[
+                      { id: 'all', label: 'Tutti i Marchi' },
+                      { id: 'tecnoalarm', label: 'Tecnoalarm' },
+                      { id: 'tecnofire', label: 'Tecnofire' },
+                      { id: 'nice', label: 'Nice' },
+                      { id: 'dahua', label: 'Dahua' },
+                    ].map(brand => (
                       <button
-                        onClick={() => handleOpenRegister(corso)}
-                        disabled={isSoldOut}
-                        className={`flex-1 py-3 px-4 rounded-xl font-semibold text-sm transition-all duration-200 text-center shadow-xs ${
-                          isSoldOut
-                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
-                            : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20'
+                        key={brand.id}
+                        onClick={() => setSelectedBrand(brand.id)}
+                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 shadow-sm ${
+                          selectedBrand === brand.id
+                            ? 'bg-blue-600 text-white shadow-blue-600/20 shadow-md'
+                            : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
                         }`}
                       >
-                        {isSoldOut ? 'Corso al completo' : 'Iscriviti ora'}
+                        {brand.label}
                       </button>
+                    ))}
+                  </div>
 
-                      <a
-                        href={corso.locandina_url}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          alert(`Download locandina ufficiale per: ${corso.titolo}`);
-                        }}
-                        className="p-3 text-slate-600 hover:text-blue-600 hover:bg-slate-50 border border-slate-200 rounded-xl transition-colors"
-                        title="Scarica Locandina PDF"
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {filteredCourses.map(course => (
+                      <div 
+                        key={course.id}
+                        className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between overflow-hidden"
                       >
-                        <FileText className="w-5 h-5" />
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </main>
-
-      {}
-      <footer className="bg-white border-t border-slate-200 py-6 mt-12 text-center text-xs text-slate-500">
-        <p>© 2026 Piattaforma Corsi Installatori • Gestione Tecnica Brand Partner</p>
-      </footer>
-
-      {}
-      
-      {/* MODALE DI ISCRIZIONE */}
-      {activeModal === 'register' && selectedCourseForReg && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
-            <button 
-              onClick={() => setActiveModal(null)}
-              className="absolute right-5 top-5 text-slate-400 hover:text-slate-600 p-1 rounded-lg"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <span className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-extrabold uppercase tracking-wider rounded-full inline-block mb-3">
-              Iscrizione Corso
-            </span>
-            <h3 className="text-xl font-bold text-slate-900 mb-1">
-              {selectedCourseForReg.titolo}
-            </h3>
-            <p className="text-xs text-slate-500 mb-6">
-              Compila il form con i dati della tua azienda per riservare i posti.
-            </p>
-
-            {formError && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{formError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleRegisterSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Nome e Cognome Referente</label>
-                <div className="relative">
-                  <User className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
-                  <input 
-                    type="text"
-                    required
-                    placeholder="Mario Rossi"
-                    value={regForm.nome}
-                    onChange={(e) => setRegForm({...regForm, nome: e.target.value})}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 pl-10 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Nome Azienda</label>
-                  <div className="relative">
-                    <Building className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
-                    <input 
-                      type="text"
-                      required
-                      placeholder="Impianti Elettrici Srl"
-                      value={regForm.azienda}
-                      onChange={(e) => setRegForm({...regForm, azienda: e.target.value})}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 pl-10 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Telefono</label>
-                  <div className="relative">
-                    <Phone className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
-                    <input 
-                      type="tel"
-                      required
-                      placeholder="333 1234567"
-                      value={regForm.telefono}
-                      onChange={(e) => setRegForm({...regForm, telefono: e.target.value})}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 pl-10 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Indirizzo Aziendale / Sede</label>
-                <div className="relative">
-                  <MapPin className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
-                  <input 
-                    type="text"
-                    required
-                    placeholder="Via Roma 15, Milano"
-                    value={regForm.indirizzo}
-                    onChange={(e) => setRegForm({...regForm, indirizzo: e.target.value})}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 pl-10 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Email di Contatto</label>
-                  <div className="relative">
-                    <Mail className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
-                    <input 
-                      type="email"
-                      required
-                      placeholder="info@azienda.it"
-                      value={regForm.email}
-                      onChange={(e) => setRegForm({...regForm, email: e.target.value})}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 pl-10 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Numero Partecipanti</label>
-                  <div className="relative">
-                    <Users className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
-                    <select
-                      value={regForm.num_partecipanti}
-                      onChange={(e) => setRegForm({...regForm, num_partecipanti: Number(e.target.value)})}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 pl-10 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      {[...Array(Math.min(5, selectedCourseForReg.capienza_max - getOccupiedSeats(selectedCourseForReg.id)))].map((_, i) => (
-                        <option key={i + 1} value={i + 1}>{i + 1} {i === 0 ? 'persona' : 'persone'}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-4 flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setActiveModal(null)}
-                  className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-semibold transition-colors"
-                >
-                  Annulla
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors shadow-sm shadow-blue-500/25"
-                >
-                  Conferma Iscrizione
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODALE SUCCESSO ISCRIZIONE */}
-      {activeModal === 'success' && successData && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 sm:p-8 shadow-2xl text-center relative animate-in zoom-in-95 duration-200">
-            <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <CheckCircle2 className="w-8 h-8" />
-            </div>
-
-            <h3 className="text-xl font-bold text-slate-900 mb-2">Iscrizione Effettuata!</h3>
-            <p className="text-slate-600 text-sm mb-6 leading-relaxed">
-              Grazie <span className="font-semibold text-slate-900">{successData.nome}</span> ({successData.azienda}). Ti abbiamo inviato una email di riepilogo a <span className="font-semibold text-slate-900">{successData.email}</span> con i dettagli per il corso.
-            </p>
-
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-left text-xs space-y-2 mb-6">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Corso:</span>
-                <span className="font-semibold text-slate-800 text-right">{successData.course.titolo}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Data e Ora:</span>
-                <span className="font-semibold text-slate-800">{successData.course.data} ({successData.course.orario})</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Partecipanti:</span>
-                <span className="font-semibold text-slate-800">{successData.num_partecipanti} tecnici</span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setActiveModal(null)}
-              className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-sm transition-colors shadow-sm"
-            >
-              Torna alla Home
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* MODALE LOGIN ADMIN (PIN: 1234) */}
-      {activeModal === 'admin-login' && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-6 sm:p-8 shadow-2xl relative animate-in zoom-in-95 duration-200 text-center">
-            <button 
-              onClick={() => setActiveModal(null)}
-              className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 p-1 rounded-lg"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="w-12 h-12 bg-slate-100 text-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Lock className="w-6 h-6 text-blue-600" />
-            </div>
-
-            <h3 className="text-lg font-bold text-slate-900 mb-1">Accesso Area Admin</h3>
-            <p className="text-xs text-slate-500 mb-6">Inserisci il PIN amministratore (Suggerimento: <span className="font-mono font-bold text-blue-600">1234</span>)</p>
-
-            {pinError && (
-              <div className="mb-4 p-2.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center justify-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>PIN errato. Riprova con 1234.</span>
-              </div>
-            )}
-
-            <form onSubmit={handleAdminLogin} className="space-y-4">
-              <input 
-                type="password"
-                maxLength={4}
-                autoFocus
-                placeholder="••••"
-                value={adminPin}
-                onChange={(e) => setAdminPin(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-center text-xl tracking-widest font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-
-              <button
-                type="submit"
-                className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-colors shadow-sm shadow-blue-500/25"
-              >
-                Accedi al Pannello
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* DASHBOARD ADMIN */}
-      {activeModal === 'admin-dashboard' && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-2 sm:p-6 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-5xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            
-            {/* Admin Header */}
-            <div className="p-6 bg-slate-900 text-white flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-3">
-                <Shield className="w-6 h-6 text-blue-400" />
-                <div>
-                  <h3 className="text-lg font-bold">Pannello di Controllo Riservato</h3>
-                  <p className="text-xs text-slate-400">Gestione corsi, capienza e lista iscritti</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => {
-                    setIsAdminAuthenticated(false);
-                    setActiveModal(null);
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span>Esci</span>
-                </button>
-                <button 
-                  onClick={() => setActiveModal(null)}
-                  className="text-slate-400 hover:text-white p-1 rounded-lg"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-            </div>
-
-            {/* Admin Tabs */}
-            <div className="flex border-b border-slate-200 bg-slate-50 px-6 shrink-0">
-              <button
-                onClick={() => setActiveAdminTab('corsi')}
-                className={`py-4 px-6 text-sm font-semibold border-b-2 transition-colors ${
-                  activeAdminTab === 'corsi' 
-                    ? 'border-blue-600 text-blue-600 bg-white' 
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                Gestione Corsi ({courses.length})
-              </button>
-              <button
-                onClick={() => setActiveAdminTab('iscritti')}
-                className={`py-4 px-6 text-sm font-semibold border-b-2 transition-colors ${
-                  activeAdminTab === 'iscritti' 
-                    ? 'border-blue-600 text-blue-600 bg-white' 
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                Elenco Iscritti ({registrations.length})
-              </button>
-            </div>
-
-            {/* Admin Body Content */}
-            <div className="p-6 overflow-y-auto flex-1 bg-slate-50/50">
-              
-              {activeAdminTab === 'corsi' && (
-                <div className="space-y-8">
-                  {/* Form Aggiungi Nuovo Corso */}
-                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
-                    <h4 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
-                      <Plus className="w-5 h-5 text-blue-600" /> Aggiungi Nuovo Corso
-                    </h4>
-                    <form onSubmit={handleAddCourseSubmit} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div className="sm:col-span-2">
-                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Titolo del Corso</label>
-                        <input 
-                          type="text"
-                          required
-                          placeholder="es. Masterclass Antintrusione Avanzata"
-                          value={newCourse.titolo}
-                          onChange={(e) => setNewCourse({...newCourse, titolo: e.target.value})}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Brand di Riferimento</label>
-                        <select
-                          value={newCourse.brand}
-                          onChange={(e) => setNewCourse({...newCourse, brand: e.target.value})}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="Tecnoalarm">Tecnoalarm</option>
-                          <option value="Tecnofire">Tecnofire</option>
-                          <option value="Nice">Nice</option>
-                          <option value="Dahua">Dahua</option>
-                          <option value="Altro">Altro</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Modalità</label>
-                        <select
-                          value={newCourse.tipo}
-                          onChange={(e) => setNewCourse({...newCourse, tipo: e.target.value})}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="presenza">In Presenza</option>
-                          <option value="meet">Google Meet</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Data</label>
-                        <input 
-                          type="text"
-                          required
-                          placeholder="es. 10 Dicembre 2026"
-                          value={newCourse.data}
-                          onChange={(e) => setNewCourse({...newCourse, data: e.target.value})}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Orario</label>
-                        <input 
-                          type="text"
-                          required
-                          placeholder="es. 09:00 - 13:00"
-                          value={newCourse.orario}
-                          onChange={(e) => setNewCourse({...newCourse, orario: e.target.value})}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Luogo o Link Meet</label>
-                        <input 
-                          type="text"
-                          required
-                          placeholder="Via Roma 1 o Link Google Meet"
-                          value={newCourse.luogo_o_link}
-                          onChange={(e) => setNewCourse({...newCourse, luogo_o_link: e.target.value})}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Capienza Massima Posti</label>
-                        <input 
-                          type="number"
-                          min={1}
-                          required
-                          value={newCourse.capienza_max}
-                          onChange={(e) => setNewCourse({...newCourse, capienza_max: e.target.value})}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-
-                      <div className="sm:col-span-3">
-                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Descrizione del Corso</label>
-                        <textarea 
-                          rows={2}
-                          required
-                          placeholder="Dettagli sui temi trattati..."
-                          value={newCourse.descrizione}
-                          onChange={(e) => setNewCourse({...newCourse, descrizione: e.target.value})}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-
-                      <div className="sm:col-span-3 flex justify-end">
-                        <button
-                          type="submit"
-                          className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-colors shadow-sm shadow-blue-500/20"
-                        >
-                          Pubblica Corso
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-
-                  {/* Lista Corsi Esistenti */}
-                  <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
-                    <div className="p-4 bg-slate-50 border-b border-slate-200 font-bold text-sm text-slate-700">
-                      Corsi Attivi nel Sistema
-                    </div>
-                    <div className="divide-y divide-slate-100">
-                      {courses.map((corso) => {
-                        const occupied = getOccupiedSeats(corso.id);
-                        return (
-                          <div key={corso.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                            <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="px-2 py-0.5 bg-slate-100 text-slate-800 text-[10px] font-extrabold uppercase rounded">
-                                  {corso.brand}
-                                </span>
-                                <span className="text-xs text-slate-500 font-medium">{corso.data} • {corso.orario}</span>
-                              </div>
-                              <h5 className="font-bold text-slate-900 text-sm">{corso.titolo}</h5>
-                              <p className="text-xs text-slate-500 mt-0.5">Posti occupati: <span className="font-bold text-slate-800">{occupied} / {corso.capienza_max}</span></p>
-                            </div>
-                            <button
-                              onClick={() => handleDeleteCourse(corso.id)}
-                              className="self-start sm:self-center p-2 text-red-600 hover:bg-red-50 rounded-xl border border-red-100 transition-colors"
-                              title="Elimina Corso"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                        <div className="p-6">
+                          <div className="flex justify-between items-start gap-4 mb-3">
+                            <span className="inline-block bg-blue-50 text-blue-700 text-xs font-semibold px-2.5 py-1 rounded-md uppercase tracking-wider border border-blue-100">
+                              {course.brandName}
+                            </span>
+                            <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md">
+                              {course.level}
+                            </span>
                           </div>
-                        );
-                      })}
-                    </div>
+                          
+                          <h3 className="text-lg font-bold text-slate-900 mb-2">{course.title}</h3>
+                          <p className="text-slate-600 text-sm mb-4 leading-relaxed">{course.description}</p>
+                          
+                          <div className="space-y-2 text-xs text-slate-600 border-t border-slate-100 pt-4">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-slate-700">📅 Data:</span> {course.date}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-slate-700">📍 Sede:</span> {course.location}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-slate-700">⏱️ Durata:</span> {course.duration}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="px-6 pb-6 pt-0">
+                          <button
+                            onClick={() => { setSelectedCourse(course); setSubmitted(false); }}
+                            className="w-full bg-slate-900 hover:bg-blue-600 text-white font-medium py-2.5 px-4 rounded-xl text-sm transition-colors duration-200 shadow-sm flex items-center justify-center gap-2"
+                          >
+                            Iscriviti al Corso
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
 
-              {activeAdminTab === 'iscritti' && (
-                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
-                  <div className="p-4 bg-slate-50 border-b border-slate-200 font-bold text-sm text-slate-700">
-                    Storico Aziende e Tecnici Iscritti
-                  </div>
-                  {registrations.length === 0 ? (
-                    <div className="p-8 text-center text-slate-500 text-sm">Nessuna iscrizione registrata al momento.</div>
-                  ) : (
-                    <div className="divide-y divide-slate-100">
-                      {registrations.map((reg) => {
-                        const corso = courses.find(c => c.id === reg.corso_id);
-                        return (
-                          <div key={reg.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                            <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-extrabold uppercase rounded">
-                                  {reg.num_partecipanti} {reg.num_partecipanti === 1 ? 'partecipante' : 'partecipanti'}
-                                </span>
-                                <span className="text-xs text-slate-400">Iscritto il {reg.data_iscrizione}</span>
-                              </div>
-                              <h5 className="font-bold text-slate-900 text-sm">{reg.azienda} <span className="font-normal text-slate-600">({reg.nome})</span></h5>
-                              <p className="text-xs text-slate-500 mt-0.5">
-                                Corso: <span className="font-semibold text-slate-700">{corso ? corso.titolo : 'Corso rimosso'}</span>
-                              </p>
-                              <p className="text-xs text-slate-400 mt-0.5">
-                                Contatti: {reg.email} • {reg.telefono} • {reg.indirizzo}
-                              </p>
-                            </div>
-                            <button
-                              onClick={() => handleDeleteRegistration(reg.id)}
-                              className="self-start sm:self-center p-2 text-red-600 hover:bg-red-50 rounded-xl border border-red-100 transition-colors"
-                              title="Annulla iscrizione"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+              {/* VISTA MODULO ISCRIZIONE */}
+              {view === 'courses' && selectedCourse && (
+                <div className="max-w-xl mx-auto bg-white rounded-2xl border border-slate-200 shadow-lg p-6 sm:p-8">
+                  {!submitted ? (
+                    <div>
+                      <button
+                        onClick={() => setSelectedCourse(null)}
+                        className="text-xs font-medium text-blue-600 hover:text-blue-800 mb-6 inline-flex items-center gap-1"
+                      >
+                        ← Torna all'elenco corsi
+                      </button>
+
+                      <div className="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">{selectedCourse.brandName}</span>
+                        <h3 className="text-base font-bold text-slate-900 mt-1">{selectedCourse.title}</h3>
+                        <p className="text-xs text-slate-500 mt-1">Data: {selectedCourse.date} | Sede: {selectedCourse.location}</p>
+                      </div>
+
+                      <h2 className="text-xl font-bold text-slate-900 mb-4">Modulo di Registrazione Installatore</h2>
+                      
+                      <form onSubmit={handleSubmit} className="space-y-4">
+                        <div>
+                          <label className="block text-xs font-medium text-slate-700 mb-1">Nome e Cognome *</label>
+                          <input
+                            type="text"
+                            name="fullName"
+                            required
+                            value={formData.fullName}
+                            onChange={handleInputChange}
+                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Mario Rossi"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-medium text-slate-700 mb-1">Ragione Sociale Azienda *</label>
+                            <input
+                              type="text"
+                              name="company"
+                              required
+                              value={formData.company}
+                              onChange={handleInputChange}
+                              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="Impianti Elettrici Srl"
+                            />
                           </div>
-                        );
-                      })}
+                          <div>
+                            <label className="block text-xs font-medium text-slate-700 mb-1">Partita IVA *</label>
+                            <input
+                              type="text"
+                              name="vatNumber"
+                              required
+                              value={formData.vatNumber}
+                              onChange={handleInputChange}
+                              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="01234567890"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-medium text-slate-700 mb-1">Email Aziendale *</label>
+                            <input
+                              type="email"
+                              name="email"
+                              required
+                              value={formData.email}
+                              onChange={handleInputChange}
+                              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="mario@impianti.it"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-700 mb-1">Telefono / Cellulare *</label>
+                            <input
+                              type="tel"
+                              name="phone"
+                              required
+                              value={formData.phone}
+                              onChange={handleInputChange}
+                              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="333 1234567"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-slate-700 mb-1">Città sede lavorativa *</label>
+                          <input
+                            type="text"
+                            name="city"
+                            required
+                            value={formData.city}
+                            onChange={handleInputChange}
+                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Milano (MI)"
+                          />
+                        </div>
+
+                        <button
+                          type="submit"
+                          className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-xl text-sm transition-colors duration-200 shadow-md shadow-blue-600/20"
+                        >
+                          Conferma Iscrizione al Corso
+                        </button>
+                      </form>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                      <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
+                        ✓
+                      </div>
+                      <h3 className="text-xl font-bold text-slate-900 mb-2">Iscrizione Effettuata con Successo!</h3>
+                      <p className="text-slate-600 text-sm mb-6 leading-relaxed">
+                        Grazie <strong>{formData.fullName}</strong> ({formData.company}). Abbiamo registrato la tua richiesta per il corso <strong>{selectedCourse.title}</strong>. 
+                        Ti è stata inviata una mail di riepilogo all'indirizzo <strong>{formData.email}</strong>.
+                      </p>
+                      <button
+                        onClick={() => { setSubmitted(false); setSelectedCourse(null); }}
+                        className="bg-slate-900 hover:bg-slate-800 text-white font-medium py-2.5 px-6 rounded-xl text-sm transition-colors"
+                      >
+                        Torna alla Home Corsi
+                      </button>
                     </div>
                   )}
                 </div>
               )}
 
-            </div>
-          </div>
-        </div>
-      )}
+              {/* VISTA LOGIN ADMIN */}
+              {view === 'admin-login' && (
+                <div className="max-w-md mx-auto bg-white rounded-2xl border border-slate-200 shadow-lg p-8 mt-10">
+                  <div className="text-center mb-6">
+                    <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center mx-auto mb-3 text-xl font-bold">
+                      🔒
+                    </div>
+                    <h2 className="text-xl font-bold text-slate-900">Accesso Riservato Admin</h2>
+                    <p className="text-xs text-slate-500 mt-1">Inserisci il PIN per visualizzare le iscrizioni</p>
+                  </div>
 
-    </div>
-  );
-}
+                  <form onSubmit={handleAdminLogin} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 mb-1">PIN di Accesso (Usa: admin123)</label>
+                      <input
+                        type="password"
+                        required
+                        value={adminPin}
+                        onChange={(e) => setAdminPin(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-center tracking-widest text-lg"
+                        placeholder="••••••••"
+                      />
+                    </div>
+                    {adminError && (
+                      <p className="text-xs text-red-600 text-center font-medium">PIN errato. Riprova (prova con admin123)</p>
+                    )}
+                    <button
+                      type="submit"
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-xl text-sm transition-colors shadow-md shadow-blue-600/20"
+                    >
+                      Accedi al Pannello
+                    </button>
+                  </form>
+                </div>
+              )}
+
+              {/* VISTA PANNELLO DASHBOARD ADMIN */}
+              {view === 'admin-dashboard' && (
+                <div>
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                    <div>
+                      <h2 className="text-2xl font-bold text-slate-900">Pannello Gestione Iscrizioni</h2>
+                      <p className="text-xs text-slate-500">Elenco completo dei professionisti iscritti ai corsi</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="bg-blue-50 text-blue-700 text-xs font-bold px-3 py-1.5 rounded-lg border border-blue-100">
+                        Totale Iscritti: {registrations.length}
+                      </span>
+                      <button
+                        onClick={() => {
+                          if (confirm('Vuoi davvero cancellare tutte le iscrizioni?')) {
+                            setRegistrations([]);
+                          }
+                        }}
+                        className="bg-red-50 hover:bg-red-100 text-red-700 text-xs font-medium px-3 py-1.5 rounded-lg border border-red-200 transition-colors"
+                      >
+                        Svuota Lista
+                      </button>
+                    </div>
+                  </div>
+
+                  {registrations.length === 0 ? (
+                    <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
+                      <p className="text-slate-500 text-sm">Nessuna iscrizione registrata al momento.</p>
+                    </div>
+                  ) : (
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50 border-b border-slate-200 text-xs text-slate-600 uppercase tracking-wider">
+                              <th className="p-4 font-semibold">Data & Ora</th>
+                              <th className="p-4 font-semibold">Installatore</th>
+                              <th className="p-4 font-semibold">Azienda / P.IVA</th>
+                              <th className="p-4 font-semibold">Contatti</th>
+                              <th className="p-4 font-semibold">Corso Scelto</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+                            {registrations.map((reg) => (
+                              <tr key={reg.id} className="hover:bg-slate-50/80 transition-colors">
+                                <td className="p-4 text-xs text-slate-500 whitespace-nowrap">{reg.timestamp}</td>
+                                <td className="p-4 font-medium text-slate-900">
+                                  {reg.fullName}
+                                  <div className="text-xs text-slate-500 font-normal">{reg.city}</div>
+                                </td>
+                                <td className="p-4">
+                                  {reg.company}
+                                  <div className="text-xs text-slate-500 font-mono">P.IVA: {reg.vatNumber}</div>
+                                </td>
+                                <td className="p-4 text-xs">
+                                  <div>✉️ {reg.email}</div>
+                                  <div className="mt-0.5">📞 {reg.phone}</div>
+                                </td>
+                                <td className="p-4">
+                                  <span className="inline-block bg-blue-50 text-blue-700 text-xs font-semibold px-2 py-0.5 rounded mb-1 border border-blue-100">
+                                    {reg.brandName}
+                                  </span>
+                                  <div className="text-xs font-medium text-slate-900">{reg.courseTitle}</div>
+                                  <div className="text-xs text-slate-500">📅 {reg.date}</div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+            </main>
+
+            {/* Footer */}
+            <footer className="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500 mt-12">
+              <p>© 2026 Portale Formazione Installatori Tecnici. Tutti i diritti riservati.</p>
+            </footer>
+          </div>
+        );
+      }
+
+      ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+  </body>
+</html>
