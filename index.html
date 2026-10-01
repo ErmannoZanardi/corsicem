@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Portale Iscrizione Corsi Tecnici | Installatori Professionisti</title>
+    <title>Azienda di prova | Portale Formazione Installatori</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- React e ReactDOM da CDN -->
@@ -12,7 +12,7 @@
     <!-- Babel per JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   </head>
-  <body class="bg-slate-50 text-slate-900 antialiased font-sans">
+  <body class="bg-slate-950 text-slate-100 antialiased font-sans selection:bg-blue-600 selection:text-white">
     <div id="root"></div>
 
     <script type="text/babel">
@@ -37,7 +37,7 @@
 
         // Stato per i corsi (salvato in localStorage)
         const [courses, setCourses] = useState(() => {
-          const saved = localStorage.getItem('system_courses_v3');
+          const saved = localStorage.getItem('system_courses_v4');
           return saved ? JSON.parse(saved) : [
             {
               id: 1,
@@ -100,7 +100,7 @@
         
         // Stato per le iscrizioni (salvato in localStorage)
         const [registrations, setRegistrations] = useState(() => {
-          const saved = localStorage.getItem('course_registrations_v3');
+          const saved = localStorage.getItem('course_registrations_v4');
           return saved ? JSON.parse(saved) : [
             {
               id: 1,
@@ -144,11 +144,11 @@
         });
 
         useEffect(() => {
-          localStorage.setItem('course_registrations_v3', JSON.stringify(registrations));
+          localStorage.setItem('course_registrations_v4', JSON.stringify(registrations));
         }, [registrations]);
 
         useEffect(() => {
-          localStorage.setItem('system_courses_v3', JSON.stringify(courses));
+          localStorage.setItem('system_courses_v4', JSON.stringify(courses));
         }, [courses]);
 
         useEffect(() => {
@@ -202,15 +202,6 @@
 
           setRegistrations([newReg, ...registrations]);
           setSubmitted(true);
-
-          // Simulazione invio email automatica a cliente e admin
-          console.log(`--- EMAIL INVIATA AL CLIENTE (${formData.email}) ---`);
-          console.log(`Oggetto: Conferma Iscrizione Corso ${selectedCourse.title}`);
-          console.log(`Corpo: Gentile ${formData.fullName}, la sua iscrizione al corso ${selectedCourse.title} (${selectedCourse.modality}) è confermata.`);
-
-          console.log(`--- EMAIL NOTIFICA INVIATA ALL'ADMIN (${adminEmail}) ---`);
-          console.log(`Oggetto: Nuova Iscrizione - ${formData.company} (${selectedCourse.title})`);
-          console.log(`Corpo: L'utente ${formData.fullName} (${formData.email}) si è iscritto al corso.`);
         };
 
         const handleAdminLogin = (e) => {
@@ -285,29 +276,32 @@
         }, {});
 
         return (
-          <div className="min-h-screen flex flex-col bg-slate-50">
+          <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
             {/* Header */}
-            <header className="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-50 shadow-md">
+            <header className="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 sticky top-0 z-50 shadow-lg shadow-black/20">
               <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
                 <div className="flex items-center space-x-3 cursor-pointer" onClick={() => { setView('courses'); setSelectedCourse(null); setSubmitted(false); }}>
-                  <div className="bg-blue-600 p-2.5 rounded-xl text-white font-bold shadow-md shadow-blue-600/30">
+                  <div className="bg-gradient-to-tr from-blue-600 to-indigo-600 p-2.5 rounded-xl text-white font-bold shadow-md shadow-blue-500/20">
                     🎓
                   </div>
                   <div>
-                    <h1 className="text-xl font-bold tracking-tight">Portale Formazione Installatori</h1>
-                    <p className="text-xs text-slate-400">Notifiche email automatiche • Max 2 per azienda</p>
+                    <div className="flex items-center gap-2">
+                      <h1 className="text-lg font-bold tracking-tight text-white">Formazione Tecnica</h1>
+                      <span className="text-xs bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded-full font-medium">Azienda di prova</span>
+                    </div>
+                    <p className="text-xs text-slate-400">Tecnoalarm • Tecnofire • Nice • Dahua</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => { setView('courses'); setSelectedCourse(null); setSubmitted(false); }}
-                    className={`text-xs px-3 py-2 rounded-lg font-medium transition-colors ${view === 'courses' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                    className={`text-xs px-4 py-2 rounded-xl font-medium transition-all ${view === 'courses' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'}`}
                   >
                     Catalogo Corsi
                   </button>
                   <button
                     onClick={() => { setView('admin-login'); setAdminError(false); }}
-                    className={`text-xs px-3 py-2 rounded-lg font-medium transition-colors border border-slate-700 ${view.includes('admin') ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                    className={`text-xs px-4 py-2 rounded-xl font-medium transition-all border ${view.includes('admin') ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-600/30' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border-slate-700'}`}
                   >
                     🔒 Area Admin
                   </button>
@@ -316,21 +310,22 @@
             </header>
 
             {/* Main Content */}
-            <main className="flex-grow max-w-7xl w-full mx-auto px-4 py-8">
+            <main className="flex-grow max-w-7xl w-full mx-auto px-4 py-10">
               
               {/* VISTA CATALOGO CORSI */}
               {view === 'courses' && !selectedCourse && (
                 <div>
-                  <div className="text-center max-w-2xl mx-auto mb-10">
-                    <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-3">
+                  <div className="text-center max-w-2xl mx-auto mb-12">
+                    <span className="text-xs uppercase tracking-widest font-semibold text-blue-400 mb-2 block">Piattaforma Professionale Installatori</span>
+                    <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-4">
                       Corsi Tecnici in Presenza e su Google Meet
                     </h2>
-                    <p className="text-slate-600 text-sm leading-relaxed">
-                      Scegli il marchio, verifica i posti disponibili e prenota la tua sessione formativa. Riceverai una email di conferma immediata.
+                    <p className="text-slate-400 text-sm leading-relaxed">
+                      Erogati da <strong className="text-slate-200">Azienda di prova</strong>. Scegli il marchio, verifica la disponibilità in tempo reale e prenota la tua sessione formativa (massimo 2 partecipanti per azienda).
                     </p>
                   </div>
 
-                  <div className="flex flex-wrap justify-center gap-2 mb-8">
+                  <div className="flex flex-wrap justify-center gap-2 mb-10">
                     {[
                       { id: 'all', label: 'Tutti i Marchi' },
                       { id: 'tecnoalarm', label: 'Tecnoalarm' },
@@ -341,10 +336,10 @@
                       <button
                         key={brand.id}
                         onClick={() => setSelectedBrand(brand.id)}
-                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 shadow-sm ${
+                        className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 ${
                           selectedBrand === brand.id
-                            ? 'bg-blue-600 text-white shadow-blue-600/20 shadow-md'
-                            : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 border border-blue-500'
+                            : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800'
                         }`}
                       >
                         {brand.label}
@@ -353,7 +348,7 @@
                   </div>
 
                   {filteredCourses.length === 0 ? (
-                    <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-500 text-sm">
+                    <div className="bg-slate-900 rounded-2xl border border-slate-800 p-12 text-center text-slate-400 text-sm">
                       Nessun corso disponibile al momento per questo marchio.
                     </div>
                   ) : (
@@ -366,39 +361,39 @@
                         return (
                           <div 
                             key={course.id}
-                            className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between overflow-hidden relative"
+                            className="bg-slate-900/90 backdrop-blur rounded-2xl border border-slate-800 shadow-xl hover:border-slate-700 transition-all duration-300 flex flex-col justify-between overflow-hidden"
                           >
                             <div className="p-6">
-                              <div className="flex justify-between items-start gap-4 mb-3">
-                                <span className="inline-block bg-blue-50 text-blue-700 text-xs font-semibold px-2.5 py-1 rounded-md uppercase tracking-wider border border-blue-100">
+                              <div className="flex justify-between items-start gap-4 mb-4">
+                                <span className="inline-block bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-semibold px-3 py-1 rounded-lg uppercase tracking-wider">
                                   {course.brandName}
                                 </span>
                                 <div className="flex items-center gap-2">
-                                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${course.modality === 'Google Meet' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg ${course.modality === 'Google Meet' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}`}>
                                     {course.modality === 'Google Meet' ? '💻 Google Meet' : '🏢 In Presenza'}
                                   </span>
-                                  <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md">
+                                  <span className="text-xs font-medium text-slate-400 bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700">
                                     {course.level}
                                   </span>
                                 </div>
                               </div>
                               
-                              <h3 className="text-lg font-bold text-slate-900 mb-2">{course.title}</h3>
-                              <p className="text-slate-600 text-sm mb-4 leading-relaxed">{course.description}</p>
+                              <h3 className="text-lg font-bold text-white mb-2">{course.title}</h3>
+                              <p className="text-slate-400 text-sm mb-6 leading-relaxed">{course.description}</p>
                               
-                              <div className="space-y-2 text-xs text-slate-600 border-t border-slate-100 pt-4">
+                              <div className="space-y-2.5 text-xs text-slate-300 border-t border-slate-800/80 pt-4">
                                 <div className="flex items-center gap-2">
-                                  <span className="font-semibold text-slate-700">📅 Data:</span> {course.date}
+                                  <span className="font-semibold text-slate-400">📅 Data:</span> <span className="text-white">{course.date}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <span className="font-semibold text-slate-700">📍 {course.modality === 'Google Meet' ? 'Piattaforma' : 'Sede'}:</span> {course.location}
+                                  <span className="font-semibold text-slate-400">📍 {course.modality === 'Google Meet' ? 'Piattaforma' : 'Sede'}:</span> <span className="text-white">{course.location}</span>
                                 </div>
-                                <div className="flex items-center justify-between">
+                                <div className="flex items-center justify-between pt-1">
                                   <div className="flex items-center gap-2">
-                                    <span className="font-semibold text-slate-700">⏱️ Durata:</span> {course.duration}
+                                    <span className="font-semibold text-slate-400">⏱️ Durata:</span> <span className="text-white">{course.duration}</span>
                                   </div>
-                                  <div className={`font-semibold ${isFull ? 'text-red-600' : 'text-emerald-600'}`}>
-                                    {isFull ? '🔴 Corso Sold Out' : `🟢 Posti: ${enrolled} / ${maxLimit} occupati`}
+                                  <div className={`font-semibold px-2.5 py-1 rounded-md ${isFull ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
+                                    {isFull ? '🔴 Sold Out' : `🟢 Posti: ${enrolled} / ${maxLimit}`}
                                   </div>
                                 </div>
                               </div>
@@ -408,13 +403,13 @@
                               <button
                                 onClick={() => { setSelectedCourse(course); setSubmitted(false); setSubmitError(''); }}
                                 disabled={isFull}
-                                className={`w-full font-medium py-2.5 px-4 rounded-xl text-sm transition-colors duration-200 shadow-sm flex items-center justify-center gap-2 ${
+                                className={`w-full font-medium py-3 px-4 rounded-xl text-sm transition-all duration-200 shadow-md flex items-center justify-center gap-2 ${
                                   isFull 
-                                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
-                                    : 'bg-slate-900 hover:bg-blue-600 text-white'
+                                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700' 
+                                    : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30'
                                 }`}
                               >
-                                {isFull ? 'Esaurito (Sold Out)' : 'Iscriviti al Corso'}
+                                {isFull ? 'Corso Esaurito (Sold Out)' : 'Iscriviti al Corso'}
                               </button>
                             </div>
                           </div>
@@ -427,72 +422,72 @@
 
               {/* VISTA MODULO ISCRIZIONE */}
               {view === 'courses' && selectedCourse && (
-                <div className="max-w-xl mx-auto bg-white rounded-2xl border border-slate-200 shadow-lg p-6 sm:p-8">
+                <div className="max-w-xl mx-auto bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl p-6 sm:p-8">
                   {!submitted ? (
                     <div>
                       <button
                         onClick={() => setSelectedCourse(null)}
-                        className="text-xs font-medium text-blue-600 hover:text-blue-800 mb-6 inline-flex items-center gap-1"
+                        className="text-xs font-medium text-blue-400 hover:text-blue-300 mb-6 inline-flex items-center gap-1 transition-colors"
                       >
                         ← Torna all'elenco corsi
                       </button>
 
-                      <div className="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                      <div className="mb-6 bg-slate-950 p-4 rounded-xl border border-slate-800">
                         <div className="flex justify-between items-center mb-1">
-                          <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">{selectedCourse.brandName}</span>
-                          <span className="text-xs font-semibold px-2 py-0.5 rounded bg-blue-100 text-blue-800">
+                          <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">{selectedCourse.brandName}</span>
+                          <span className="text-xs font-semibold px-2.5 py-0.5 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20">
                             {selectedCourse.modality}
                           </span>
                         </div>
-                        <h3 className="text-base font-bold text-slate-900">{selectedCourse.title}</h3>
-                        <p className="text-xs text-slate-500 mt-1">📅 {selectedCourse.date} | 📍 {selectedCourse.location}</p>
-                        <p className="text-xs text-blue-700 font-medium mt-2">ℹ️ Verrà inviata una mail di conferma al partecipante e una notifica all'amministratore ({adminEmail}).</p>
+                        <h3 className="text-base font-bold text-white">{selectedCourse.title}</h3>
+                        <p className="text-xs text-slate-400 mt-1">📅 {selectedCourse.date} | 📍 {selectedCourse.location}</p>
+                        <p className="text-xs text-blue-300/80 font-medium mt-2">ℹ️ Azienda erogatrice: <strong className="text-white">Azienda di prova</strong> (Max 2 iscritti per azienda).</p>
                       </div>
 
-                      <h2 className="text-xl font-bold text-slate-900 mb-4">Modulo di Registrazione Installatore</h2>
+                      <h2 className="text-xl font-bold text-white mb-4">Modulo di Registrazione Installatore</h2>
                       
                       {submitError && (
-                        <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded-lg font-medium">
+                        <div className="mb-4 bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-lg font-medium">
                           {submitError}
                         </div>
                       )}
 
                       <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
-                          <label className="block text-xs font-medium text-slate-700 mb-1">Nome e Cognome del Partecipante *</label>
+                          <label className="block text-xs font-medium text-slate-300 mb-1">Nome e Cognome del Partecipante *</label>
                           <input
                             type="text"
                             name="fullName"
                             required
                             value={formData.fullName}
                             onChange={handleInputChange}
-                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 text-sm bg-slate-950 border border-slate-800 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-600"
                             placeholder="Mario Rossi"
                           />
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
-                            <label className="block text-xs font-medium text-slate-700 mb-1">Ragione Sociale Azienda *</label>
+                            <label className="block text-xs font-medium text-slate-300 mb-1">Ragione Sociale Azienda *</label>
                             <input
                               type="text"
                               name="company"
                               required
                               value={formData.company}
                               onChange={handleInputChange}
-                              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="w-full px-3 py-2 text-sm bg-slate-950 border border-slate-800 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-600"
                               placeholder="Impianti Elettrici Srl"
                             />
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-slate-700 mb-1">Partita IVA (limite 2 per azienda) *</label>
+                            <label className="block text-xs font-medium text-slate-300 mb-1">Partita IVA (limite 2) *</label>
                             <input
                               type="text"
                               name="vatNumber"
                               required
                               value={formData.vatNumber}
                               onChange={handleInputChange}
-                              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                              className="w-full px-3 py-2 text-sm bg-slate-950 border border-slate-800 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono placeholder-slate-600"
                               placeholder="01234567890"
                             />
                           </div>
@@ -500,47 +495,47 @@
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
-                            <label className="block text-xs font-medium text-slate-700 mb-1">Email Aziendale (per ricevere la conferma) *</label>
+                            <label className="block text-xs font-medium text-slate-300 mb-1">Email Aziendale *</label>
                             <input
                               type="email"
                               name="email"
                               required
                               value={formData.email}
                               onChange={handleInputChange}
-                              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="w-full px-3 py-2 text-sm bg-slate-950 border border-slate-800 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-600"
                               placeholder="mario@impianti.it"
                             />
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-slate-700 mb-1">Telefono / Cellulare *</label>
+                            <label className="block text-xs font-medium text-slate-300 mb-1">Telefono / Cellulare *</label>
                             <input
                               type="tel"
                               name="phone"
                               required
                               value={formData.phone}
                               onChange={handleInputChange}
-                              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="w-full px-3 py-2 text-sm bg-slate-950 border border-slate-800 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-600"
                               placeholder="333 1234567"
                             />
                           </div>
                         </div>
 
                         <div>
-                          <label className="block text-xs font-medium text-slate-700 mb-1">Città sede lavorativa *</label>
+                          <label className="block text-xs font-medium text-slate-300 mb-1">Città sede lavorativa *</label>
                           <input
                             type="text"
                             name="city"
                             required
                             value={formData.city}
                             onChange={handleInputChange}
-                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 text-sm bg-slate-950 border border-slate-800 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-600"
                             placeholder="Milano (MI)"
                           />
                         </div>
 
                         <button
                           type="submit"
-                          className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-xl text-sm transition-colors duration-200 shadow-md shadow-blue-600/20"
+                          className="w-full mt-3 bg-blue-600 hover:bg-blue-500 text-white font-medium py-3 px-4 rounded-xl text-sm transition-colors duration-200 shadow-lg shadow-blue-600/30"
                         >
                           Conferma Iscrizione al Corso
                         </button>
@@ -548,23 +543,23 @@
                     </div>
                   ) : (
                     <div className="text-center py-6">
-                      <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
+                      <div className="w-16 h-16 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl font-bold shadow-lg shadow-emerald-500/10">
                         ✓
                       </div>
-                      <h3 className="text-xl font-bold text-slate-900 mb-2">Iscrizione Effettuata con Successo!</h3>
-                      <p className="text-slate-600 text-sm mb-4 leading-relaxed">
-                        Grazie <strong>{formData.fullName}</strong> ({formData.company}). Abbiamo registrato la tua richiesta per il corso <strong>{selectedCourse.title}</strong>.
+                      <h3 className="text-xl font-bold text-white mb-2">Iscrizione Effettuata con Successo!</h3>
+                      <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+                        Grazie <strong>{formData.fullName}</strong> ({formData.company}). Abbiamo registrato la tua richiesta per il corso <strong>{selectedCourse.title}</strong> erogato da <strong className="text-white">Azienda di prova</strong>.
                       </p>
                       
-                      <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-xs text-slate-600 mb-6 text-left space-y-1">
-                        <p>✉️ <strong>Email inviata al cliente:</strong> {formData.email}</p>
-                        <p>🔔 <strong>Notifica inviata all'admin:</strong> {adminEmail}</p>
-                        <p className="text-emerald-700 font-medium mt-1">✓ Email di conferma e report inviati con successo!</p>
+                      <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl text-xs text-slate-300 mb-6 text-left space-y-1.5">
+                        <p>✉️ <strong>Email di conferma inviata a:</strong> {formData.email}</p>
+                        <p>🔔 <strong>Notifica admin inviata a:</strong> {adminEmail}</p>
+                        <p className="text-emerald-400 font-medium pt-1">✓ Registrazione completata e notificata con successo!</p>
                       </div>
 
                       <button
                         onClick={() => { setSubmitted(false); setSelectedCourse(null); }}
-                        className="bg-slate-900 hover:bg-slate-800 text-white font-medium py-2.5 px-6 rounded-xl text-sm transition-colors"
+                        className="bg-slate-800 hover:bg-slate-700 text-white font-medium py-2.5 px-6 rounded-xl text-sm transition-colors border border-slate-700"
                       >
                         Torna alla Home Corsi
                       </button>
@@ -575,33 +570,33 @@
 
               {/* VISTA LOGIN ADMIN */}
               {view === 'admin-login' && (
-                <div className="max-w-md mx-auto bg-white rounded-2xl border border-slate-200 shadow-lg p-8 mt-10">
+                <div className="max-w-md mx-auto bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl p-8 mt-10">
                   <div className="text-center mb-6">
-                    <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center mx-auto mb-3 text-xl font-bold">
+                    <div className="w-12 h-12 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-xl flex items-center justify-center mx-auto mb-3 text-xl font-bold shadow-lg shadow-blue-500/10">
                       🔒
                     </div>
-                    <h2 className="text-xl font-bold text-slate-900">Accesso Riservato Admin</h2>
-                    <p className="text-xs text-slate-500 mt-1">Inserisci il PIN per visualizzare il pannello</p>
+                    <h2 className="text-xl font-bold text-white">Area Riservata Admin</h2>
+                    <p className="text-xs text-slate-400 mt-1">Azienda di prova • Inserisci il PIN</p>
                   </div>
 
                   <form onSubmit={handleAdminLogin} className="space-y-4">
                     <div>
-                      <label className="block text-xs font-medium text-slate-700 mb-1">PIN di Accesso (Usa: admin123)</label>
+                      <label className="block text-xs font-medium text-slate-300 mb-1">PIN di Accesso (Usa: admin123)</label>
                       <input
                         type="password"
                         required
                         value={adminPin}
                         onChange={(e) => setAdminPin(e.target.value)}
-                        className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-center tracking-widest text-lg"
+                        className="w-full px-3 py-2 text-sm bg-slate-950 border border-slate-800 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-center tracking-widest text-lg placeholder-slate-700"
                         placeholder="••••••••"
                       />
                     </div>
                     {adminError && (
-                      <p className="text-xs text-red-600 text-center font-medium">PIN errato. Riprova (prova con admin123)</p>
+                      <p className="text-xs text-red-400 text-center font-medium">PIN errato. Riprova (prova con admin123)</p>
                     )}
                     <button
                       type="submit"
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-xl text-sm transition-colors shadow-md shadow-blue-600/20"
+                      className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-3 px-4 rounded-xl text-sm transition-colors shadow-lg shadow-blue-600/30"
                     >
                       Accedi al Pannello
                     </button>
@@ -612,27 +607,28 @@
               {/* VISTA PANNELLO DASHBOARD ADMIN */}
               {view === 'admin-dashboard' && (
                 <div>
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 bg-slate-900 p-6 rounded-2xl border border-slate-800">
                     <div>
-                      <h2 className="text-2xl font-bold text-slate-900">Pannello di Controllo Admin</h2>
-                      <p className="text-xs text-slate-500">Gestione corsi, email notifiche e reportistica iscrizioni</p>
+                      <span className="text-xs text-blue-400 font-semibold uppercase tracking-wider">Pannello di Controllo</span>
+                      <h2 className="text-2xl font-bold text-white mt-0.5">Azienda di prova</h2>
+                      <p className="text-xs text-slate-400 mt-1">Gestione corsi (Meet / In presenza), limiti di posti e reportistica</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <button
                         onClick={() => setAdminTab('registrations')}
-                        className={`text-xs px-4 py-2 rounded-xl font-medium transition-colors ${adminTab === 'registrations' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-700 border border-slate-200'}`}
+                        className={`text-xs px-4 py-2.5 rounded-xl font-medium transition-all ${adminTab === 'registrations' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' : 'bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700'}`}
                       >
                         📊 Report Iscritti ({registrations.length})
                       </button>
                       <button
                         onClick={() => setAdminTab('add-course')}
-                        className={`text-xs px-4 py-2 rounded-xl font-medium transition-colors ${adminTab === 'add-course' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-700 border border-slate-200'}`}
+                        className={`text-xs px-4 py-2.5 rounded-xl font-medium transition-all ${adminTab === 'add-course' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' : 'bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700'}`}
                       >
                         ➕ Inserisci Corso
                       </button>
                       <button
                         onClick={() => setAdminTab('settings')}
-                        className={`text-xs px-4 py-2 rounded-xl font-medium transition-colors ${adminTab === 'settings' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-700 border border-slate-200'}`}
+                        className={`text-xs px-4 py-2.5 rounded-xl font-medium transition-all ${adminTab === 'settings' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' : 'bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700'}`}
                       >
                         ⚙️ Impostazioni Email
                       </button>
@@ -643,18 +639,18 @@
                   {adminTab === 'registrations' && (
                     <div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                          <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Totale Iscrizioni</p>
-                          <p className="text-2xl font-extrabold text-slate-900 mt-1">{totalRegistrations}</p>
+                        <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-xl">
+                          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Totale Iscrizioni</p>
+                          <p className="text-3xl font-extrabold text-white mt-1">{totalRegistrations}</p>
                         </div>
-                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm sm:col-span-2">
-                          <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Iscritti per Marchio</p>
+                        <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-xl sm:col-span-2">
+                          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Iscritti per Marchio</p>
                           <div className="flex flex-wrap gap-2">
                             {Object.keys(registrationsByBrand).length === 0 ? (
-                              <span className="text-xs text-slate-400">Nessun dato disponibile</span>
+                              <span className="text-xs text-slate-500">Nessun dato disponibile</span>
                             ) : (
                               Object.entries(registrationsByBrand).map(([brand, count]) => (
-                                <span key={brand} className="bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-lg border border-blue-100">
+                                <span key={brand} className="bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-semibold px-3 py-1.5 rounded-xl">
                                   {brand}: <strong>{count}</strong>
                                 </span>
                               ))
@@ -664,7 +660,7 @@
                       </div>
 
                       <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-lg font-bold text-slate-900">Elenco Dettagliato Installatori</h3>
+                        <h3 className="text-lg font-bold text-white">Elenco Dettagliato Installatori</h3>
                         {registrations.length > 0 && (
                           <button
                             onClick={() => {
@@ -672,7 +668,7 @@
                                 setRegistrations([]);
                               }
                             }}
-                            className="text-xs text-red-600 hover:text-red-800 font-medium bg-red-50 px-3 py-1.5 rounded-lg border border-red-200"
+                            className="text-xs text-red-400 hover:text-red-300 font-medium bg-red-500/10 px-3 py-1.5 rounded-xl border border-red-500/20 transition-colors"
                           >
                             Svuota Storico Iscrizioni
                           </button>
@@ -680,15 +676,15 @@
                       </div>
 
                       {registrations.length === 0 ? (
-                        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
-                          <p className="text-slate-500 text-sm">Nessuna iscrizione registrata al momento.</p>
+                        <div className="bg-slate-900 rounded-2xl border border-slate-800 p-12 text-center">
+                          <p className="text-slate-400 text-sm">Nessuna iscrizione registrata al momento.</p>
                         </div>
                       ) : (
-                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div className="bg-slate-900 rounded-2xl border border-slate-800 shadow-xl overflow-hidden">
                           <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse">
                               <thead>
-                                <tr className="bg-slate-50 border-b border-slate-200 text-xs text-slate-600 uppercase tracking-wider">
+                                <tr className="bg-slate-950/80 border-b border-slate-800 text-xs text-slate-400 uppercase tracking-wider">
                                   <th className="p-4 font-semibold">Data & Ora</th>
                                   <th className="p-4 font-semibold">Installatore</th>
                                   <th className="p-4 font-semibold">Azienda / P.IVA</th>
@@ -696,17 +692,17 @@
                                   <th className="p-4 font-semibold">Corso Scelto</th>
                                 </tr>
                               </thead>
-                              <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+                              <tbody className="divide-y divide-slate-800 text-sm text-slate-300">
                                 {registrations.map((reg) => (
-                                  <tr key={reg.id} className="hover:bg-slate-50/80 transition-colors">
-                                    <td className="p-4 text-xs text-slate-500 whitespace-nowrap">{reg.timestamp}</td>
-                                    <td className="p-4 font-medium text-slate-900">
+                                  <tr key={reg.id} className="hover:bg-slate-800/50 transition-colors">
+                                    <td className="p-4 text-xs text-slate-400 whitespace-nowrap">{reg.timestamp}</td>
+                                    <td className="p-4 font-medium text-white">
                                       {reg.fullName}
-                                      <div className="text-xs text-slate-500 font-normal">{reg.city}</div>
+                                      <div className="text-xs text-slate-400 font-normal">{reg.city}</div>
                                     </td>
                                     <td className="p-4">
                                       {reg.company}
-                                      <div className="text-xs text-slate-500 font-mono">P.IVA: {reg.vatNumber}</div>
+                                      <div className="text-xs text-slate-400 font-mono">P.IVA: {reg.vatNumber}</div>
                                     </td>
                                     <td className="p-4 text-xs">
                                       <div>✉️ {reg.email}</div>
@@ -714,12 +710,12 @@
                                     </td>
                                     <td className="p-4">
                                       <div className="flex items-center gap-1.5 mb-1">
-                                        <span className="inline-block bg-blue-50 text-blue-700 text-xs font-semibold px-2 py-0.5 rounded border border-blue-100">
+                                        <span className="inline-block bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-semibold px-2 py-0.5 rounded">
                                           {reg.brandName}
                                         </span>
                                       </div>
-                                      <div className="text-xs font-medium text-slate-900">{reg.courseTitle}</div>
-                                      <div className="text-xs text-slate-500">📅 {reg.date}</div>
+                                      <div className="text-xs font-medium text-white">{reg.courseTitle}</div>
+                                      <div className="text-xs text-slate-400">📅 {reg.date}</div>
                                     </td>
                                   </tr>
                                 ))}
@@ -733,25 +729,25 @@
 
                   {/* SEZIONE IMPOSTAZIONI EMAIL ADMIN */}
                   {adminTab === 'settings' && (
-                    <div className="max-w-xl mx-auto bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
-                      <h3 className="text-lg font-bold text-slate-900 mb-1">Configurazione Email Amministratore</h3>
-                      <p className="text-xs text-slate-505 mb-6">Inserisci l'indirizzo email sul quale desideri ricevere le notifiche di tutte le nuove iscrizioni ai corsi.</p>
+                    <div className="max-w-xl mx-auto bg-slate-900 rounded-2xl border border-slate-800 shadow-xl p-6 sm:p-8">
+                      <h3 className="text-lg font-bold text-white mb-1">Configurazione Email Amministratore</h3>
+                      <p className="text-xs text-slate-400 mb-6">Indirizzo email di Azienda di prova per la ricezione delle notifiche di iscrizione.</p>
 
                       {emailSavedMsg && (
-                        <div className="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs p-3 rounded-lg font-medium">
+                        <div className="mb-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs p-3 rounded-lg font-medium">
                           ✓ Indirizzo email amministrativo aggiornato con successo!
                         </div>
                       )}
 
                       <form onSubmit={handleSaveAdminEmail} className="space-y-4">
                         <div>
-                          <label className="block text-xs font-medium text-slate-700 mb-1">Email Ricezione Notifiche Admin *</label>
+                          <label className="block text-xs font-medium text-slate-300 mb-1">Email Ricezione Notifiche Admin *</label>
                           <input
                             type="email"
                             required
                             value={tempAdminEmail}
                             onChange={(e) => setTempAdminEmail(e.target.value)}
-                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 text-sm bg-slate-950 border border-slate-800 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="es. ermanno.zanardi69@gmail.com"
                           />
                         </div>
@@ -759,7 +755,7 @@
                         <div className="pt-2">
                           <button
                             type="submit"
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-xl text-sm transition-colors shadow-md shadow-blue-600/20"
+                            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-3 px-4 rounded-xl text-sm transition-colors shadow-lg shadow-blue-600/30"
                           >
                             Salva Indirizzo Email
                           </button>
@@ -770,19 +766,19 @@
 
                   {/* SEZIONE INSERISCI NUOVO CORSO */}
                   {adminTab === 'add-course' && (
-                    <div className="max-w-2xl mx-auto bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
-                      <h3 className="text-lg font-bold text-slate-900 mb-1">Crea Nuovo Corso di Formazione</h3>
-                      <p className="text-xs text-slate-500 mb-6">Imposta la modalità di erogazione (Meet o In presenza) e il numero massimo di posti.</p>
+                    <div className="max-w-2xl mx-auto bg-slate-900 rounded-2xl border border-slate-800 shadow-xl p-6 sm:p-8">
+                      <h3 className="text-lg font-bold text-white mb-1">Crea Nuovo Corso di Formazione</h3>
+                      <p className="text-xs text-slate-400 mb-6">Azienda di prova • Imposta modalità di erogazione e posti massimi.</p>
 
                       <form onSubmit={handleAddCourseSubmit} className="space-y-4">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
-                            <label className="block text-xs font-medium text-slate-700 mb-1">Marchio di Riferimento *</label>
+                            <label className="block text-xs font-medium text-slate-300 mb-1">Marchio di Riferimento *</label>
                             <select
                               name="brand"
                               value={newCourseData.brand}
                               onChange={handleNewCourseChange}
-                              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                              className="w-full px-3 py-2 text-sm bg-slate-950 border border-slate-800 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
                               <option value="tecnoalarm">Tecnoalarm</option>
                               <option value="tecnofire">Tecnofire</option>
@@ -792,12 +788,12 @@
                             </select>
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-slate-700 mb-1">Livello del Corso</label>
+                            <label className="block text-xs font-medium text-slate-300 mb-1">Livello del Corso</label>
                             <select
                               name="level"
                               value={newCourseData.level}
                               onChange={handleNewCourseChange}
-                              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                              className="w-full px-3 py-2 text-sm bg-slate-950 border border-slate-800 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
                               <option value="Base">Base</option>
                               <option value="Intermedio">Intermedio</option>
@@ -808,44 +804,44 @@
                         </div>
 
                         <div>
-                          <label className="block text-xs font-medium text-slate-700 mb-1">Titolo del Corso *</label>
+                          <label className="block text-xs font-medium text-slate-300 mb-1">Titolo del Corso *</label>
                           <input
                             type="text"
                             name="title"
                             required
                             value={newCourseData.title}
                             onChange={handleNewCourseChange}
-                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 text-sm bg-slate-950 border border-slate-800 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="Es. Programmazione Avanzata Centrali IP"
                           />
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                           <div>
-                            <label className="block text-xs font-medium text-slate-700 mb-1">Codice Corso</label>
+                            <label className="block text-xs font-medium text-slate-300 mb-1">Codice Corso</label>
                             <input
                               type="text"
                               name="code"
                               value={newCourseData.code}
                               onChange={handleNewCourseChange}
-                              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="w-full px-3 py-2 text-sm bg-slate-950 border border-slate-800 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                               placeholder="Es. TEC-99"
                             />
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-slate-700 mb-1">Modalità Erogazione *</label>
+                            <label className="block text-xs font-medium text-slate-300 mb-1">Modalità Erogazione *</label>
                             <select
                               name="modality"
                               value={newCourseData.modality}
                               onChange={handleNewCourseChange}
-                              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                              className="w-full px-3 py-2 text-sm bg-slate-950 border border-slate-800 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
                               <option value="In presenza">In presenza</option>
                               <option value="Google Meet">Google Meet</option>
                             </select>
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-slate-700 mb-1">Max Partecipanti *</label>
+                            <label className="block text-xs font-medium text-slate-300 mb-1">Max Partecipanti *</label>
                             <input
                               type="number"
                               name="maxParticipants"
@@ -854,60 +850,60 @@
                               required
                               value={newCourseData.maxParticipants}
                               onChange={handleNewCourseChange}
-                              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="w-full px-3 py-2 text-sm bg-slate-950 border border-slate-800 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                           </div>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
-                            <label className="block text-xs font-medium text-slate-700 mb-1">Sede o Link Piattaforma *</label>
+                            <label className="block text-xs font-medium text-slate-300 mb-1">Sede o Link Piattaforma *</label>
                             <input
                               type="text"
                               name="location"
                               required
                               value={newCourseData.location}
                               onChange={handleNewCourseChange}
-                              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="w-full px-3 py-2 text-sm bg-slate-950 border border-slate-800 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                               placeholder="Es. Sala Corsi Milano oppure Google Meet"
                             />
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-slate-700 mb-1">Date Corso *</label>
+                            <label className="block text-xs font-medium text-slate-300 mb-1">Date Corso *</label>
                             <input
                               type="text"
                               name="date"
                               required
                               value={newCourseData.date}
                               onChange={handleNewCourseChange}
-                              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="w-full px-3 py-2 text-sm bg-slate-950 border border-slate-800 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                               placeholder="Es. 10-11 Dicembre 2026"
                             />
                           </div>
                         </div>
 
                         <div>
-                          <label className="block text-xs font-medium text-slate-700 mb-1">Durata *</label>
+                          <label className="block text-xs font-medium text-slate-300 mb-1">Durata *</label>
                           <input
                             type="text"
                             name="duration"
                             required
                             value={newCourseData.duration}
                             onChange={handleNewCourseChange}
-                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 text-sm bg-slate-950 border border-slate-800 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="Es. 2 Giorni"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-xs font-medium text-slate-700 mb-1">Descrizione Dettagliata *</label>
+                          <label className="block text-xs font-medium text-slate-300 mb-1">Descrizione Dettagliata *</label>
                           <textarea
                             name="description"
                             required
                             rows="3"
                             value={newCourseData.description}
                             onChange={handleNewCourseChange}
-                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 text-sm bg-slate-950 border border-slate-800 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="Descrivi gli argomenti trattati durante la sessione formativa..."
                           ></textarea>
                         </div>
@@ -915,14 +911,14 @@
                         <div className="pt-2 flex gap-3">
                           <button
                             type="submit"
-                            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-xl text-sm transition-colors shadow-md shadow-blue-600/20"
+                            className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-medium py-3 px-4 rounded-xl text-sm transition-colors shadow-lg shadow-blue-600/30"
                           >
                             Pubblica Corso nel Catalogo
                           </button>
                           <button
                             type="button"
                             onClick={() => setAdminTab('registrations')}
-                            className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-3 px-4 rounded-xl text-sm transition-colors"
+                            className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium py-3 px-4 rounded-xl text-sm transition-colors border border-slate-700"
                           >
                             Annulla
                           </button>
@@ -930,17 +926,17 @@
                       </form>
 
                       {/* Lista corsi esistenti con opzione di eliminazione */}
-                      <div className="mt-10 border-t border-slate-200 pt-6">
-                        <h4 className="text-sm font-bold text-slate-900 mb-3">Corsi Attualmente in Catalogo (Gestione Rapida)</h4>
+                      <div className="mt-10 border-t border-slate-800 pt-6">
+                        <h4 className="text-sm font-bold text-white mb-3">Corsi Attualmente in Catalogo (Gestione Rapida)</h4>
                         <div className="space-y-2 max-h-60 overflow-y-auto">
                           {courses.map(c => (
-                            <div key={c.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
+                            <div key={c.id} className="flex justify-between items-center bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs">
                               <div>
-                                <span className="font-bold text-blue-600 uppercase">{c.brandName}:</span> {c.title} <span className="text-slate-400">({c.modality} - Max {c.maxParticipants})</span>
+                                <span className="font-bold text-blue-400 uppercase">{c.brandName}:</span> <span className="text-white">{c.title}</span> <span className="text-slate-500">({c.modality} - Max {c.maxParticipants})</span>
                               </div>
                               <button
                                 onClick={() => handleDeleteCourse(c.id)}
-                                className="text-red-600 hover:text-red-800 font-semibold px-2 py-1 bg-white border border-red-200 rounded"
+                                className="text-red-400 hover:text-red-300 font-semibold px-2.5 py-1 bg-red-500/10 border border-red-500/20 rounded-lg transition-colors"
                               >
                                 Elimina
                               </button>
@@ -958,8 +954,8 @@
             </main>
 
             {/* Footer */}
-            <footer className="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500 mt-12">
-              <p>© 2026 Portale Formazione Installatori Tecnici. Tutti i diritti riservati.</p>
+            <footer className="bg-slate-900 border-t border-slate-800 py-6 text-center text-xs text-slate-400 mt-16">
+              <p>© 2026 <strong className="text-slate-200">Azienda di prova</strong> - Portale Formazione Installatori Tecnici. Tutti i diritti riservati.</p>
             </footer>
           </div>
         );
