@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Portale Iscrizione Corsi Tecnici | Installatori Professionisti</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React e ReactDOM da CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel per JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+  </head>
+  <body class="bg-slate-50 text-slate-900 antialiased font-sans">
+    <div id="root"></div>
+
+    <script type="text/babel">
+      const { useState } = React;
+
+      function App() {
+        const [selectedBrand, setSelectedBrand] = useState('all');
+        const [selectedCourse, setSelectedCourse] = useState(null);
+        const [submitted, setSubmitted] = useState(false);
+        const [formData, setFormData] = useState({
+          fullName: '',
+          company: '',
+          vatNumber: '',
+          email: '',
+          phone: '',
+          city: ''
+        });
+
+        // Database dei corsi per i brand richiesti
+        const courses = [
+          {
+            id: 1,
+            brand: 'tecnoalarm',
+            brandName: 'Tecnoalarm',
+            title: 'Corso Avanzato Sistemi Antintrusione e Cloud',
+            code: 'TEC-ANT-01',
+            date: '15-16 Ottobre 2026',
+            location: 'Milano / Online',
+            duration: '2 Giorni',
+            description: 'Programmazione avanzata centrali serie TP, gestione tracciati Cloud e integrazione domotica.',
+            level: 'Avanzato'
+          },
+          {
+            id: 2,
+            brand: 'tecnofire',
+            brandName: 'Tecnofire',
+            title: 'Progettazione e Normativa Impianti Rivelazione Incendio',
+            code: 'TFIRE-NOR-02',
+            date: '22 Ottobre 2026',
+            location: 'Roma / Online',
+            duration: '1 Giorno',
+            description: 'Normativa UNI 9795, configurazione centrali analogiche e indirizzamento dispositivi.',
+            level: 'Professionale'
+          },
+          {
+            id: 3,
+            brand: 'nice',
+            brandName: 'Nice',
+            title: 'Automazioni Smart e Integrazione Ecosystem',
+            code: 'NICE-AUT-03',
+            date: '5 Novembre 2026',
+            location: 'Bologna / In presenza',
+            duration: '1 Giorno',
+            description: 'Installazione e programmazione centrali per cancelli, barriere e protocolli radio bidirezionali.',
+            level: 'Base / Intermedio'
+          },
+          {
+            id: 4,
+            brand: 'dahua',
+            brandName: 'Dahua',
+            title: 'Sistemi di Videosorveglianza IP e Videoanalisi AI',
+            code: 'DAH-AI-04',
+            date: '12-13 Novembre 2026',
+            location: 'Milano / Online',
+            duration: '2 Giorni',
+            description: 'Configurazione telecamere termiche, WizSense, riconoscimento facciale e NVR di ultima generazione.',
+            level: 'Avanzato'
+          }
+        ];
+
+        const filteredCourses = selectedBrand === 'all' 
+          ? courses 
+          : courses.filter(c => c.brand === selectedBrand);
+
+        const handleInputChange = (e) => {
+          setFormData({ ...formData, [e.target.name]: e.target.value });
+        };
+
+        const handleSubmit = (e) => {
+          e.preventDefault();
+          setSubmitted(true);
+        };
+
+        return (
+          <div className="min-h-screen flex flex-col bg-slate-50">
+            {/* Header */}
+            <header className="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-50 shadow-md">
+              <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div className="flex items-center space-x-3">
+                  <div className="bg-blue-600 p-2.5 rounded-xl text-white font-bold shadow-md shadow-blue-600/30">
+                    🎓
+                  </div>
+                  <div>
+                    <h1 className="text-xl font-bold tracking-tight">Portale Formazione Installatori</h1>
+                    <p className="text-xs text-slate-400">Tecnoalarm • Tecnofire • Nice • Dahua</p>
+                  </div>
+                </div>
+                <div className="text-xs bg-slate-800 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700">
+                  ⚡ Certificazioni Ufficiali 2026
+                </div>
+              </div>
+            </header>
+
+            {/* Main Content */}
+            <main className="flex-grow max-w-7xl w-full mx-auto px-4 py-8">
+              {!selectedCourse ? (
+                <div>
+                  {/* Hero Section */}
+                  <div className="text-center max-w-2xl mx-auto mb-10">
+                    <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-3">
+                      Corsi Tecnici e Aggiornamenti Professionali
+                    </h2>
+                    <p className="text-slate-600 text-sm leading-relaxed">
+                      Seleziona il marchio di tuo interesse e prenota subito il tuo posto ai corsi di formazione tecnica avanzata per installatori autorizzati.
+                    </p>
+                  </div>
+
+                  {/* Filtro Marchi */}
+                  <div className="flex flex-wrap justify-center gap-2 mb-8">
+                    {[
+                      { id: 'all', label: 'Tutti i Marchi' },
+                      { id: 'tecnoalarm', label: 'Tecnoalarm' },
+                      { id: 'tecnofire', label: 'Tecnofire' },
+                      { id: 'nice', label: 'Nice' },
+                      { id: 'dahua', label: 'Dahua' },
+                    ].map(brand => (
+                      <button
+                        key={brand.id}
+                        onClick={() => setSelectedBrand(brand.id)}
+                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 shadow-sm ${
+                          selectedBrand === brand.id
+                            ? 'bg-blue-600 text-white shadow-blue-600/20 shadow-md'
+                            : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                        }`}
+                      >
+                        {brand.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Griglia Corsi */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {filteredCourses.map(course => (
+                      <div 
+                        key={course.id}
+                        className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between overflow-hidden"
+                      >
+                        <div className="p-6">
+                          <div className="flex justify-between items-start gap-4 mb-3">
+                            <span className="inline-block bg-blue-50 text-blue-700 text-xs font-semibold px-2.5 py-1 rounded-md uppercase tracking-wider border border-blue-100">
+                              {course.brandName}
+                            </span>
+                            <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md">
+                              {course.level}
+                            </span>
+                          </div>
+                          
+                          <h3 className="text-lg font-bold text-slate-900 mb-2">{course.title}</h3>
+                          <p className="text-slate-600 text-sm mb-4 leading-relaxed">{course.description}</p>
+                          
+                          <div className="space-y-2 text-xs text-slate-600 border-t border-slate-100 pt-4">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-slate-700">📅 Data:</span> {course.date}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-slate-700">📍 Sede:</span> {course.location}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-slate-700">⏱️ Durata:</span> {course.duration}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="px-6 pb-6 pt-0">
+                          <button
+                            onClick={() => setSelectedCourse(course)}
+                            className="w-full bg-slate-900 hover:bg-blue-600 text-white font-medium py-2.5 px-4 rounded-xl text-sm transition-colors duration-200 shadow-sm flex items-center justify-center gap-2"
+                          >
+                            Iscriviti al Corso
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                /* Modulo di Iscrizione */
+                <div className="max-w-xl mx-auto bg-white rounded-2xl border border-slate-200 shadow-lg p-6 sm:p-8">
+                  {!submitted ? (
+                    <div>
+                      <button
+                        onClick={() => setSelectedCourse(null)}
+                        className="text-xs font-medium text-blue-600 hover:text-blue-800 mb-6 inline-flex items-center gap-1"
+                      >
+                        ← Torna all'elenco corsi
+                      </button>
+
+                      <div className="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">{selectedCourse.brandName}</span>
+                        <h3 className="text-base font-bold text-slate-900 mt-1">{selectedCourse.title}</h3>
+                        <p className="text-xs text-slate-500 mt-1">Data: {selectedCourse.date} | Sede: {selectedCourse.location}</p>
+                      </div>
+
+                      <h2 className="text-xl font-bold text-slate-900 mb-4">Modulo di Registrazione Installatore</h2>
+                      
+                      <form onSubmit={handleSubmit} className="space-y-4">
+                        <div>
+                          <label className="block text-xs font-medium text-slate-700 mb-1">Nome e Cognome *</label>
+                          <input
+                            type="text"
+                            name="fullName"
+                            required
+                            value={formData.fullName}
+                            onChange={handleInputChange}
+                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Mario Rossi"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-medium text-slate-700 mb-1">Ragione Sociale Azienda *</label>
+                            <input
+                              type="text"
+                              name="company"
+                              required
+                              value={formData.company}
+                              onChange={handleInputChange}
+                              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="Impianti Elettrici Srl"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-700 mb-1">Partita IVA *</label>
+                            <input
+                              type="text"
+                              name="vatNumber"
+                              required
+                              value={formData.vatNumber}
+                              onChange={handleInputChange}
+                              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="01234567890"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-medium text-slate-700 mb-1">Email Aziendale / Personale *</label>
+                            <input
+                              type="email"
+                              name="email"
+                              required
+                              value={formData.email}
+                              onChange={handleInputChange}
+                              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="mario@impianti.it"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-700 mb-1">Telefono / Cellulare *</label>
+                            <input
+                              type="tel"
+                              name="phone"
+                              required
+                              value={formData.phone}
+                              onChange={handleInputChange}
+                              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="333 1234567"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-slate-700 mb-1">Città sede lavorativa *</label>
+                          <input
+                            type="city"
+                            name="city"
+                            required
+                            value={formData.city}
+                            onChange={handleInputChange}
+                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Milano (MI)"
+                          />
+                        </div>
+
+                        <button
+                          type="submit"
+                          className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-xl text-sm transition-colors duration-200 shadow-md shadow-blue-600/20"
+                        >
+                          Conferma Iscrizione al Corso
+                        </button>
+                      </form>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                      <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
+                        ✓
+                      </div>
+                      <h3 className="text-xl font-bold text-slate-900 mb-2">Iscrizione Effettuata con Successo!</h3>
+                      <p className="text-slate-600 text-sm mb-6 leading-relaxed">
+                        Grazie <strong>{formData.fullName}</strong> ({formData.company}). Abbiamo registrato la tua richiesta per il corso <strong>{selectedCourse.title}</strong>. 
+                        Ti è stata inviata una mail di riepilogo all'indirizzo <strong>{formData.email}</strong> con i dettagli per l'accesso e la conferma.
+                      </p>
+                      <button
+                        onClick={() => { setSubmitted(false); setSelectedCourse(null); }}
+                        className="bg-slate-900 hover:bg-slate-800 text-white font-medium py-2.5 px-6 rounded-xl text-sm transition-colors"
+                      >
+                        Torna alla Home Corsi
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </main>
+
+            {/* Footer */}
+            <footer className="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500 mt-12">
+              <p>© 2026 Portale Formazione Installatori Tecnici. Tutti i diritti riservati.</p>
+            </footer>
+          </div>
+        );
+      }
+
+      ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+  </body>
+</html>
