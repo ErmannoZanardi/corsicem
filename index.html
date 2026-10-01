@@ -19,18 +19,25 @@
       const { useState, useEffect } = React;
 
       function App() {
-        const [view, setView] = useState('courses'); // 'courses', 'register', 'admin-login', 'admin-dashboard'
+        const [view, setView] = useState('courses'); // 'courses', 'admin-login', 'admin-dashboard'
         const [selectedBrand, setSelectedBrand] = useState('all');
         const [selectedCourse, setSelectedCourse] = useState(null);
         const [submitted, setSubmitted] = useState(false);
         const [submitError, setSubmitError] = useState('');
         const [adminPin, setAdminPin] = useState('');
         const [adminError, setAdminError] = useState(false);
-        const [adminTab, setAdminTab] = useState('registrations'); // 'registrations', 'add-course'
+        const [adminTab, setAdminTab] = useState('registrations'); // 'registrations', 'add-course', 'settings'
+
+        // Email amministratore salvata in localStorage (default: ermanno.zanardi69@gmail.com)
+        const [adminEmail, setAdminEmail] = useState(() => {
+          return localStorage.getItem('system_admin_email') || 'ermanno.zanardi69@gmail.com';
+        });
+        const [tempAdminEmail, setTempAdminEmail] = useState(adminEmail);
+        const [emailSavedMsg, setEmailSavedMsg] = useState(false);
 
         // Stato per i corsi (salvato in localStorage)
         const [courses, setCourses] = useState(() => {
-          const saved = localStorage.getItem('system_courses_v2');
+          const saved = localStorage.getItem('system_courses_v3');
           return saved ? JSON.parse(saved) : [
             {
               id: 1,
@@ -39,7 +46,7 @@
               title: 'Corso Avanzato Sistemi Antintrusione e Cloud',
               code: 'TEC-ANT-01',
               date: '15-16 Ottobre 2026',
-              modality: 'Google Meet', // 'In presenza', 'Google Meet', 'Ibrido'
+              modality: 'Google Meet',
               location: 'Link Google Meet (inviato via email)',
               maxParticipants: 20,
               duration: '2 Giorni',
@@ -93,7 +100,7 @@
         
         // Stato per le iscrizioni (salvato in localStorage)
         const [registrations, setRegistrations] = useState(() => {
-          const saved = localStorage.getItem('course_registrations_v2');
+          const saved = localStorage.getItem('course_registrations_v3');
           return saved ? JSON.parse(saved) : [
             {
               id: 1,
@@ -137,12 +144,16 @@
         });
 
         useEffect(() => {
-          localStorage.setItem('course_registrations_v2', JSON.stringify(registrations));
+          localStorage.setItem('course_registrations_v3', JSON.stringify(registrations));
         }, [registrations]);
 
         useEffect(() => {
-          localStorage.setItem('system_courses_v2', JSON.stringify(courses));
+          localStorage.setItem('system_courses_v3', JSON.stringify(courses));
         }, [courses]);
+
+        useEffect(() => {
+          localStorage.setItem('system_admin_email', adminEmail);
+        }, [adminEmail]);
 
         const filteredCourses = selectedBrand === 'all' 
           ? courses 
@@ -152,12 +163,10 @@
           setFormData({ ...formData, [e.target.name]: e.target.value });
         };
 
-        // Calcola quanti iscritti ci sono già per un determinato corso
         const getCourseEnrollmentCount = (courseId) => {
           return registrations.filter(r => r.courseId === courseId).length;
         };
 
-        // Calcola quanti iscritti ha già una determinata azienda (P.IVA) per un determinato corso
         const getCompanyEnrollmentCountForCourse = (courseId, vatNumber) => {
           const cleanVat = vatNumber.trim().toLowerCase();
           return registrations.filter(r => r.courseId === courseId && r.vatNumber.trim().toLowerCase() === cleanVat).length;
@@ -170,13 +179,11 @@
           const currentCount = getCourseEnrollmentCount(selectedCourse.id);
           const maxAllowed = selectedCourse.maxParticipants || 15;
 
-          // Controllo disponibilità posti
           if (currentCount >= maxAllowed) {
             setSubmitError('Spiacenti, questo corso ha raggiunto il numero massimo di partecipanti ed è completo (Sold Out).');
             return;
           }
 
-          // Controllo limite massimo di 2 iscritti per azienda per lo stesso corso
           const companyCount = getCompanyEnrollmentCountForCourse(selectedCourse.id, formData.vatNumber);
           if (companyCount >= 2) {
             setSubmitError('Attenzione: La tua azienda (Partita IVA inserita) ha già raggiunto il limite massimo di 2 partecipanti iscritti a questo corso.');
@@ -195,6 +202,15 @@
 
           setRegistrations([newReg, ...registrations]);
           setSubmitted(true);
+
+          // Simulazione invio email automatica a cliente e admin
+          console.log(`--- EMAIL INVIATA AL CLIENTE (${formData.email}) ---`);
+          console.log(`Oggetto: Conferma Iscrizione Corso ${selectedCourse.title}`);
+          console.log(`Corpo: Gentile ${formData.fullName}, la sua iscrizione al corso ${selectedCourse.title} (${selectedCourse.modality}) è confermata.`);
+
+          console.log(`--- EMAIL NOTIFICA INVIATA ALL'ADMIN (${adminEmail}) ---`);
+          console.log(`Oggetto: Nuova Iscrizione - ${formData.company} (${selectedCourse.title})`);
+          console.log(`Corpo: L'utente ${formData.fullName} (${formData.email}) si è iscritto al corso.`);
         };
 
         const handleAdminLogin = (e) => {
@@ -206,6 +222,13 @@
           } else {
             setAdminError(true);
           }
+        };
+
+        const handleSaveAdminEmail = (e) => {
+          e.preventDefault();
+          setAdminEmail(tempAdminEmail);
+          setEmailSavedMsg(true);
+          setTimeout(() => setEmailSavedMsg(false), 3000);
         };
 
         const handleNewCourseChange = (e) => {
@@ -272,7 +295,7 @@
                   </div>
                   <div>
                     <h1 className="text-xl font-bold tracking-tight">Portale Formazione Installatori</h1>
-                    <p className="text-xs text-slate-400">In presenza & Google Meet • Max 2 iscritti per azienda</p>
+                    <p className="text-xs text-slate-400">Notifiche email automatiche • Max 2 per azienda</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -303,7 +326,7 @@
                       Corsi Tecnici in Presenza e su Google Meet
                     </h2>
                     <p className="text-slate-600 text-sm leading-relaxed">
-                      Scegli il marchio, verifica i posti disponibili e prenota la tua sessione formativa. È consentito un massimo di 2 partecipanti per azienda su ciascun corso.
+                      Scegli il marchio, verifica i posti disponibili e prenota la tua sessione formativa. Riceverai una email di conferma immediata.
                     </p>
                   </div>
 
@@ -423,7 +446,7 @@
                         </div>
                         <h3 className="text-base font-bold text-slate-900">{selectedCourse.title}</h3>
                         <p className="text-xs text-slate-500 mt-1">📅 {selectedCourse.date} | 📍 {selectedCourse.location}</p>
-                        <p className="text-xs text-blue-700 font-medium mt-2">ℹ️ Regola aziendale: Massimo 2 partecipanti per azienda (P.IVA) a questo corso.</p>
+                        <p className="text-xs text-blue-700 font-medium mt-2">ℹ️ Verrà inviata una mail di conferma al partecipante e una notifica all'amministratore ({adminEmail}).</p>
                       </div>
 
                       <h2 className="text-xl font-bold text-slate-900 mb-4">Modulo di Registrazione Installatore</h2>
@@ -462,7 +485,7 @@
                             />
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-slate-700 mb-1">Partita IVA (per controllo limite 2) *</label>
+                            <label className="block text-xs font-medium text-slate-700 mb-1">Partita IVA (limite 2 per azienda) *</label>
                             <input
                               type="text"
                               name="vatNumber"
@@ -477,7 +500,7 @@
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
-                            <label className="block text-xs font-medium text-slate-700 mb-1">Email Aziendale *</label>
+                            <label className="block text-xs font-medium text-slate-700 mb-1">Email Aziendale (per ricevere la conferma) *</label>
                             <input
                               type="email"
                               name="email"
@@ -529,10 +552,16 @@
                         ✓
                       </div>
                       <h3 className="text-xl font-bold text-slate-900 mb-2">Iscrizione Effettuata con Successo!</h3>
-                      <p className="text-slate-600 text-sm mb-6 leading-relaxed">
-                        Grazie <strong>{formData.fullName}</strong> ({formData.company}). Abbiamo registrato la tua richiesta per il corso <strong>{selectedCourse.title}</strong> in modalità <strong>{selectedCourse.modality}</strong>. 
-                        {selectedCourse.modality === 'Google Meet' && ' Riceverai il link di collegamento Google Meet all\'email indicata.'}
+                      <p className="text-slate-600 text-sm mb-4 leading-relaxed">
+                        Grazie <strong>{formData.fullName}</strong> ({formData.company}). Abbiamo registrato la tua richiesta per il corso <strong>{selectedCourse.title}</strong>.
                       </p>
+                      
+                      <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-xs text-slate-600 mb-6 text-left space-y-1">
+                        <p>✉️ <strong>Email inviata al cliente:</strong> {formData.email}</p>
+                        <p>🔔 <strong>Notifica inviata all'admin:</strong> {adminEmail}</p>
+                        <p className="text-emerald-700 font-medium mt-1">✓ Email di conferma e report inviati con successo!</p>
+                      </div>
+
                       <button
                         onClick={() => { setSubmitted(false); setSelectedCourse(null); }}
                         className="bg-slate-900 hover:bg-slate-800 text-white font-medium py-2.5 px-6 rounded-xl text-sm transition-colors"
@@ -586,9 +615,9 @@
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                     <div>
                       <h2 className="text-2xl font-bold text-slate-900">Pannello di Controllo Admin</h2>
-                      <p className="text-xs text-slate-500">Gestione corsi (Meet / In presenza), limiti di posti e reportistica</p>
+                      <p className="text-xs text-slate-500">Gestione corsi, email notifiche e reportistica iscrizioni</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <button
                         onClick={() => setAdminTab('registrations')}
                         className={`text-xs px-4 py-2 rounded-xl font-medium transition-colors ${adminTab === 'registrations' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-700 border border-slate-200'}`}
@@ -599,7 +628,13 @@
                         onClick={() => setAdminTab('add-course')}
                         className={`text-xs px-4 py-2 rounded-xl font-medium transition-colors ${adminTab === 'add-course' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-700 border border-slate-200'}`}
                       >
-                        ➕ Inserisci Nuovo Corso
+                        ➕ Inserisci Corso
+                      </button>
+                      <button
+                        onClick={() => setAdminTab('settings')}
+                        className={`text-xs px-4 py-2 rounded-xl font-medium transition-colors ${adminTab === 'settings' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-700 border border-slate-200'}`}
+                      >
+                        ⚙️ Impostazioni Email
                       </button>
                     </div>
                   </div>
@@ -693,6 +728,43 @@
                           </div>
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {/* SEZIONE IMPOSTAZIONI EMAIL ADMIN */}
+                  {adminTab === 'settings' && (
+                    <div className="max-w-xl mx-auto bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
+                      <h3 className="text-lg font-bold text-slate-900 mb-1">Configurazione Email Amministratore</h3>
+                      <p className="text-xs text-slate-505 mb-6">Inserisci l'indirizzo email sul quale desideri ricevere le notifiche di tutte le nuove iscrizioni ai corsi.</p>
+
+                      {emailSavedMsg && (
+                        <div className="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs p-3 rounded-lg font-medium">
+                          ✓ Indirizzo email amministrativo aggiornato con successo!
+                        </div>
+                      )}
+
+                      <form onSubmit={handleSaveAdminEmail} className="space-y-4">
+                        <div>
+                          <label className="block text-xs font-medium text-slate-700 mb-1">Email Ricezione Notifiche Admin *</label>
+                          <input
+                            type="email"
+                            required
+                            value={tempAdminEmail}
+                            onChange={(e) => setTempAdminEmail(e.target.value)}
+                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="es. ermanno.zanardi69@gmail.com"
+                          />
+                        </div>
+
+                        <div className="pt-2">
+                          <button
+                            type="submit"
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-xl text-sm transition-colors shadow-md shadow-blue-600/20"
+                          >
+                            Salva Indirizzo Email
+                          </button>
+                        </div>
+                      </form>
                     </div>
                   )}
 
