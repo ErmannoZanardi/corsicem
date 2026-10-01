@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Portale Iscrizione ai Corsi | Azienda di prova</title>
+    <title>Portale Iscrizione ai Corsi | Portale Formazione</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- React e ReactDOM da CDN -->
@@ -26,18 +26,32 @@
         const [submitError, setSubmitError] = useState('');
         const [adminPin, setAdminPin] = useState('');
         const [adminError, setAdminError] = useState(false);
-        const [adminTab, setAdminTab] = useState('registrations'); // 'registrations', 'add-course', 'settings'
+        const [adminTab, setAdminTab] = useState('registrations'); // 'registrations', 'add-course', 'settings', 'branding'
 
-        // Email amministratore salvata in localStorage
+        // Configurazioni personalizzabili tramite Admin salvate in localStorage
+        const [companyName, setCompanyName] = useState(() => {
+          return localStorage.getItem('system_company_name') || 'Azienda di prova';
+        });
+        const [headerTitle, setHeaderTitle] = useState(() => {
+          return localStorage.getItem('system_header_title') || 'CALENDARIO CORSI 2026';
+        });
+        const [copyrightText, setCopyrightText] = useState(() => {
+          return localStorage.getItem('system_copyright_text') || '© 2026 Portale Formazione Installatori Tecnici. Tutti i diritti riservati.';
+        });
         const [adminEmail, setAdminEmail] = useState(() => {
           return localStorage.getItem('system_admin_email') || 'ermanno.zanardi69@gmail.com';
         });
+
+        // Stati temporanei per i form di impostazione admin
+        const [tempCompanyName, setTempCompanyName] = useState(companyName);
+        const [tempHeaderTitle, setTempHeaderTitle] = useState(headerTitle);
+        const [tempCopyrightText, setTempCopyrightText] = useState(copyrightText);
         const [tempAdminEmail, setTempAdminEmail] = useState(adminEmail);
-        const [emailSavedMsg, setEmailSavedMsg] = useState(false);
+        const [settingsSavedMsg, setSettingsSavedMsg] = useState(false);
 
         // Stato per i corsi
         const [courses, setCourses] = useState(() => {
-          const saved = localStorage.getItem('system_courses_v5');
+          const saved = localStorage.getItem('system_courses_v6');
           return saved ? JSON.parse(saved) : [
             {
               id: 1,
@@ -108,7 +122,7 @@
         
         // Stato per le iscrizioni
         const [registrations, setRegistrations] = useState(() => {
-          const saved = localStorage.getItem('course_registrations_v5');
+          const saved = localStorage.getItem('course_registrations_v6');
           return saved ? JSON.parse(saved) : [
             {
               id: 1,
@@ -154,16 +168,19 @@
         });
 
         useEffect(() => {
-          localStorage.setItem('course_registrations_v5', JSON.stringify(registrations));
+          localStorage.setItem('course_registrations_v6', JSON.stringify(registrations));
         }, [registrations]);
 
         useEffect(() => {
-          localStorage.setItem('system_courses_v5', JSON.stringify(courses));
+          localStorage.setItem('system_courses_v6', JSON.stringify(courses));
         }, [courses]);
 
         useEffect(() => {
+          localStorage.setItem('system_company_name', companyName);
+          localStorage.setItem('system_header_title', headerTitle);
+          localStorage.setItem('system_copyright_text', copyrightText);
           localStorage.setItem('system_admin_email', adminEmail);
-        }, [adminEmail]);
+        }, [companyName, headerTitle, copyrightText, adminEmail]);
 
         const filteredCourses = selectedBrand === 'all' 
           ? courses 
@@ -225,11 +242,14 @@
           }
         };
 
-        const handleSaveAdminEmail = (e) => {
+        const handleSaveSettings = (e) => {
           e.preventDefault();
+          setCompanyName(tempCompanyName);
+          setHeaderTitle(tempHeaderTitle);
+          setCopyrightText(tempCopyrightText);
           setAdminEmail(tempAdminEmail);
-          setEmailSavedMsg(true);
-          setTimeout(() => setEmailSavedMsg(false), 3000);
+          setSettingsSavedMsg(true);
+          setTimeout(() => setSettingsSavedMsg(false), 3000);
         };
 
         const handleNewCourseChange = (e) => {
@@ -302,7 +322,7 @@
                     💡
                   </div>
                   <div>
-                    <h1 className="text-sm sm:text-base font-bold tracking-tight">Portale Iscrizione ai Corsi Tecnico Commerciali di Azienda di prova</h1>
+                    <h1 className="text-sm sm:text-base font-bold tracking-tight">Portale Iscrizione ai Corsi Tecnico Commerciali di {companyName}</h1>
                     <p className="text-xs text-slate-300">Formazione tecnica sui sistemi Tecnoalarm, Tecnofire, Nice e Dahua</p>
                   </div>
                 </div>
@@ -329,7 +349,7 @@
               {view === 'courses' && !selectedCourse && (
                 <div className="bg-[#162d4f] py-10 text-center border-t border-blue-900/50">
                   <h2 className="text-2xl sm:text-4xl font-extrabold tracking-wide uppercase text-white mb-2">
-                    CALENDARIO CORSI 2026
+                    {headerTitle}
                   </h2>
                   <p className="text-xs sm:text-sm text-slate-300">
                     Formazione tecnica sui sistemi Tecnoalarm, Tecnofire, Nice e Dahua
@@ -496,7 +516,7 @@
                         </div>
                         <h3 className="text-base font-bold text-slate-900">{selectedCourse.title}</h3>
                         <p className="text-xs text-slate-500 mt-1">📅 {selectedCourse.date} ({selectedCourse.time}) | 📍 {selectedCourse.location}</p>
-                        <p className="text-xs text-[#1b365d] font-semibold mt-2">ℹ️ Erogato da Azienda di prova (Massimo 2 partecipanti per azienda).</p>
+                        <p className="text-xs text-[#1b365d] font-semibold mt-2">ℹ️ Erogato da {companyName} (Massimo 2 partecipanti per azienda).</p>
                       </div>
 
                       <h2 className="text-xl font-bold text-slate-900 mb-4">Modulo di Registrazione Installatore</h2>
@@ -603,7 +623,7 @@
                       </div>
                       <h3 className="text-xl font-bold text-slate-900 mb-2">Iscrizione Effettuata con Successo!</h3>
                       <p className="text-slate-600 text-sm mb-6 leading-relaxed">
-                        Grazie <strong>{formData.fullName}</strong> ({formData.company}). Abbiamo registrato la tua richiesta per il corso <strong>{selectedCourse.title}</strong> erogato da <strong>Azienda di prova</strong>.
+                        Grazie <strong>{formData.fullName}</strong> ({formData.company}). Abbiamo registrato la tua richiesta per il corso <strong>{selectedCourse.title}</strong> erogato da <strong>{companyName}</strong>.
                       </p>
                       
                       <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-xs text-slate-700 mb-6 text-left space-y-1.5">
@@ -631,7 +651,7 @@
                       🔒
                     </div>
                     <h2 className="text-xl font-bold text-slate-900">Area Riservata Admin</h2>
-                    <p className="text-xs text-slate-500 mt-1">Azienda di prova • Inserisci il PIN</p>
+                    <p className="text-xs text-slate-500 mt-1">{companyName} • Inserisci il PIN</p>
                   </div>
 
                   <form onSubmit={handleAdminLogin} className="space-y-4">
@@ -665,8 +685,8 @@
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 bg-[#1b365d] text-white p-6 rounded-2xl shadow-md">
                     <div>
                       <span className="text-xs text-amber-300 font-bold uppercase tracking-wider">Pannello di Controllo</span>
-                      <h2 className="text-2xl font-black mt-0.5">Azienda di prova</h2>
-                      <p className="text-xs text-slate-300 mt-1">Gestione corsi, limiti di posti e reportistica iscrizioni</p>
+                      <h2 className="text-2xl font-black mt-0.5">{companyName}</h2>
+                      <p className="text-xs text-slate-300 mt-1">Gestione corsi, personalizzazione brand e reportistica iscrizioni</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <button
@@ -686,6 +706,12 @@
                         className={`text-xs px-4 py-2.5 rounded-xl font-bold transition-all ${adminTab === 'settings' ? 'bg-[#8b1e1e] text-white shadow' : 'bg-white/10 text-white hover:bg-white/20'}`}
                       >
                         ⚙️ Impostazioni Email
+                      </button>
+                      <button
+                        onClick={() => setAdminTab('branding')}
+                        className={`text-xs px-4 py-2.5 rounded-xl font-bold transition-all ${adminTab === 'branding' ? 'bg-[#8b1e1e] text-white shadow' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                      >
+                        🎨 Personalizzazione
                       </button>
                     </div>
                   </div>
@@ -786,15 +812,15 @@
                   {adminTab === 'settings' && (
                     <div className="max-w-xl mx-auto bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
                       <h3 className="text-lg font-bold text-slate-900 mb-1">Configurazione Email Amministratore</h3>
-                      <p className="text-xs text-slate-500 mb-6">Indirizzo email di Azienda di prova per la ricezione delle notifiche di iscrizione.</p>
+                      <p className="text-xs text-slate-500 mb-6">Indirizzo email di {companyName} per la ricezione delle notifiche di iscrizione.</p>
 
-                      {emailSavedMsg && (
+                      {settingsSavedMsg && (
                         <div className="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs p-3 rounded-lg font-semibold">
-                          ✓ Indirizzo email amministrativo aggiornato con successo!
+                          ✓ Impostazioni salvate con successo!
                         </div>
                       )}
 
-                      <form onSubmit={handleSaveAdminEmail} className="space-y-4">
+                      <form onSubmit={handleSaveSettings} className="space-y-4">
                         <div>
                           <label className="block text-xs font-semibold text-slate-700 mb-1">Email Ricezione Notifiche Admin *</label>
                           <input
@@ -812,7 +838,68 @@
                             type="submit"
                             className="w-full bg-[#1b365d] hover:bg-[#162d4f] text-white font-bold py-3 px-4 rounded-xl text-sm transition-colors shadow-md"
                           >
-                            Salva Indirizzo Email
+                            Salva Impostazioni
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  )}
+
+                  {/* SEZIONE PERSONALIZZAZIONE (BRANDING / TITOLI / COPYRIGHT) */}
+                  {adminTab === 'branding' && (
+                    <div className="max-w-xl mx-auto bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
+                      <h3 className="text-lg font-bold text-slate-900 mb-1">Personalizzazione Azienda e Testi</h3>
+                      <p className="text-xs text-slate-500 mb-6">Modifica il nome dell'azienda, il titolo del calendario e il copyright del footer.</p>
+
+                      {settingsSavedMsg && (
+                        <div className="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs p-3 rounded-lg font-semibold">
+                          ✓ Personalizzazioni salvate con successo!
+                        </div>
+                      )}
+
+                      <form onSubmit={handleSaveSettings} className="space-y-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">Nome Azienda Erogatrice *</label>
+                          <input
+                            type="text"
+                            required
+                            value={tempCompanyName}
+                            onChange={(e) => setTempCompanyName(e.target.value)}
+                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]"
+                            placeholder="Es. Azienda di prova"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">Titolo Principale Calendario (Banner) *</label>
+                          <input
+                            type="text"
+                            required
+                            value={tempHeaderTitle}
+                            onChange={(e) => setTempHeaderTitle(e.target.value)}
+                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]"
+                            placeholder="Es. CALENDARIO CORSI 2026"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">Testo Copyright Footer *</label>
+                          <input
+                            type="text"
+                            required
+                            value={tempCopyrightText}
+                            onChange={(e) => setTempCopyrightText(e.target.value)}
+                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]"
+                            placeholder="Es. © 2026 Nome Azienda. Tutti i diritti riservati."
+                          />
+                        </div>
+
+                        <div className="pt-2">
+                          <button
+                            type="submit"
+                            className="w-full bg-[#1b365d] hover:bg-[#162d4f] text-white font-bold py-3 px-4 rounded-xl text-sm transition-colors shadow-md"
+                          >
+                            Salva Personalizzazioni
                           </button>
                         </div>
                       </form>
@@ -823,7 +910,7 @@
                   {adminTab === 'add-course' && (
                     <div className="max-w-2xl mx-auto bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
                       <h3 className="text-lg font-bold text-slate-900 mb-1">Crea Nuovo Corso di Formazione</h3>
-                      <p className="text-xs text-slate-500 mb-6">Azienda di prova • Imposta modalità di erogazione e posti massimi.</p>
+                      <p className="text-xs text-slate-500 mb-6">{companyName} • Imposta modalità di erogazione e posti massimi.</p>
 
                       <form onSubmit={handleAddCourseSubmit} className="space-y-4">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -873,7 +960,7 @@
 
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                           <div>
-                            <label className="block text-xs font-semibold text-slate-700 mb-1">Modality *</label>
+                            <label className="block text-xs font-semibold text-slate-700 mb-1">Modalità *</label>
                             <select
                               name="modality"
                               value={newCourseData.modality}
@@ -1023,7 +1110,7 @@
 
             {/* Footer */}
             <footer className="bg-[#1b365d] text-white border-t border-blue-900/50 py-6 text-center text-xs text-slate-300 mt-16">
-              <p>© 2026 <strong className="text-white">Azienda di prova</strong> - Portale Formazione Installatori Tecnici. Tutti i diritti riservati.</p>
+              <p>{copyrightText}</p>
             </footer>
           </div>
         );
