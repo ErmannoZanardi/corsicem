@@ -26,12 +26,26 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <!-- Babel per JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Supabase JS Client per database cloud -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   </head>
   <body class="bg-slate-100 text-slate-800 antialiased font-sans">
     <div id="root"></div>
 
     <script type="text/babel">
       const { useState, useEffect } = React;
+
+      // ==========================================
+      // CONFIGURAZIONE SUPABASE (Database Cloud)
+      // ==========================================
+      // Inserisci qui i dati presi dalle impostazioni API del tuo progetto Supabase:
+      const SUPABASE_URL = "YOUR_SUPABASE_URL";       // es. "https://abcdefgh.supabase.co"
+      const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY"; // es. "eyJhbGciOi..."
+
+      let supabaseClient = null;
+      if (SUPABASE_URL && SUPABASE_URL !== "YOUR_SUPABASE_URL" && window.supabase) {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      }
 
       function App() {
         const [view, setView] = useState('courses'); // 'courses', 'admin-login', 'admin-dashboard'
@@ -152,26 +166,39 @@
           ];
         });
         
-        // Stato per le iscrizioni
+        // Stato per le iscrizioni (sincronizzato con Supabase se attivo)
         const [registrations, setRegistrations] = useState(() => {
-          const saved = localStorage.getItem('course_registrations_v10');
-          return saved ? JSON.parse(saved) : [
-            {
-              id: 1,
-              courseId: 1,
-              fullName: 'Mario Rossi',
-              company: 'Rossi Impianti Srl',
-              vatNumber: '01234567890',
-              email: 'mario@rossiimpianti.it',
-              phone: '3331234567',
-              city: 'Milano (MI)',
-              courseTitle: 'CORSO TECNICO BASE - LIVELLO 1',
-              brandName: 'TECNOALARM',
-              date: 'giovedì 1 ott 2026',
-              timestamp: '02/10/2026 10:30'
-            }
-          ];
+          const saved = localStorage.getItem('course_registrations_v11');
+          return saved ? JSON.parse(saved) : [];
         });
+
+        // Caricamento iscrizioni da Supabase all'avvio
+        useEffect(() => {
+          async function fetchRegistrations() {
+            if (supabaseClient) {
+              const { data, error } = await supabaseClient.from('registrations').select('*').order('id', { ascending: false });
+              if (!error && data) {
+                // Mappiamo i dati dal formato Supabase allo state locale
+                const formatted = data.map(r => ({
+                  id: r.id,
+                  courseId: r.course_id,
+                  fullName: r.full_name,
+                  company: r.company,
+                  vatNumber: r.vat_number,
+                  email: r.email,
+                  phone: r.phone,
+                  city: r.city,
+                  courseTitle: r.course_title,
+                  brandName: r.brand_name,
+                  date: r.date,
+                  timestamp: r.timestamp
+                }));
+                setRegistrations(formatted);
+              }
+            }
+          }
+          fetchRegistrations();
+        }, []);
 
         const [formData, setFormData] = useState({
           fullName: '',
@@ -182,7 +209,6 @@
           city: ''
         });
 
-        // Form nuovo/modifica corso per admin
         const [editingCourseId, setEditingCourseId] = useState(null);
         const [newCourseData, setNewCourseData] = useState({
           brand: brands[0]?.id || 'tecnoalarm',
@@ -201,7 +227,7 @@
         });
 
         useEffect(() => {
-          localStorage.setItem('course_registrations_v10', JSON.stringify(registrations));
+          localStorage.setItem('course_registrations_v11', JSON.stringify(registrations));
         }, [registrations]);
 
         useEffect(() => {
@@ -237,7 +263,7 @@
           return registrations.filter(r => r.courseId === courseId && r.vatNumber.trim().toLowerCase() === cleanVat).length;
         };
 
-        const handleSubmit = (e) => {
+        const handleSubmit = async (e) => {
           e.preventDefault();
           setSubmitError('');
 
@@ -255,17 +281,44 @@
             return;
           }
 
-          const newReg = {
-            id: Date.now(),
+          const newRegData = {
+            course_id: selectedCourse.id,
+            full_name: formData.fullName,
+            company: formData.company,
+            vat_number: formData.vatNumber,
+            email: formData.email,
+            phone: formData.phone,
+            city: formData.city,
+            course_title: selectedCourse.title,
+            brand_name: selectedCourse.brandName,
+            date: selectedCourse.date,
+            timestamp: new Date().toLocaleString()
+          };
+
+          // Salvataggio su Supabase se configurato
+          if (supabaseClient) {
+            const { data, error } = await supabaseClient.from('registrations').insert([newRegData]).select();
+            if (error) {
+              console.error("Errore salvataggio Supabase:", error);
+              setSubmitError("Errore di connessione al database cloud. Riprova.");
+              return;
+            }
+            if (data && data[0]) {
+              newRegData.id = data[0].id;
+            }
+          }
+
+          const localReg = {
+            id: newRegData.id || Date.now(),
             courseId: selectedCourse.id,
             ...formData,
             courseTitle: selectedCourse.title,
             brandName: selectedCourse.brandName,
             date: selectedCourse.date,
-            timestamp: new Date().toLocaleString()
+            timestamp: newRegData.timestamp
           };
 
-          setRegistrations([newReg, ...registrations]);
+          setRegistrations([localReg, ...registrations]);
           setSubmitted(true);
         };
 
@@ -330,12 +383,10 @@
         const handleAddCourseSubmit = (e) => {
           e.preventDefault();
           if (editingCourseId) {
-            // Modifica corso esistente
             setCourses(courses.map(c => c.id === editingCourseId ? { ...c, ...newCourseData, maxParticipants: parseInt(newCourseData.maxParticipants) || 12 } : c));
             alert('Corso modificato con successo!');
             setEditingCourseId(null);
           } else {
-            // Aggiungi nuovo corso
             const createdCourse = {
               id: Date.now(),
               ...newCourseData,
@@ -386,9 +437,7 @@
         const handleDeleteCourse = (id) => {
           if (confirm('Vuoi davvero eliminare questo corso?')) {
             setCourses(courses.filter(c => c.id !== id));
-            if (editingCourseId === id) {
-              setEditingCourseId(null);
-            }
+            if (editingCourseId === id) setEditingCourseId(null);
           }
         };
 
@@ -738,12 +787,12 @@
                       </div>
                       <h3 className="text-xl font-bold text-slate-900 mb-2">Iscrizione Effettuata con Successo!</h3>
                       <p className="text-slate-600 text-sm mb-6 leading-relaxed">
-                        Grazie <strong>{formData.fullName}</strong> ({formData.company}). Abbiamo registrato correttamente la tua richiesta per il corso <strong>{selectedCourse.title}</strong> erogato da <strong>{companyName}</strong>. L'iscrizione è stata salvata nel pannello Admin.
+                        Grazie <strong>{formData.fullName}</strong> ({formData.company}). Abbiamo registrato correttamente la tua richiesta per il corso <strong>{selectedCourse.title}</strong> erogato da <strong>{companyName}</strong>. L'iscrizione è stata salvata online.
                       </p>
                       
                       <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-xs text-slate-700 mb-6 text-left space-y-1.5">
                         <p>✉️ <strong>Email registrata:</strong> {formData.email}</p>
-                        <p className="text-emerald-700 font-semibold pt-1">✓ Salvataggio completato con successo!</p>
+                        <p className="text-emerald-700 font-semibold pt-1">✓ Salvataggio cloud completato con successo!</p>
                       </div>
 
                       <button
@@ -864,8 +913,11 @@
                         <h3 className="text-lg font-bold text-slate-900">Elenco Dettagliato Installatori</h3>
                         {registrations.length > 0 && (
                           <button
-                            onClick={() => {
+                            onClick={async () => {
                               if (confirm('Vuoi davvero cancellare tutte le iscrizioni?')) {
+                                if (supabaseClient) {
+                                  await supabaseClient.from('registrations').delete().neq('id', 0);
+                                }
                                 setRegistrations([]);
                               }
                             }}
