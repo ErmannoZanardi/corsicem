@@ -496,7 +496,6 @@
               </div>
             </header>
 
-            {/* Banner con il Titolo Principale Dinamico */}
             {view === 'courses' && !selectedCourse && (
               <div className="bg-slate-800 text-white py-8 px-6 shadow-inner mb-6">
                 <div className="max-w-[1400px] mx-auto text-center">
@@ -542,6 +541,8 @@
                         const percentage = Math.min(100, Math.round((enrolled / maxLimit) * 100));
                         const brandObj = brands.find(b => b.id === course.brand || b.name === course.brandName);
                         const cardColor = brandObj?.color || '#8b1e1e';
+                        
+                        const isOnline = course.modality && course.modality.toLowerCase().includes('meet');
 
                         return (
                           <div key={course.id} className="bg-white rounded-2xl border border-slate-200 shadow-md overflow-hidden flex flex-col justify-between transition-all hover:shadow-xl relative">
@@ -549,12 +550,16 @@
                               {course.isNew && (
                                 <div className="absolute -right-12 top-4 bg-amber-400 text-slate-900 text-xs font-black py-1 px-12 rotate-45 shadow-md uppercase tracking-wider z-10 text-center">NOVITÀ</div>
                               )}
-                              <div className="flex justify-between items-center mb-3 pr-10">
+                              <div className="flex justify-between items-center mb-3 pr-10 flex-wrap gap-2">
                                 <div className="flex items-center gap-2 bg-white/20 px-3 py-1 rounded-lg backdrop-blur-sm">
                                   {brandObj?.logoUrl && <img src={brandObj.logoUrl} alt="" className="h-5 w-auto object-contain bg-white rounded p-0.5" />}
                                   <span className="text-white text-xs font-black tracking-wider">{course.brandName}</span>
                                 </div>
-                                <span className="text-xs text-white/95 bg-black/25 px-2.5 py-1 rounded-lg font-semibold">{course.modality}</span>
+                                
+                                {/* Badge Modalità Grafico Evidenziato */}
+                                <span className={`text-xs font-bold px-3 py-1 rounded-xl shadow-sm flex items-center gap-1.5 ${isOnline ? 'bg-indigo-600 text-white border border-indigo-400' : 'bg-emerald-600 text-white border border-emerald-400'}`}>
+                                  {isOnline ? '💻 Google Meet (Online)' : '📍 In Presenza (Aula)'}
+                                </span>
                               </div>
                               <h3 className="text-lg sm:text-xl font-black tracking-tight text-white uppercase pr-10">{course.title}</h3>
                             </div>
@@ -573,7 +578,7 @@
                                 </div>
                                 <div className="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-slate-100 text-sm">
                                   <div>
-                                    <span className="text-slate-400 font-bold uppercase block mb-1 text-xs">SEDE / MODALITÀ</span>
+                                    <span className="text-slate-400 font-bold uppercase block mb-1 text-xs">SEDE / PIATTAFORMA</span>
                                     <span className="font-bold text-slate-900">{course.location}</span>
                                   </div>
                                   <div>
@@ -627,21 +632,28 @@
                     (() => {
                       const brandObj = brands.find(b => b.id === selectedCourse.brand || b.name === selectedCourse.brandName);
                       const brandColor = brandObj?.color || '#8b1e1e';
+                      const isOnline = selectedCourse.modality && selectedCourse.modality.toLowerCase().includes('meet');
 
                       return (
                         <div>
                           <button onClick={() => setSelectedCourse(null)} className="text-sm font-bold text-[#1b365d] hover:underline mb-6 inline-flex items-center gap-1.5">
                             ← Torna all'elenco corsi
                           </button>
-                          <div className="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                            <div className="flex justify-between items-center mb-2">
+                          
+                          {/* Box riepilogo corso con forte evidenza visiva della modalità */}
+                          <div className="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+                            <div className="flex justify-between items-center">
                               <span className="text-xs font-black uppercase tracking-wider" style={{ color: brandColor }}>{selectedCourse.brandName}</span>
-                              <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-blue-100 text-blue-800">{selectedCourse.modality}</span>
+                              
+                              <span className={`text-xs font-bold px-3 py-1 rounded-xl shadow-sm flex items-center gap-1.5 ${isOnline ? 'bg-indigo-600 text-white' : 'bg-emerald-600 text-white'}`}>
+                                {isOnline ? '💻 Google Meet (Online)' : '📍 In Presenza'}
+                              </span>
                             </div>
                             <h3 className="text-lg font-bold text-slate-900">{selectedCourse.title}</h3>
-                            <p className="text-xs text-slate-500 mt-1">📅 {selectedCourse.date} ({selectedCourse.time}) | 📍 {selectedCourse.location}</p>
-                            <p className="text-xs text-slate-700 font-semibold mt-1">💰 Quota di iscrizione: <span className="text-[#1b365d] font-bold">{selectedCourse.price || 'Gratuito'}</span></p>
-                            <p className="text-xs text-[#1b365d] font-semibold mt-1.5">ℹ Erogato da {companyName} (Max 2 partecipanti per azienda).</p>
+                            <p className="text-xs text-slate-600">📅 <strong>Data:</strong> {selectedCourse.date} ({selectedCourse.time})</p>
+                            <p className="text-xs text-slate-600">📍 <strong>{isOnline ? 'Piattaforma' : 'Sede'}:</strong> {selectedCourse.location}</p>
+                            <p className="text-xs text-slate-700">💰 <strong>Quota di iscrizione:</strong> <span className="text-[#1b365d] font-bold">{selectedCourse.price || 'Gratuito'}</span></p>
+                            <p className="text-xs text-[#1b365d] font-semibold pt-1 border-t border-slate-200">ℹ Erogato da {companyName} (Max 2 partecipanti per azienda).</p>
                           </div>
 
                           <h2 className="text-xl font-bold text-slate-900 mb-4">Modulo di Registrazione Installatore</h2>
