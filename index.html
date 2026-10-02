@@ -268,7 +268,7 @@
                 course_title: selectedCourse.title,
                 course_date: selectedCourse.date,
                 company_name: companyName,
-                message: `Grazie per esserti iscritto al corso:\n\nCorso: ${selectedCourse.title} \n\nData: (${selectedCourse.date})\n\nTi aspettiamo!`
+                message: `Grazie per esserti iscritto al corso:\n\nCorso: ${selectedCourse.title}\nData: (${selectedCourse.date})\n\nTi aspettiamo!`
               });
 
               // 2. Email di notifica all'amministratore del sito
@@ -279,7 +279,7 @@
                   course_title: selectedCourse.title,
                   course_date: selectedCourse.date,
                   company_name: companyName,
-                  message: `Nuova iscrizione ricevuta!\n\nPartecipante: ${formData.fullName}\nAzienda: ${formData.company} (P.IVA: ${formData.vatNumber})\nEmail: ${formData.email}\nTelefono: ${formData.phone}`
+                  message: `Nuova iscrizione ricevuta!\n\nPartecipante: ${formData.fullName}\nAzienda: ${formData.company} \n(P.IVA: ${formData.vatNumber})\nEmail: ${formData.email}\nTelefono: ${formData.phone}`
                 });
               }
             } catch (err) {
