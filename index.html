@@ -217,21 +217,8 @@
             return;
           }
 
-          // CORRETTO: Gestione del tipo course_id per evitare errori di tipo bigint/uuid sul database
-          let parsedCourseId = selectedCourse.id;
-          if (typeof parsedCourseId === 'string' && !isNaN(parsedCourseId)) {
-            parsedCourseId = parseInt(parsedCourseId, 10);
-          } else if (typeof parsedCourseId === 'string') {
-            // Se il database richiede un numero bigint ma l'id è una stringa alfanumerica/UUID, 
-            // proviamo a convertirlo o passarlo in modo sicuro (o gestiamo eventuali fallback).
-            // Se la tua tabella usa UUID per courses.id, allora la tabella registrations.course_id deve essere uuid e non bigint.
-            // Qui convertiamo in numero se possibile, altrimenti se la colonna è bigint e riceve UUID va modificata la tabella su Supabase.
-            const num = Number(parsedCourseId);
-            if (!isNaN(num)) parsedCourseId = num;
-          }
-
           const newRegData = {
-            course_id: parsedCourseId,
+            course_id: selectedCourse.id,
             full_name: formData.fullName,
             company: formData.company,
             vat_number: formData.vatNumber,
@@ -244,6 +231,7 @@
             timestamp: new Date().toLocaleString()
           };
 
+          let insertedId = Date.now();
           if (supabaseClient) {
             const { data, error } = await supabaseClient.from('registrations').insert([newRegData]).select();
             if (error) {
@@ -251,12 +239,12 @@
               return;
             }
             if (data && data[0]) {
-              newRegData.id = data[0].id;
+              insertedId = data[0].id;
             }
           }
 
           const localReg = {
-            id: newRegData.id || Date.now(),
+            id: insertedId,
             courseId: selectedCourse.id,
             ...formData,
             courseTitle: selectedCourse.title,
@@ -267,6 +255,20 @@
 
           setRegistrations([localReg, ...registrations]);
           setSubmitted(true);
+        };
+
+        // Funzione per eliminare una singola iscrizione
+        const handleDeleteRegistration = async (regId) => {
+          if (confirm('Vuoi davvero eliminare questa iscrizione?')) {
+            if (supabaseClient) {
+              const { error } = await supabaseClient.from('registrations').delete().eq('id', regId);
+              if (error) {
+                alert("Errore durante l'eliminazione dell'iscrizione: " + error.message);
+                return;
+              }
+            }
+            setRegistrations(registrations.filter(r => r.id !== regId));
+          }
         };
 
         const handleAdminLogin = (e) => {
@@ -772,6 +774,7 @@
                                   <th className="p-4 font-bold">Azienda / P.IVA</th>
                                   <th className="p-4 font-bold">Contatti</th>
                                   <th className="p-4 font-bold">Corso Scelto</th>
+                                  <th className="p-4 font-bold text-center">Azioni</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
@@ -785,6 +788,15 @@
                                       <div className="flex items-center gap-1.5 mb-1"><span className="inline-block bg-red-50 text-[#8b1e1e] border border-red-200 text-xs font-bold px-2 py-0.5 rounded">{reg.brandName}</span></div>
                                       <div className="text-xs font-bold text-slate-900">{reg.courseTitle}</div>
                                       <div className="text-xs text-slate-500">📅 {reg.date}</div>
+                                    </td>
+                                    <td className="p-4 text-center">
+                                      <button
+                                        onClick={() => handleDeleteRegistration(reg.id)}
+                                        className="text-red-600 hover:text-red-800 font-bold text-xs bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-200 transition-colors shadow-sm"
+                                        title="Elimina iscrizione"
+                                      >
+                                        Elimina
+                                      </button>
                                     </td>
                                   </tr>
                                 ))}
