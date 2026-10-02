@@ -508,6 +508,7 @@
         };
 
         // Generazione PDF professionale al volo con jsPDF e colori del brand
+        // Generazione PDF professionale al volo con jsPDF, logo e colori del brand
         const handleDownloadLocandina = (course) => {
           const { jsPDF } = window.jspdf;
           const doc = new jsPDF();
@@ -516,7 +517,6 @@
           const brandObj = brands.find(b => b.id === course.brand || b.name === course.brandName);
           const brandColorHex = brandObj?.color || '#1b365d';
 
-          // Converte il colore HEX in RGB per jsPDF
           const hexToRgb = (hex) => {
             let c = hex.replace('#','');
             if(c.length === 3) c = c.split('').map(x => x + x).join('');
@@ -525,89 +525,128 @@
           };
           const [r, g, b] = hexToRgb(brandColorHex);
 
-          // 1. BANNER SUPERIORE INTESTAZIONE
-          doc.setFillColor(r, g, b);
-          doc.rect(0, 0, 210, 45, 'F');
+          // Funzione interna per generare e aprire il PDF (gestisce anche il logo se presente)
+          const generatePdfContent = (logoImgData) => {
+            // 1. BANNER SUPERIORE INTESTAZIONE
+            doc.setFillColor(r, g, b);
+            doc.rect(0, 0, 210, 45, 'F');
 
-          doc.setTextColor(255, 255, 255);
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(16);
-          doc.text(course.brandName || "CORSO DI FORMAZIONE", 15, 20);
+            // Se è presente un logo aziendale valido, lo inseriamo nel banner in alto a destra o sinistra
+            if (logoImgData) {
+              try {
+                // Inserisce il logo (es. coordinate x: 155, y: 8, larghezza: 40, altezza proporzionale o fissa)
+                doc.addImage(logoImgData, 'PNG', 155, 8, 40, 25);
+              } catch (e) {
+                console.error("Errore nell'inserimento del logo nel PDF:", e);
+              }
+            }
 
-          doc.setFont("helvetica", "normal");
-          doc.setFontSize(10);
-          doc.text(`Organizzato da: ${companyName}`, 15, 30);
-
-          // 2. TITOLO DEL CORSO
-          doc.setTextColor(30, 41, 59);
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(20);
-          const splitTitle = doc.splitTextToSize(course.title, 180);
-          doc.text(splitTitle, 15, 65);
-
-          // Linea divisoria colorata
-          doc.setDrawColor(r, g, b);
-          doc.setLineWidth(0.8);
-          doc.line(15, 75, 195, 75);
-
-          // 3. DETTAGLI CORSO (Data, Ora, Durata, Modalità, Sede, Prezzo)
-          let y = 88;
-          const addDetailRow = (label, value) => {
+            doc.setTextColor(255, 255, 255);
             doc.setFont("helvetica", "bold");
-            doc.setTextColor(100, 116, 139);
+            doc.setFontSize(16);
+            doc.text(course.brandName || "CORSO DI FORMAZIONE", 15, 20);
+
+            doc.setFont("helvetica", "normal");
             doc.setFontSize(10);
-            doc.text(label.toUpperCase(), 15, y);
+            doc.text(`Organizzato da: ${companyName}`, 15, 30);
+
+            // 2. TITOLO DEL CORSO
+            doc.setTextColor(30, 41, 59);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(20);
+            const splitTitle = doc.splitTextToSize(course.title, 180);
+            doc.text(splitTitle, 15, 65);
+
+            // Linea divisoria colorata
+            doc.setDrawColor(r, g, b);
+            doc.setLineWidth(0.8);
+            doc.line(15, 75, 195, 75);
+
+            // 3. DETTAGLI CORSO
+            let y = 88;
+            const addDetailRow = (label, value) => {
+              doc.setFont("helvetica", "bold");
+              doc.setTextColor(100, 116, 139);
+              doc.setFontSize(10);
+              doc.text(label.toUpperCase(), 15, y);
+              
+              doc.setFont("helvetica", "bold");
+              doc.setTextColor(30, 41, 59);
+              doc.setFontSize(11);
+              doc.text(value || 'N/D', 65, y);
+              y += 10;
+            };
+
+            addDetailRow("Data:", course.date);
+            addDetailRow("Orario:", course.time);
+            addDetailRow("Durata:", course.duration);
+            addDetailRow("Modalità:", course.modality);
+            addDetailRow("Sede / Piattaforma:", course.location);
+            addDetailRow("Quota Iscrizione:", course.price || 'Gratuito');
+
+            y += 5;
+            
+            // 4. DESCRIZIONE
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(r, g, b);
+            doc.setFontSize(13);
+            doc.text("Descrizione del Corso", 15, y);
+            y += 7;
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(10);
+            doc.setTextColor(71, 85, 105);
+            const splitDesc = doc.splitTextToSize(course.description || 'Nessuna descrizione disponibile.', 180);
+            doc.text(splitDesc, 15, y);
+
+            y += (splitDesc.length * 5) + 15;
+
+            // 5. BOX CALL TO ACTION / INFO POSTI
+            doc.setFillColor(241, 245, 249);
+            doc.roundedRect(15, y, 180, 24, 3, 3, 'F');
             
             doc.setFont("helvetica", "bold");
-            doc.setTextColor(30, 41, 59);
-            doc.setFontSize(11);
-            doc.text(value || 'N/D', 65, y);
-            y += 10;
+            doc.setFontSize(10);
+            doc.setTextColor(r, g, b);
+            doc.text("INFORMAZIONI E PARTECIPAZIONE", 20, y + 9);
+            
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(9);
+            doc.setTextColor(100, 116, 139);
+            doc.text(`Posti limitati (Max ${course.maxParticipants || 12} partecipanti). Iscriviti subito online sul portale aziendale.`, 20, y + 16);
+
+            // FOOTER
+            doc.setFontSize(8);
+            doc.setTextColor(148, 163, 184);
+            doc.text(copyrightText, 105, 285, { align: 'center' });
+
+            // Apertura diretta nel browser (come richiesto in precedenza)
+            const pdfOutput = doc.output('bloburl');
+            window.open(pdfOutput, '_blank');
           };
 
-          addDetailRow("Data:", course.date);
-          addDetailRow("Orario:", course.time);
-          addDetailRow("Durata:", course.duration);
-          addDetailRow("Modalità:", course.modality);
-          addDetailRow("Sede / Piattaforma:", course.location);
-          addDetailRow("Quota Iscrizione:", course.price || 'Gratuito');
-
-          y += 5;
-          
-          // 4. DESCRIZIONE
-          doc.setFont("helvetica", "bold");
-          doc.setTextColor(r, g, b);
-          doc.setFontSize(13);
-          doc.text("Descrizione del Corso", 15, y);
-          y += 7;
-
-          doc.setFont("helvetica", "normal");
-          doc.setFontSize(10);
-          doc.setTextColor(71, 85, 105);
-          const splitDesc = doc.splitTextToSize(course.description || 'Nessuna descrizione disponibile.', 180);
-          doc.text(splitDesc, 15, y);
-
-          y += (splitDesc.length * 5) + 15;
-
-          // 5. BOX CALL TO ACTION / INFO POSTI
-          doc.setFillColor(241, 245, 249);
-          doc.roundedRect(15, y, 180, 24, 3, 3, 'F');
-          
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(10);
-          doc.setTextColor(r, g, b);
-          doc.text("INFORMAZIONI E PARTECIPAZIONE", 20, y + 9);
-          
-          doc.setFont("helvetica", "normal");
-          doc.setFontSize(9);
-          doc.setTextColor(100, 116, 139);
-          doc.text(`Posti limitati (Max ${course.maxParticipants || 12} partecipanti). Iscriviti subito online sul portale aziendale.`, 20, y + 16);
-
-          // FOOTER
-          doc.setFontSize(8);
-          doc.setTextColor(148, 163, 184);
-          doc.text(copyrightText, 105, 285, { align: 'center' });
-
+          // Controlliamo se è presente un logo aziendale da inserire
+          if (companyLogo) {
+            const img = new Image();
+            img.crossOrigin = 'Anonymous'; // Necessario per evitare problemi di CORS con immagini esterne
+            img.src = companyLogo;
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              canvas.width = img.width;
+              canvas.height = img.height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0);
+              const dataURL = canvas.toDataURL('image/png');
+              generatePdfContent(dataURL);
+            };
+            img.onerror = () => {
+              // Se il caricamento del logo fallisce, genera comunque il PDF senza logo
+              generatePdfContent(null);
+            };
+          } else {
+            generatePdfContent(null);
+          }
+        };
           // Salvataggio file PDF generato
 // Nuovo codice per aprire nel browser
 const pdfOutput = doc.output('bloburl');
