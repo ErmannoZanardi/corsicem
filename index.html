@@ -38,10 +38,8 @@
       // ==========================================
       // CONFIGURAZIONE SUPABASE (Database Cloud)
       // ==========================================
-      // Inserisci qui i dati presi dalle impostazioni API del tuo progetto Supabase:
       const SUPABASE_URL = "https://nsfqltisjpjirqoadjnh.supabase.co";
-      //const SUPABASE_URL = "https://nsfqltisjpjirqoadjnh.supabase.co/rest/v1/";       // es. "https://abcdefgh.supabase.co"
-      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5zZnFsdGlzanBqaXJxb2Fkam5oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA4ODk5NDgsImV4cCI6MjEwNjQ2NTk0OH0.uWIC4REeMSmFC1LbYt7kpZP40CQ4GXbmH_Ct7AkkGFE"; // es. "eyJhbGciOi..."
+      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5zZnFsdGlzanBqaXJxb2Fkam5oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA4ODk5NDgsImV4cCI6MjEwNjQ2NTk0OH0.uWIC4REeMSmFC1LbYt7kpZP40CQ4GXbmH_Ct7AkkGFE";
 
       let supabaseClient = null;
       if (SUPABASE_URL && SUPABASE_URL !== "YOUR_SUPABASE_URL" && window.supabase) {
@@ -167,7 +165,7 @@
           ];
         });
         
-        // Stato per le iscrizioni (sincronizzato con Supabase se attivo)
+        // Stato per le iscrizioni
         const [registrations, setRegistrations] = useState(() => {
           const saved = localStorage.getItem('course_registrations_v11');
           return saved ? JSON.parse(saved) : [];
@@ -179,7 +177,6 @@
             if (supabaseClient) {
               const { data, error } = await supabaseClient.from('registrations').select('*').order('id', { ascending: false });
               if (!error && data) {
-                // Mappiamo i dati dal formato Supabase allo state locale
                 const formatted = data.map(r => ({
                   id: r.id,
                   courseId: r.course_id,
@@ -296,7 +293,6 @@
             timestamp: new Date().toLocaleString()
           };
 
-          // Salvataggio su Supabase se configurato
           if (supabaseClient) {
             const { data, error } = await supabaseClient.from('registrations').insert([newRegData]).select();
             if (error) {
@@ -557,7 +553,6 @@
                             key={course.id}
                             className="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden flex flex-col justify-between transition-all hover:shadow-xl relative"
                           >
-                            {/* Header Card con colore dinamico del marchio */}
                             <div className="text-white p-6 relative overflow-hidden" style={{ backgroundColor: cardColor }}>
                               {course.isNew && (
                                 <div className="absolute -right-12 top-4 bg-amber-400 text-slate-900 text-[10px] font-black py-1 px-12 rotate-45 shadow-sm uppercase tracking-wider">
@@ -579,7 +574,6 @@
                               <h3 className="text-lg sm:text-xl font-black tracking-tight text-white uppercase">{course.title}</h3>
                             </div>
 
-                            {/* Contenuto Card */}
                             <div className="p-6 flex-grow flex flex-col justify-between">
                               <div>
                                 <div className="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-slate-100 text-xs">
@@ -604,7 +598,6 @@
                               </div>
 
                               <div>
-                                {/* Barra Posti Disponibili */}
                                 <div className="mb-6">
                                   <div className="flex justify-between items-center text-xs mb-1.5">
                                     <span className="text-slate-500 font-medium">Posti disponibili</span>
@@ -620,7 +613,6 @@
                                   </div>
                                 </div>
 
-                                {/* Pulsanti Azione con colore dinamico */}
                                 <div className="space-y-2.5">
                                   <button
                                     onClick={() => { setSelectedCourse(course); setSubmitted(false); setSubmitError(''); }}
