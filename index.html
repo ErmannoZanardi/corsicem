@@ -94,9 +94,9 @@
         const [tempAdminEmail, setTempAdminEmail] = useState(adminEmail);
         const [settingsSavedMsg, setSettingsSavedMsg] = useState(false);
 
-        // Stato per i corsi
+        // Stato per i corsi (inizializzato da localStorage come fallback o cache)
         const [courses, setCourses] = useState(() => {
-          const saved = localStorage.getItem('system_courses_v10');
+          const saved = localStorage.getItem('system_courses_v11');
           return saved ? JSON.parse(saved) : [
             {
               id: 1,
@@ -129,38 +129,6 @@
               description: 'Corso Tecnico Base - Panoramica prodotti Tecnofire, Tipici di Cablaggio, Utilizzo Base e diagnostica, Passi di programmazione e Software Centro.',
               level: 'Base',
               isNew: true
-            },
-            {
-              id: 3,
-              brand: 'nice',
-              brandName: 'NICE',
-              title: 'CORSO AUTOMAZIONI SMART & ECOSYSTEM',
-              code: 'NICE-AUT-03',
-              date: 'martedì 5 nov 2026',
-              time: '14:00 – 18:00',
-              modality: 'Google Meet',
-              location: 'Google Meet (Link online)',
-              maxParticipants: 20,
-              duration: '4 Ore',
-              description: 'Installazione e programmazione centrali per cancelli, barriere e protocolli radio bidirezionali.',
-              level: 'Intermedio',
-              isNew: false
-            },
-            {
-              id: 4,
-              brand: 'dahua',
-              brandName: 'DAHUA',
-              title: 'CORSO VIDEOSORVEGLIANZA IP & AI',
-              code: 'DAH-AI-04',
-              date: 'giovedì 12 nov 2026',
-              time: '09:00 – 13:00',
-              modality: 'Google Meet',
-              location: 'Google Meet (Link online)',
-              maxParticipants: 25,
-              duration: '4 Ore',
-              description: 'Configurazione telecamere termiche, WizSense, riconoscimento facciale e NVR di ultima generazione.',
-              level: 'Avanzato',
-              isNew: false
             }
           ];
         });
@@ -171,13 +139,56 @@
           return saved ? JSON.parse(saved) : [];
         });
 
-        // Caricamento iscrizioni da Supabase all'avvio
+        // Caricamento Corsi e Iscrizioni da Supabase all'avvio
         useEffect(() => {
-          async function fetchRegistrations() {
+          async function fetchData() {
             if (supabaseClient) {
-              const { data, error } = await supabaseClient.from('registrations').select('*').order('id', { ascending: false });
-              if (!error && data) {
-                const formatted = data.map(r => ({
+              // Caricamento Corsi da Supabase
+              const { data: coursesData, error: coursesError } = await supabaseClient.from('courses').select('*');
+              if (!coursesError && coursesData && coursesData.length > 0) {
+                const formattedCourses = coursesData.map(c => ({
+                  id: c.id,
+                  brand: c.brand,
+                  brandName: c.brand_name,
+                  title: c.title,
+                  code: c.code,
+                  date: c.date,
+                  time: c.time,
+                  modality: c.modality,
+                  location: c.location,
+                  maxParticipants: c.max_participants,
+                  duration: c.duration,
+                  description: c.description,
+                  level: c.level,
+                  isNew: c.is_new
+                }));
+                setCourses(formattedCourses);
+              } else if (!coursesError && (!coursesData || coursesData.length === 0)) {
+                // Se la tabella è vuota su Supabase, facciamo il seed dei corsi iniziali
+                console.log('Tabella courses vuota su Supabase, inserimento corsi iniziali...');
+                for (let course of courses) {
+                  await supabaseClient.from('courses').insert([{
+                    brand: course.brand,
+                    brand_name: course.brandName,
+                    title: course.title,
+                    code: course.code,
+                    date: course.date,
+                    time: course.time,
+                    modality: course.modality,
+                    location: course.location,
+                    max_participants: course.maxParticipants,
+                    duration: course.duration,
+                    description: course.description,
+                    level: course.level,
+                    is_new: course.isNew
+                  }]);
+                }
+              }
+
+              // Caricamento Iscrizioni da Supabase
+              const { data: regData, error: regError } = await supabaseClient.from('registrations').select('*').order('id', { ascending: false });
+              if (!regError && regData) {
+                const formattedRegs = regData.map(r => ({
                   id: r.id,
                   courseId: r.course_id,
                   fullName: r.full_name,
@@ -191,11 +202,11 @@
                   date: r.date,
                   timestamp: r.timestamp
                 }));
-                setRegistrations(formatted);
+                setRegistrations(formattedRegs);
               }
             }
           }
-          fetchRegistrations();
+          fetchData();
         }, []);
 
         const [formData, setFormData] = useState({
@@ -229,7 +240,7 @@
         }, [registrations]);
 
         useEffect(() => {
-          localStorage.setItem('system_courses_v10', JSON.stringify(courses));
+          localStorage.setItem('system_courses_v11', JSON.stringify(courses));
         }, [courses]);
 
         useEffect(() => {
@@ -262,12 +273,12 @@
         };
 
         // ==========================================
-        // FUNZIONE handleSubmit AGGIORNATA E CORRETTA
+        // FUNZIONE handleSubmit ISCRIZIONI
         // ==========================================
         const handleSubmit = async (e) => {
-          e.preventDefault(); // Fondamentale per evitare il refresh della pagina
+          e.preventDefault();
           setSubmitError('');
-          console.log('Pulsante invio cliccato, avvio validazione...');
+          console.log('Pulsante invio iscrizione cliccato...');
 
           const currentCount = getCourseEnrollmentCount(selectedCourse.id);
           const maxAllowed = selectedCourse.maxParticipants || 12;
@@ -297,10 +308,8 @@
             timestamp: new Date().toLocaleString()
           };
 
-          console.log('Dati pronti per l invio:', newRegData);
-
           if (supabaseClient) {
-            console.log('Invio richiesta POST a Supabase...');
+            console.log('Invio registrazione a Supabase...');
             const { data, error } = await supabaseClient.from('registrations').insert([newRegData]).select();
             
             if (error) {
@@ -311,10 +320,8 @@
             
             if (data && data[0]) {
               newRegData.id = data[0].id;
-              console.log('Richiesta POST riuscita con successo:', data);
+              console.log('Registrazione salvata con successo su Supabase');
             }
-          } else {
-            console.warn("Attenzione: supabaseClient è null. L'iscrizione verrà salvata solo localmente.");
           }
 
           const localReg = {
@@ -389,20 +396,65 @@
           }
         };
 
-        const handleAddCourseSubmit = (e) => {
+        // ==========================================
+        // AGGIUNTA / MODIFICA CORSO CON SUPABASE
+        // ==========================================
+        const handleAddCourseSubmit = async (e) => {
           e.preventDefault();
+          console.log('Invio dati corso...');
+
+          const coursePayload = {
+            brand: newCourseData.brand,
+            brand_name: newCourseData.brandName,
+            title: newCourseData.title,
+            code: newCourseData.code || '',
+            date: newCourseData.date,
+            time: newCourseData.time,
+            modality: newCourseData.modality,
+            location: newCourseData.location,
+            max_participants: parseInt(newCourseData.maxParticipants) || 12,
+            duration: newCourseData.duration,
+            description: newCourseData.description,
+            level: newCourseData.level,
+            is_new: newCourseData.isNew
+          };
+
           if (editingCourseId) {
+            // Modifica corso esistente
+            if (supabaseClient) {
+              const { error } = await supabaseClient.from('courses').update(coursePayload).eq('id', editingCourseId);
+              if (error) {
+                console.error("Errore aggiornamento corso su Supabase:", error);
+                alert("Errore durante l'aggiornamento su Supabase: " + error.message);
+                return;
+              }
+            }
+
             setCourses(courses.map(c => c.id === editingCourseId ? { ...c, ...newCourseData, maxParticipants: parseInt(newCourseData.maxParticipants) || 12 } : c));
             alert('Corso modificato con successo!');
             setEditingCourseId(null);
           } else {
+            // Inserimento nuovo corso
+            let newId = Date.now();
+            if (supabaseClient) {
+              const { data, error } = await supabaseClient.from('courses').insert([coursePayload]).select();
+              if (error) {
+                console.error("Errore inserimento corso su Supabase:", error);
+                alert("Errore durante il salvataggio su Supabase: " + error.message);
+                return;
+              }
+              if (data && data[0]) {
+                newId = data[0].id;
+              }
+            }
+
             const createdCourse = {
-              id: Date.now(),
+              id: newId,
               ...newCourseData,
               maxParticipants: parseInt(newCourseData.maxParticipants) || 12
             };
             setCourses([...courses, createdCourse]);
-            alert('Nuovo corso aggiunto con successo!');
+            alert('Nuovo corso aggiunto con successo sul database!');
           }
 
           setNewCourseData({
@@ -443,10 +495,19 @@
           setAdminTab('add-course');
         };
 
-        const handleDeleteCourse = (id) => {
+        const handleDeleteCourse = async (id) => {
           if (confirm('Vuoi davvero eliminare questo corso?')) {
+            if (supabaseClient) {
+              const { error } = await supabaseClient.from('courses').delete().eq('id', id);
+              if (error) {
+                console.error("Errore eliminazione corso da Supabase:", error);
+                alert("Errore durante l'eliminazione: " + error.message);
+                return;
+              }
+            }
             setCourses(courses.filter(c => c.id !== id));
             if (editingCourseId === id) setEditingCourseId(null);
+            alert('Corso eliminato con successo.');
           }
         };
 
@@ -682,7 +743,7 @@
                             </div>
                             <h3 className="text-base font-bold text-slate-900">{selectedCourse.title}</h3>
                             <p className="text-xs text-slate-500 mt-1">📅 {selectedCourse.date} ({selectedCourse.time}) | 📍 {selectedCourse.location}</p>
-                            <p className="text-xs text-[#1b365d] font-semibold mt-2">ℹ️️ Erogato da {companyName} (Massimo 2 partecipanti per azienda).</p>
+                            <p className="text-xs text-[#1b365d] font-semibold mt-2">ℹ Erogato da {companyName} (Massimo 2 partecipanti per azienda).</p>
                           </div>
 
                           <h2 className="text-xl font-bold text-slate-900 mb-4">Modulo di Registrazione Installatore</h2>
@@ -1194,7 +1255,7 @@
                     <div className="max-w-2xl mx-auto bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
                       <div className="flex justify-between items-center mb-1">
                         <h3 className="text-lg font-bold text-slate-900">
-                          {editingCourseId ? '✏️ Modifica Corso Esistente' : '➕ Crea Nuovo Corso di Formazione'}
+                          {editingCourseId ? '✏️️ Modifica Corso Esistente' : '➕ Crea Nuovo Corso di Formazione'}
                         </h3>
                         {editingCourseId && (
                           <button
