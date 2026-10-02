@@ -258,10 +258,8 @@
             }
           }
 
-          // Invio email tramite EmailJS
           if (window.emailjs) {
             try {
-              // 1. Email di conferma all'utente iscritto
               await emailjs.send("service_miwig8q", "template_vtbeauc", {
                 to_name: formData.fullName,
                 to_email: formData.email,
@@ -271,7 +269,6 @@
                 message: `Grazie per esserti iscritto al corso:\n\nCorso: ${selectedCourse.title}\nData: ${selectedCourse.date}\n\nTi aspettiamo!`
               });
 
-              // 2. Email di notifica all'amministratore del sito
               if (adminEmail) {
                 await emailjs.send("service_miwig8q", "template_vtbeauc", {
                   to_name: "Amministratore",
@@ -602,52 +599,54 @@
                         const isOnline = course.modality && course.modality.toLowerCase().includes('meet');
 
                         return (
-                          <div key={course.id} className="bg-white rounded-2xl border border-slate-200 shadow-md overflow-hidden flex flex-col justify-between transition-all hover:shadow-xl relative">
-                            <div className="text-white p-5 relative overflow-hidden" style={{ backgroundColor: cardColor }}>
+                          <div key={course.id} className="bg-white rounded-2xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col justify-between relative group">
+                            {/* Header Card con gradiente professionale */}
+                            <div className="text-white p-5 relative overflow-hidden shadow-sm" style={{ background: `linear-gradient(135deg, ${cardColor}dd, ${cardColor})` }}>
                               {course.isNew && (
                                 <div className="absolute -right-12 top-4 bg-amber-400 text-slate-900 text-xs font-black py-1 px-12 rotate-45 shadow-md uppercase tracking-wider z-10 text-center">NOVITÀ</div>
                               )}
                               <div className="flex justify-between items-center mb-3 pr-10 flex-wrap gap-2">
-                                <div className="flex items-center gap-2 bg-white/20 px-3 py-1 rounded-lg backdrop-blur-sm">
+                                <div className="flex items-center gap-2 bg-white/20 px-3 py-1 rounded-lg backdrop-blur-md border border-white/10">
                                   {brandObj?.logoUrl && <img src={brandObj.logoUrl} alt="" className="h-5 w-auto object-contain bg-white rounded p-0.5" />}
                                   <span className="text-white text-xs font-black tracking-wider">{course.brandName}</span>
                                 </div>
                                 
-                                <span className={`text-xs font-bold px-3 py-1 rounded-xl shadow-sm flex items-center gap-1.5 ${isOnline ? 'bg-indigo-600 text-white border border-indigo-400' : 'bg-emerald-600 text-white border border-emerald-400'}`}>
+                                <span className={`text-xs font-bold px-3 py-1 rounded-xl shadow-sm flex items-center gap-1.5 backdrop-blur-sm ${isOnline ? 'bg-indigo-600/90 text-white border border-indigo-400/50' : 'bg-emerald-600/90 text-white border border-emerald-400/50'}`}>
                                   {isOnline ? '💻 Google Meet (Online)' : '📍 In Presenza (Aula)'}
                                 </span>
                               </div>
-                              <h3 className="text-lg sm:text-xl font-black tracking-tight text-white uppercase pr-10">{course.title}</h3>
+                              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white uppercase pr-10 drop-shadow-sm">{course.title}</h3>
                             </div>
 
-                            <div className="p-6 flex-grow flex flex-col justify-between">
+                            {/* Contenuto Card - Caratteri ingranditi e leggibili */}
+                            <div className="p-6 flex-grow flex flex-col justify-between space-y-4">
                               <div>
-                                <div className="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-slate-100 text-sm">
+                                <div className="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-slate-100 text-base">
                                   <div>
-                                    <span className="text-slate-400 font-bold uppercase block mb-1 text-xs">DATA</span>
-                                    <span className="font-bold text-slate-900">{course.date}</span>
+                                    <span className="text-slate-400 font-bold uppercase block mb-1 text-xs tracking-wider">DATA</span>
+                                    <span className="font-extrabold text-slate-900 text-base sm:text-lg">{course.date}</span>
                                   </div>
                                   <div>
-                                    <span className="text-slate-400 font-bold uppercase block mb-1 text-xs">ORARIO</span>
-                                    <span className="font-bold text-slate-900">{course.time}</span>
-                                  </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-slate-100 text-sm">
-                                  <div>
-                                    <span className="text-slate-400 font-bold uppercase block mb-1 text-xs">SEDE / PIATTAFORMA</span>
-                                    <span className="font-bold text-slate-900">{course.location}</span>
-                                  </div>
-                                  <div>
-                                    <span className="text-slate-400 font-bold uppercase block mb-1 text-xs">COSTO CORSO</span>
-                                    <span className="font-extrabold text-[#1b365d] bg-blue-50 px-2.5 py-1 rounded-lg inline-block border border-blue-100">{course.price || 'Gratuito'}</span>
+                                    <span className="text-slate-400 font-bold uppercase block mb-1 text-xs tracking-wider">ORARIO</span>
+                                    <span className="font-extrabold text-slate-900 text-base sm:text-lg">{course.time}</span>
                                   </div>
                                 </div>
-                                <p className="text-slate-700 text-sm leading-relaxed mb-6 font-normal">{course.description}</p>
+                                <div className="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-slate-100 text-base">
+                                  <div>
+                                    <span className="text-slate-400 font-bold uppercase block mb-1 text-xs tracking-wider">SEDE / PIATTAFORMA</span>
+                                    <span className="font-bold text-slate-900 text-sm sm:text-base leading-snug">{course.location}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400 font-bold uppercase block mb-1 text-xs tracking-wider">COSTO CORSO</span>
+                                    <span className="font-black text-[#1b365d] bg-blue-50/80 px-3 py-1.5 rounded-xl inline-block border border-blue-100 text-base shadow-2xs">{course.price || 'Gratuito'}</span>
+                                  </div>
+                                </div>
+                                <p className="text-slate-700 text-sm sm:text-base leading-relaxed font-normal">{course.description}</p>
                               </div>
 
                               <div>
-                                <div className="mb-5">
-                                  <div className="flex justify-between items-center text-xs mb-1.5">
+                                <div className="mb-5 bg-slate-50/70 p-3 rounded-xl border border-slate-100">
+                                  <div className="flex justify-between items-center text-xs sm:text-sm mb-1.5">
                                     <span className="text-slate-600 font-bold">Posti occupati</span>
                                     <span className={`font-black ${isFull ? 'text-red-600' : 'text-slate-900'}`}>{enrolled} / {maxLimit}</span>
                                   </div>
@@ -660,14 +659,14 @@
                                   <button
                                     onClick={() => { setSelectedCourse(course); setSubmitted(false); setSubmitError(''); }}
                                     disabled={isFull}
-                                    className={`w-full font-bold py-3 px-4 rounded-xl text-sm transition-all shadow-md flex items-center justify-center gap-2 text-white ${isFull ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none' : 'hover:opacity-95'}`}
+                                    className={`w-full font-extrabold py-3.5 px-4 rounded-xl text-sm sm:text-base transition-all shadow-md flex items-center justify-center gap-2 text-white tracking-wide ${isFull ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none' : 'hover:opacity-95 hover:shadow-lg active:scale-[0.99]'}`}
                                     style={{ backgroundColor: isFull ? undefined : cardColor }}
                                   >
                                     {isFull ? 'Corso Esaurito (Sold Out)' : 'Iscriviti al Corso'}
                                   </button>
                                   <button
                                     onClick={() => handleDownloadLocandina(course)}
-                                    className="w-full bg-white hover:bg-slate-50 text-slate-700 font-bold py-2.5 px-4 rounded-xl text-xs sm:text-sm transition-colors border border-slate-300 flex items-center justify-center gap-2 shadow-sm"
+                                    className="w-full bg-white hover:bg-slate-50 text-slate-700 font-bold py-2.5 px-4 rounded-xl text-xs sm:text-sm transition-colors border border-slate-300/80 flex items-center justify-center gap-2 shadow-2xs"
                                   >
                                     📄 Scarica Locandina
                                   </button>
