@@ -106,13 +106,6 @@
                 });
               }
 
-              // Sincronizza i valori temporanei dei form con quelli caricati
-              setTempCompanyName(companyName);
-              setTempCompanyLogo(companyLogo);
-              setTempHeaderTitle(headerTitle);
-              setTempCopyrightText(copyrightText);
-              setTempAdminEmail(adminEmail);
-
               // 2. Caricamento Corsi da Supabase
               const { data: coursesData, error: coursesError } = await supabaseClient.from('courses').select('*');
               if (!coursesError && coursesData && coursesData.length > 0) {
@@ -159,7 +152,7 @@
           fetchData();
         }, []);
 
-        // Aggiorna i campi temporanei quando cambiano gli stati principali
+        // Aggiorna i campi temporanei quando cambiano gli stati principali caricati da Supabase
         useEffect(() => {
           setTempCompanyName(companyName);
           setTempCompanyLogo(companyLogo);
