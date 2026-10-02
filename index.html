@@ -797,16 +797,16 @@
                                 <div className="absolute -right-12 top-4 bg-amber-400 text-slate-900 text-xs font-black py-1 px-12 rotate-45 shadow-md uppercase tracking-wider z-10 text-center">NOVITÀ</div>
                               )}
                               <div className="flex justify-between items-center mb-3 pr-10 flex-wrap gap-2">
-                                <div className="flex items-center gap-2 bg-white/20 px-3 py-1 rounded-lg backdrop-blur-md border border-white/10">
+                                <div className="flex items-center gap-2 bg-white/20 px-3 py-1 rounded-xl backdrop-blur-md border border-white/10">
                                   {brandObj?.logoUrl && <img src={brandObj.logoUrl} alt="" className="h-5 w-auto object-contain bg-white rounded p-0.5" />}
                                   <span className="text-white text-xs font-black tracking-wider">{course.brandName}</span>
                                 </div>
                                 
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="text-xs font-black px-2.5 py-1 rounded-lg bg-amber-400 text-slate-900 shadow-sm uppercase tracking-wide">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-xs font-black px-3 py-1.5 rounded-xl bg-amber-400 text-slate-900 shadow-sm uppercase tracking-wide">
                                     Livello: {courseLevel}
                                   </span>
-                                  <span className={`text-xs font-bold px-3 py-1 rounded-xl shadow-sm flex items-center gap-1.5 backdrop-blur-sm ${isOnline ? 'bg-indigo-600/90 text-white border border-indigo-400/50' : 'bg-emerald-600/90 text-white border border-emerald-400/50'}`}>
+                                  <span className={`text-xs font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5 backdrop-blur-sm ${isOnline ? 'bg-indigo-600/90 text-white border border-indigo-400/50' : 'bg-emerald-600/90 text-white border border-emerald-400/50'}`}>
                                     {isOnline ? '💻 Google Meet (Online)' : '📍 In Presenza (Aula)'}
                                   </span>
                                 </div>
@@ -895,13 +895,13 @@
                             <div className="flex justify-between items-center">
                               <span className="text-xs font-black uppercase tracking-wider" style={{ color: brandColor }}>{selectedCourse.brandName}</span>
                               
-                              <span className={`text-xs font-bold px-3 py-1 rounded-xl shadow-sm flex items-center gap-1.5 ${isOnline ? 'bg-indigo-600 text-white' : 'bg-emerald-600 text-white'}`}>
+                              <span className={`text-xs font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5 ${isOnline ? 'bg-indigo-600 text-white' : 'bg-emerald-600 text-white'}`}>
                                 {isOnline ? '💻 Google Meet (Online)' : '📍 In Presenza'}
                               </span>
                             </div>
                             <h3 className="text-lg font-bold text-slate-900">{selectedCourse.title}</h3>
                             <div className="flex items-center gap-2 pt-1">
-                              <span className="text-xs font-black bg-amber-200 text-slate-900 px-2.5 py-0.5 rounded uppercase tracking-wide">
+                              <span className="text-xs font-black bg-amber-200 text-slate-900 px-3 py-1.5 rounded-xl uppercase tracking-wide">
                                 Livello: {courseLevel}
                               </span>
                             </div>
