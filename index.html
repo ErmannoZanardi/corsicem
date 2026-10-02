@@ -491,7 +491,17 @@
               </div>
             </header>
 
-            <main className="flex-grow max-w-[1400px] w-full mx-auto px-6 py-8">
+            {/* Banner con il Titolo Principale Dinamico */}
+            {view === 'courses' && !selectedCourse && (
+              <div className="bg-slate-800 text-white py-8 px-6 shadow-inner mb-6">
+                <div className="max-w-[1400px] mx-auto text-center">
+                  <h2 className="text-2xl sm:text-3xl font-black tracking-tight">{headerTitle}</h2>
+                  <p className="text-xs sm:text-sm text-slate-300 mt-1">Seleziona un marchio e scopri i corsi di formazione tecnica disponibili</p>
+                </div>
+              </div>
+            )}
+
+            <main className="flex-grow max-w-[1400px] w-full mx-auto px-6 py-4">
               {view === 'courses' && !selectedCourse && (
                 <div>
                   <div className="flex flex-wrap justify-center gap-2 mb-8">
@@ -712,7 +722,7 @@
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <button onClick={() => setAdminTab('registrations')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'registrations' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>📊 Report ({registrations.length})</button>
-                      <button onClick={() => setAdminTab('brands-management')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'brands-management' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>🏷️ Marchi</button>
+                      <button onClick={() => setAdminTab('brands-management')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'brands-management' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>🏷️️ Marchi</button>
                       <button onClick={() => { setEditingCourseId(null); setAdminTab('add-course'); }} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'add-course' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>➕ Corsi</button>
                       <button onClick={() => setAdminTab('settings')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'settings' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>⚙ Email</button>
                       <button onClick={() => setAdminTab('branding')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'branding' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>🎨 Azienda</button>
