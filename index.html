@@ -539,16 +539,16 @@
                           <div key={course.id} className="bg-white rounded-2xl border border-slate-200 shadow-md overflow-hidden flex flex-col justify-between transition-all hover:shadow-xl relative">
                             <div className="text-white p-5 relative overflow-hidden" style={{ backgroundColor: cardColor }}>
                               {course.isNew && (
-                                <div className="absolute -right-12 top-4 bg-amber-400 text-slate-900 text-xs font-black py-1 px-12 rotate-45 shadow-md uppercase tracking-wider">NOVITÀ</div>
+                                <div className="absolute -right-12 top-4 bg-amber-400 text-slate-900 text-xs font-black py-1 px-12 rotate-45 shadow-md uppercase tracking-wider z-10 text-center">NOVITÀ</div>
                               )}
-                              <div className="flex justify-between items-center mb-3">
+                              <div className="flex justify-between items-center mb-3 pr-10">
                                 <div className="flex items-center gap-2 bg-white/20 px-3 py-1 rounded-lg backdrop-blur-sm">
                                   {brandObj?.logoUrl && <img src={brandObj.logoUrl} alt="" className="h-5 w-auto object-contain bg-white rounded p-0.5" />}
                                   <span className="text-white text-xs font-black tracking-wider">{course.brandName}</span>
                                 </div>
                                 <span className="text-xs text-white/95 bg-black/25 px-2.5 py-1 rounded-lg font-semibold">{course.modality}</span>
                               </div>
-                              <h3 className="text-lg sm:text-xl font-black tracking-tight text-white uppercase">{course.title}</h3>
+                              <h3 className="text-lg sm:text-xl font-black tracking-tight text-white uppercase pr-10">{course.title}</h3>
                             </div>
 
                             <div className="p-6 flex-grow flex flex-col justify-between">
