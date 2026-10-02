@@ -39,8 +39,9 @@
       // CONFIGURAZIONE SUPABASE (Database Cloud)
       // ==========================================
       // Inserisci qui i dati presi dalle impostazioni API del tuo progetto Supabase:
-      const SUPABASE_URL = "https://nsfqltisjpjirqoadjnh.supabase.co/rest/v1/";       // es. "https://abcdefgh.supabase.co"
-      const SUPABASE_ANON_KEY = "nsfqltisjpjirqoadjnh"; // es. "eyJhbGciOi..."
+      const SUPABASE_URL = "https://nsfqltisjpjirqoadjnh.supabase.co";
+      //const SUPABASE_URL = "https://nsfqltisjpjirqoadjnh.supabase.co/rest/v1/";       // es. "https://abcdefgh.supabase.co"
+      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5zZnFsdGlzanBqaXJxb2Fkam5oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA4ODk5NDgsImV4cCI6MjEwNjQ2NTk0OH0.uWIC4REeMSmFC1LbYt7kpZP40CQ4GXbmH_Ct7AkkGFE"; // es. "eyJhbGciOi..."
 
       let supabaseClient = null;
       if (SUPABASE_URL && SUPABASE_URL !== "YOUR_SUPABASE_URL" && window.supabase) {
