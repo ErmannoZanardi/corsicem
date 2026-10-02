@@ -192,7 +192,6 @@
           isActive: true
         });
 
-        // Sincronizza il contenuto HTML nell'editor visuale quando si apre la modifica o si resetta il form
         useEffect(() => {
           if (editorRef.current) {
             if (editorRef.current.innerHTML !== newCourseData.description) {
@@ -393,51 +392,48 @@
           }
         };
 
-        // Funzione per formattazione stile Word nell'editor wysiwyg
         const formatTextCommand = (command, value = null) => {
-  if (command === 'insertUnorderedList') {
-    const selection = window.getSelection();
-    if (!selection.rangeCount) return;
-    const range = selection.getRangeAt(0);
-    
-    // Controlla se siamo già dentro una lista
-    let parent = range.commonAncestorContainer;
-    while (parent && parent !== editorRef.current) {
-      if (parent.nodeName === 'UL' || parent.nodeName === 'OL') {
-        document.execCommand('insertUnorderedList', false, null);
-        if (editorRef.current) {
-          setNewCourseData({ ...newCourseData, description: editorRef.current.innerHTML });
-        }
-        return;
-      }
-      parent = parent.parentNode;
-    }
+          if (command === 'insertUnorderedList') {
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return;
+            const range = selection.getRangeAt(0);
+            
+            let parent = range.commonAncestorContainer;
+            while (parent && parent !== editorRef.current) {
+              if (parent.nodeName === 'UL' || parent.nodeName === 'OL') {
+                document.execCommand('insertUnorderedList', false, null);
+                if (editorRef.current) {
+                  setNewCourseData({ ...newCourseData, description: editorRef.current.innerHTML });
+                }
+                return;
+              }
+              parent = parent.parentNode;
+            }
 
-    // Se non siamo in una lista, inserisce un elemento li o applica il comando
-    const ul = document.createElement('ul');
-    ul.style.listStyleType = 'disc';
-    ul.style.paddingLeft = '20px';
-    
-    if (range.collapsed) {
-      const li = document.createElement('li');
-      li.innerHTML = '<br>';
-      ul.appendChild(li);
-      range.insertNode(ul);
-      range.setStart(li, 0);
-      range.collapse(true);
-      selection.removeAllRanges();
-      selection.addRange(range);
-    } else {
-      document.execCommand('insertUnorderedList', false, null);
-    }
-  } else {
-    document.execCommand(command, false, value);
-  }
+            const ul = document.createElement('ul');
+            ul.style.listStyleType = 'disc';
+            ul.style.paddingLeft = '20px';
+            
+            if (range.collapsed) {
+              const li = document.createElement('li');
+              li.innerHTML = '<br>';
+              ul.appendChild(li);
+              range.insertNode(ul);
+              range.setStart(li, 0);
+              range.collapse(true);
+              selection.removeAllRanges();
+              selection.addRange(range);
+            } else {
+              document.execCommand('insertUnorderedList', false, null);
+            }
+          } else {
+            document.execCommand(command, false, value);
+          }
 
-  if (editorRef.current) {
-    setNewCourseData({ ...newCourseData, description: editorRef.current.innerHTML });
-  }
-};
+          if (editorRef.current) {
+            setNewCourseData({ ...newCourseData, description: editorRef.current.innerHTML });
+          }
+        };
 
         const handleEditorInput = () => {
           if (editorRef.current) {
@@ -653,7 +649,6 @@
             doc.setFontSize(10);
             doc.setTextColor(71, 85, 105);
             
-            // Pulisce l'HTML per il PDF rimuovendo i tag e gestendo i ritorni a capo
             const tempDiv = document.createElement("div");
             tempDiv.innerHTML = course.description || 'Nessuna descrizione disponibile.';
             const plainDescription = tempDiv.textContent || tempDiv.innerText || '';
@@ -1069,7 +1064,7 @@
                                     <td className="p-4 text-xs text-slate-500 whitespace-nowrap">{reg.timestamp}</td>
                                     <td className="p-4 font-bold text-slate-900">{reg.fullName}<div className="text-xs text-slate-500 font-normal">{reg.city}</div></td>
                                     <td className="p-4">{reg.company}<div className="text-xs text-slate-500 font-mono">P.IVA: {reg.vatNumber}</div></td>
-                                    <td className="p-4 text-xs"><div>✉️ {reg.email}</div><div className="mt-1">📞 {reg.phone}</div></td>
+                                    <td className="p-4 text-xs"><div>✉️️ {reg.email}</div><div className="mt-1">📞 {reg.phone}</div></td>
                                     <td className="p-4">
                                       <div className="flex items-center gap-1.5 mb-1"><span className="inline-block bg-red-50 text-[#8b1e1e] border border-red-200 text-xs font-bold px-2 py-0.5 rounded">{reg.brandName}</span></div>
                                       <div className="text-xs font-bold text-slate-900">{reg.courseTitle}</div>
@@ -1274,7 +1269,6 @@
                           </div>
                         </div>
 
-                        {/* MINI EDITOR DI TESTO FORMATTATO (STILE WORD) */}
                         <div>
                           <label className="block text-xs font-semibold text-slate-700 mb-1">Descrizione Dettagliata (Formattabile) *</label>
                           <div className="border border-slate-300 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-[#1b365d] bg-white">
