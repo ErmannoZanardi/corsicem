@@ -720,6 +720,11 @@
                     <h1 className="text-base sm:text-lg font-bold tracking-tight">Portale Corsi di {companyName}</h1>
                   </div>
                 </div>
+
+                <div className="bg-slate-900/80 px-4 py-2 rounded-xl border border-slate-700/60 shadow-inner text-center hidden md:block">
+                  <h2 className="text-sm sm:text-base font-black tracking-tight text-white">{headerTitle}</h2>
+                </div>
+
                 <div>
                   {view !== 'admin-dashboard' && view !== 'admin-login' ? (
                     <button
@@ -738,18 +743,12 @@
                   )}
                 </div>
               </div>
+              <div className="bg-slate-900/80 px-4 py-2 border-t border-slate-700/60 text-center block md:hidden">
+                <h2 className="text-xs font-black tracking-tight text-white">{headerTitle}</h2>
+              </div>
             </header>
 
-            {view === 'courses' && !selectedCourse && (
-              <div className="bg-slate-800 text-white py-8 px-6 shadow-inner mb-6">
-                <div className="max-w-[1400px] mx-auto text-center">
-                  <h2 className="text-2xl sm:text-3xl font-black tracking-tight">{headerTitle}</h2>
-                  <p className="text-xs sm:text-sm text-slate-300 mt-1">Seleziona un marchio e scopri i corsi di formazione tecnica disponibili</p>
-                </div>
-              </div>
-            )}
-
-            <main className="flex-grow max-w-[1400px] w-full mx-auto px-6 py-4">
+            <main className="flex-grow max-w-[1400px] w-full mx-auto px-6 py-6">
               {view === 'courses' && !selectedCourse && (
                 <div>
                   <div className="flex flex-wrap justify-center gap-2 mb-8">
