@@ -44,7 +44,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-      const { useState, useEffect } = React;
+      const { useState, useEffect, useRef } = React;
 
       // ==========================================
       // CONFIGURAZIONE SUPABASE (Database Cloud)
@@ -91,6 +91,7 @@
 
         const [courses, setCourses] = useState([]);
         const [registrations, setRegistrations] = useState([]);
+        const editorRef = useRef(null);
 
         useEffect(() => {
           async function fetchData() {
@@ -190,6 +191,15 @@
           isNew: true,
           isActive: true
         });
+
+        // Sincronizza il contenuto HTML nell'editor visuale quando si apre la modifica o si resetta il form
+        useEffect(() => {
+          if (editorRef.current) {
+            if (editorRef.current.innerHTML !== newCourseData.description) {
+              editorRef.current.innerHTML = newCourseData.description || '';
+            }
+          }
+        }, [editingCourseId, adminTab]);
 
         const activeCoursesForPublic = courses.filter(c => c.isActive !== false);
 
@@ -383,6 +393,20 @@
           }
         };
 
+        // Funzione per formattazione stile Word nell'editor wysiwyg
+        const formatTextCommand = (command) => {
+          document.execCommand(command, false, null);
+          if (editorRef.current) {
+            setNewCourseData({ ...newCourseData, description: editorRef.current.innerHTML });
+          }
+        };
+
+        const handleEditorInput = () => {
+          if (editorRef.current) {
+            setNewCourseData({ ...newCourseData, description: editorRef.current.innerHTML });
+          }
+        };
+
         const handleAddCourseSubmit = async (e) => {
           e.preventDefault();
 
@@ -455,6 +479,7 @@
             isNew: true,
             isActive: true
           });
+          if (editorRef.current) editorRef.current.innerHTML = '';
           setAdminTab('registrations');
         };
 
@@ -477,6 +502,9 @@
             isNew: course.isNew || false,
             isActive: course.isActive !== false
           });
+          if (editorRef.current) {
+            editorRef.current.innerHTML = course.description || '';
+          }
           setAdminTab('add-course');
         };
 
@@ -586,7 +614,13 @@
             doc.setFont("helvetica", "normal");
             doc.setFontSize(10);
             doc.setTextColor(71, 85, 105);
-            const splitDesc = doc.splitTextToSize(course.description || 'Nessuna descrizione disponibile.', 180);
+            
+            // Pulisce l'HTML per il PDF rimuovendo i tag e gestendo i ritorni a capo
+            const tempDiv = document.createElement("div");
+            tempDiv.innerHTML = course.description || 'Nessuna descrizione disponibile.';
+            const plainDescription = tempDiv.textContent || tempDiv.innerText || '';
+            
+            const splitDesc = doc.splitTextToSize(plainDescription, 180);
             doc.text(splitDesc, 15, y);
 
             y += (splitDesc.length * 5) + 15;
@@ -769,7 +803,7 @@
                                     <span className="font-black text-[#1b365d] bg-blue-50/80 px-3 py-1.5 rounded-xl inline-block border border-blue-100 text-base shadow-2xs">{course.price || 'Gratuito'}</span>
                                   </div>
                                 </div>
-                                <p className="text-slate-700 text-sm sm:text-base leading-relaxed font-normal">{course.description}</p>
+                                <div className="text-slate-700 text-sm sm:text-base leading-relaxed font-normal prose max-w-none" dangerouslySetInnerHTML={{ __html: course.description }}></div>
                               </div>
 
                               <div>
@@ -1125,7 +1159,7 @@
                       <div className="flex justify-between items-center mb-2">
                         <h3 className="text-lg font-bold text-slate-900">{editingCourseId ? '✏ Modifica Corso Esistente' : '➕ Crea Nuovo Corso'}</h3>
                         {editingCourseId && (
-                          <button onClick={() => { setEditingCourseId(null); setNewCourseData({ brand: brands[0]?.id || 'tecnoalarm', brandName: brands[0]?.name || 'TECNOALARM', title: '', code: '', date: '', time: '09:00 – 13:00', modality: 'In presenza', location: '', maxParticipants: 12, duration: '4 Ore', description: '', level: 'Base', price: 'Gratuito', isNew: true, isActive: true }); }} className="text-xs text-blue-600 hover:underline font-semibold">Passa a Nuovo Corso</button>
+                          <button onClick={() => { setEditingCourseId(null); setNewCourseData({ brand: brands[0]?.id || 'tecnoalarm', brandName: brands[0]?.name || 'TECNOALARM', title: '', code: '', date: '', time: '09:00 – 13:00', modality: 'In presenza', location: '', maxParticipants: 12, duration: '4 Ore', description: '', level: 'Base', price: 'Gratuito', isNew: true, isActive: true }); if(editorRef.current) editorRef.current.innerHTML=''; }} className="text-xs text-blue-600 hover:underline font-semibold">Passa a Nuovo Corso</button>
                         )}
                       </div>
                       <p className="text-xs text-slate-500 mb-6">{companyName} • Gestione catalogo corsi su Supabase.</p>
@@ -1202,9 +1236,27 @@
                           </div>
                         </div>
 
+                        {/* MINI EDITOR DI TESTO FORMATTATO (STILE WORD) */}
                         <div>
-                          <label className="block text-xs font-semibold text-slate-700 mb-1">Descrizione Dettagliata *</label>
-                          <textarea name="description" required rows="3" value={newCourseData.description} onChange={handleNewCourseChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="Panoramica prodotti e programmazione..."></textarea>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">Descrizione Dettagliata (Formattabile) *</label>
+                          <div className="border border-slate-300 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-[#1b365d] bg-white">
+                            <div className="bg-slate-100 border-b border-slate-300 px-3 py-2 flex items-center gap-1.5 flex-wrap">
+                              <button type="button" onClick={() => formatTextCommand('bold')} className="px-2.5 py-1 bg-white hover:bg-slate-200 border border-slate-300 rounded font-bold text-xs text-slate-700 shadow-2xs" title="Grassetto">B</button>
+                              <button type="button" onClick={() => formatTextCommand('italic')} className="px-2.5 py-1 bg-white hover:bg-slate-200 border border-slate-300 rounded italic text-xs text-slate-700 shadow-2xs" title="Corsivo">I</button>
+                              <button type="button" onClick={() => formatTextCommand('underline')} className="px-2.5 py-1 bg-white hover:bg-slate-200 border border-slate-300 rounded underline text-xs text-slate-700 shadow-2xs" title="Sottolineato">U</button>
+                              <span className="w-px h-4 bg-slate-300 mx-1"></span>
+                              <button type="button" onClick={() => formatTextCommand('insertUnorderedList')} className="px-2.5 py-1 bg-white hover:bg-slate-200 border border-slate-300 rounded text-xs text-slate-700 shadow-2xs font-bold" title="Elenco puntato">• Elenco</button>
+                              <button type="button" onClick={() => formatTextCommand('removeFormat')} className="px-2.5 py-1 bg-white hover:bg-slate-200 border border-slate-300 rounded text-xs text-slate-500 shadow-2xs" title="Pulisci formattazione">✕ Pulisci</button>
+                            </div>
+                            <div
+                              ref={editorRef}
+                              contentEditable={true}
+                              onInput={handleEditorInput}
+                              className="w-full px-3.5 py-2.5 text-sm min-h-[120px] max-h-[250px] overflow-y-auto focus:outline-none prose max-w-none text-slate-800"
+                              placeholder="Inserisci la descrizione del corso..."
+                            ></div>
+                          </div>
+                          <span className="text-[10px] text-slate-400 mt-1 block">Puoi evidenziare il testo in grassetto, corsivo o inserire elenchi puntati come in Word.</span>
                         </div>
 
                         <div className="pt-2 flex gap-3">
