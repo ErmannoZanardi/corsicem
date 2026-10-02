@@ -124,7 +124,7 @@
                   maxParticipants: c.max_participants,
                   duration: c.duration,
                   description: c.description,
-                  level: c.level,
+                  level: c.level || 'Base',
                   price: c.price || 'Gratuito',
                   isNew: c.is_new,
                   isActive: c.is_active !== undefined ? c.is_active : true
@@ -268,7 +268,7 @@
                 course_title: selectedCourse.title,
                 course_date: selectedCourse.date,
                 company_name: companyName,
-                message: `Grazie per esserti iscritto al corso:\n\nCorso: ${selectedCourse.title}\nData: ${selectedCourse.date}\n\nTi aspettiamo!`
+                message: `Grazie per esserti iscritto al corso:\n\nCorso: ${selectedCourse.title}\nData: ${selectedCourse.date}\nLivello: ${selectedCourse.level || 'Base'}\n\nTi aspettiamo!`
               });
 
               if (adminEmail) {
@@ -398,7 +398,7 @@
             max_participants: parseInt(newCourseData.maxParticipants) || 12,
             duration: newCourseData.duration,
             description: newCourseData.description,
-            level: newCourseData.level,
+            level: newCourseData.level || 'Base',
             price: newCourseData.price || 'Gratuito',
             is_new: newCourseData.isNew,
             is_active: newCourseData.isActive
@@ -507,16 +507,13 @@
           }
         };
 
-        // Generazione PDF professionale al volo con jsPDF, logo aziendale e colori del brand (apertura nel browser)
         const handleDownloadLocandina = (course) => {
           const { jsPDF } = window.jspdf;
           const doc = new jsPDF();
 
-          // Recupera il colore del brand associato
           const brandObj = brands.find(b => b.id === course.brand || b.name === course.brandName);
           const brandColorHex = brandObj?.color || '#1b365d';
 
-          // Converte il colore HEX in RGB per jsPDF
           const hexToRgb = (hex) => {
             let c = hex.replace('#','');
             if(c.length === 3) c = c.split('').map(x => x + x).join('');
@@ -525,13 +522,10 @@
           };
           const [r, g, b] = hexToRgb(brandColorHex);
 
-          // Funzione interna per generare e aprire il PDF con o senza logo
           const generatePdfContent = (logoImgData) => {
-            // 1. BANNER SUPERIORE INTESTAZIONE
             doc.setFillColor(r, g, b);
             doc.rect(0, 0, 210, 45, 'F');
 
-            // Inserimento logo aziendale se disponibile
             if (logoImgData) {
               try {
                 doc.addImage(logoImgData, 'PNG', 155, 8, 40, 25);
@@ -549,19 +543,16 @@
             doc.setFontSize(10);
             doc.text(`Organizzato da: ${companyName}`, 15, 30);
 
-            // 2. TITOLO DEL CORSO
             doc.setTextColor(30, 41, 59);
             doc.setFont("helvetica", "bold");
             doc.setFontSize(20);
             const splitTitle = doc.splitTextToSize(course.title, 180);
             doc.text(splitTitle, 15, 65);
 
-            // Linea divisoria colorata
             doc.setDrawColor(r, g, b);
             doc.setLineWidth(0.8);
             doc.line(15, 75, 195, 75);
 
-            // 3. DETTAGLI CORSO (Data, Ora, Durata, Modalità, Sede, Prezzo)
             let y = 88;
             const addDetailRow = (label, value) => {
               doc.setFont("helvetica", "bold");
@@ -576,6 +567,7 @@
               y += 10;
             };
 
+            addDetailRow("Livello:", course.level || 'Base');
             addDetailRow("Data:", course.date);
             addDetailRow("Orario:", course.time);
             addDetailRow("Durata:", course.duration);
@@ -585,7 +577,6 @@
 
             y += 5;
             
-            // 4. DESCRIZIONE
             doc.setFont("helvetica", "bold");
             doc.setTextColor(r, g, b);
             doc.setFontSize(13);
@@ -600,7 +591,6 @@
 
             y += (splitDesc.length * 5) + 15;
 
-            // 5. BOX CALL TO ACTION / INFO POSTI
             doc.setFillColor(241, 245, 249);
             doc.roundedRect(15, y, 180, 24, 3, 3, 'F');
             
@@ -614,17 +604,14 @@
             doc.setTextColor(100, 116, 139);
             doc.text(`Posti limitati (Max ${course.maxParticipants || 12} partecipanti). Iscriviti subito online sul portale aziendale.`, 20, y + 16);
 
-            // FOOTER
             doc.setFontSize(8);
             doc.setTextColor(148, 163, 184);
             doc.text(copyrightText, 105, 285, { align: 'center' });
 
-            // Apertura diretta del PDF nel browser (senza download forzato)
             const pdfOutput = doc.output('bloburl');
             window.open(pdfOutput, '_blank');
           };
 
-          // Caricamento asincrono del logo aziendale
           if (companyLogo) {
             const img = new Image();
             img.crossOrigin = 'Anonymous';
@@ -734,6 +721,7 @@
                         const cardColor = brandObj?.color || '#8b1e1e';
                         
                         const isOnline = course.modality && course.modality.toLowerCase().includes('meet');
+                        const courseLevel = course.level || 'Base';
 
                         return (
                           <div key={course.id} className="bg-white rounded-2xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col justify-between relative group">
@@ -747,9 +735,14 @@
                                   <span className="text-white text-xs font-black tracking-wider">{course.brandName}</span>
                                 </div>
                                 
-                                <span className={`text-xs font-bold px-3 py-1 rounded-xl shadow-sm flex items-center gap-1.5 backdrop-blur-sm ${isOnline ? 'bg-indigo-600/90 text-white border border-indigo-400/50' : 'bg-emerald-600/90 text-white border border-emerald-400/50'}`}>
-                                  {isOnline ? '💻 Google Meet (Online)' : '📍 In Presenza (Aula)'}
-                                </span>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-xs font-black px-2.5 py-1 rounded-lg bg-amber-400 text-slate-900 shadow-sm uppercase tracking-wide">
+                                    Livello: {courseLevel}
+                                  </span>
+                                  <span className={`text-xs font-bold px-3 py-1 rounded-xl shadow-sm flex items-center gap-1.5 backdrop-blur-sm ${isOnline ? 'bg-indigo-600/90 text-white border border-indigo-400/50' : 'bg-emerald-600/90 text-white border border-emerald-400/50'}`}>
+                                    {isOnline ? '💻 Google Meet (Online)' : '📍 In Presenza (Aula)'}
+                                  </span>
+                                </div>
                               </div>
                               <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white uppercase pr-10 drop-shadow-sm">{course.title}</h3>
                             </div>
@@ -823,6 +816,7 @@
                       const brandObj = brands.find(b => b.id === selectedCourse.brand || b.name === selectedCourse.brandName);
                       const brandColor = brandObj?.color || '#8b1e1e';
                       const isOnline = selectedCourse.modality && selectedCourse.modality.toLowerCase().includes('meet');
+                      const courseLevel = selectedCourse.level || 'Base';
 
                       return (
                         <div>
@@ -839,6 +833,11 @@
                               </span>
                             </div>
                             <h3 className="text-lg font-bold text-slate-900">{selectedCourse.title}</h3>
+                            <div className="flex items-center gap-2 pt-1">
+                              <span className="text-xs font-black bg-amber-200 text-slate-900 px-2.5 py-0.5 rounded uppercase tracking-wide">
+                                Livello: {courseLevel}
+                              </span>
+                            </div>
                             <p className="text-xs text-slate-600">📅 <strong>Data:</strong> {selectedCourse.date} ({selectedCourse.time})</p>
                             <p className="text-xs text-slate-600">📍 <strong>{isOnline ? 'Piattaforma' : 'Sede'}:</strong> {selectedCourse.location}</p>
                             <p className="text-xs text-slate-700">💰 <strong>Quota di iscrizione:</strong> <span className="text-[#1b365d] font-bold">{selectedCourse.price || 'Gratuito'}</span></p>
@@ -891,7 +890,7 @@
                       <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl font-bold shadow-inner">✓</div>
                       <h3 className="text-xl font-bold text-slate-900 mb-2">Iscrizione Effettuata con Successo!</h3>
                       <p className="text-slate-600 text-sm mb-6 leading-relaxed">
-                        Grazie <strong>{formData.fullName}</strong> ({formData.company}). Abbiamo registrato la tua richiesta per il corso <strong>{selectedCourse.title}</strong>.
+                        Grazie <strong>{formData.fullName}</strong> ({formData.company}). Abbiamo registrato la tua richiesta per il corso <strong>{selectedCourse.title}</strong> (Livello: {selectedCourse.level || 'Base'}).
                       </p>
                       <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-xs text-slate-700 mb-6 text-left space-y-2">
                         <p>✉️ <strong>Email inviata a:</strong> {formData.email}</p>
@@ -1223,7 +1222,7 @@
                             return (
                               <div key={c.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs gap-2">
                                 <div className="truncate pr-2">
-                                  <span className="font-bold uppercase" style={{ color: bObj?.color || '#8b1e1e' }}>{c.brandName}:</span> <span className="font-semibold text-slate-900">{c.title}</span>
+                                  <span className="font-bold uppercase" style={{ color: bObj?.color || '#8b1e1e' }}>{c.brandName}:</span> <span className="font-semibold text-slate-900">{c.title}</span> <span className="text-slate-500 font-normal">({c.level || 'Base'})</span>
                                 </div>
                                 <div className="flex items-center gap-2 flex-shrink-0">
                                   <button
@@ -1257,4 +1256,3 @@
     </script>
   </body>
 </html>
-```[cite: 1]
