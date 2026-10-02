@@ -394,12 +394,50 @@
         };
 
         // Funzione per formattazione stile Word nell'editor wysiwyg
-        const formatTextCommand = (command) => {
-          document.execCommand(command, false, null);
-          if (editorRef.current) {
-            setNewCourseData({ ...newCourseData, description: editorRef.current.innerHTML });
-          }
-        };
+        const formatTextCommand = (command, value = null) => {
+  if (command === 'insertUnorderedList') {
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return;
+    const range = selection.getRangeAt(0);
+    
+    // Controlla se siamo già dentro una lista
+    let parent = range.commonAncestorContainer;
+    while (parent && parent !== editorRef.current) {
+      if (parent.nodeName === 'UL' || parent.nodeName === 'OL') {
+        document.execCommand('insertUnorderedList', false, null);
+        if (editorRef.current) {
+          setNewCourseData({ ...newCourseData, description: editorRef.current.innerHTML });
+        }
+        return;
+      }
+      parent = parent.parentNode;
+    }
+
+    // Se non siamo in una lista, inserisce un elemento li o applica il comando
+    const ul = document.createElement('ul');
+    ul.style.listStyleType = 'disc';
+    ul.style.paddingLeft = '20px';
+    
+    if (range.collapsed) {
+      const li = document.createElement('li');
+      li.innerHTML = '<br>';
+      ul.appendChild(li);
+      range.insertNode(ul);
+      range.setStart(li, 0);
+      range.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    } else {
+      document.execCommand('insertUnorderedList', false, null);
+    }
+  } else {
+    document.execCommand(command, false, value);
+  }
+
+  if (editorRef.current) {
+    setNewCourseData({ ...newCourseData, description: editorRef.current.innerHTML });
+  }
+};
 
         const handleEditorInput = () => {
           if (editorRef.current) {
