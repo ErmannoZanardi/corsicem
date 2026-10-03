@@ -617,7 +617,7 @@
               doc.setFont("helvetica", "bold");
               doc.setFontSize(18);
               const splitTitle = doc.splitTextToSize(course.title, 170);
-              doc.text(splitTitle, 70, 50);
+              doc.text(splitTitle, 60, 50);
 
               // Dettagli puliti allineati con i campi del template
               doc.setFontSize(10);
@@ -693,7 +693,7 @@
                 }
               });
 
-              doc.text(formattedTextArray, 30, 140);
+              doc.text(formattedTextArray, 20, 140);
 
             } else {
               // Layout di fallback standard se non è caricato alcuno sfondo personalizzato
