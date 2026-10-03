@@ -72,6 +72,7 @@
         const [headerTitle, setHeaderTitle] = useState('CALENDARIO CORSI 2026');
         const [copyrightText, setCopyrightText] = useState('© 2026 Portale Formazione Installatori Tecnici. Tutti i diritti riservati.');
         const [adminEmail, setAdminEmail] = useState('ermanno.zanardi69@gmail.com');
+        const [defaultPosterBg, setDefaultPosterBg] = useState('');
 
         const [brands, setBrands] = useState([
           { id: 'tecnoalarm', name: 'TECNOALARM', logoUrl: '', color: '#8b1e1e' },
@@ -87,6 +88,7 @@
         const [tempHeaderTitle, setTempHeaderTitle] = useState(headerTitle);
         const [tempCopyrightText, setTempCopyrightText] = useState(copyrightText);
         const [tempAdminEmail, setTempAdminEmail] = useState(adminEmail);
+        const [tempDefaultPosterBg, setTempDefaultPosterBg] = useState(defaultPosterBg);
         const [settingsSavedMsg, setSettingsSavedMsg] = useState(false);
 
         const [courses, setCourses] = useState([]);
@@ -104,6 +106,7 @@
                   if (item.key === 'header_title') setHeaderTitle(item.value);
                   if (item.key === 'copyright_text') setCopyrightText(item.value);
                   if (item.key === 'admin_email') setAdminEmail(item.value);
+                  if (item.key === 'default_poster_bg') setDefaultPosterBg(item.value);
                   if (item.key === 'brands_list') {
                     try { setBrands(JSON.parse(item.value)); } catch(e) {}
                   }
@@ -162,7 +165,8 @@
           setTempHeaderTitle(headerTitle);
           setTempCopyrightText(copyrightText);
           setTempAdminEmail(adminEmail);
-        }, [companyName, companyLogo, headerTitle, copyrightText, adminEmail]);
+          setTempDefaultPosterBg(defaultPosterBg);
+        }, [companyName, companyLogo, headerTitle, copyrightText, adminEmail, defaultPosterBg]);
 
         const [formData, setFormData] = useState({
           fullName: '',
@@ -340,12 +344,14 @@
           setHeaderTitle(tempHeaderTitle);
           setCopyrightText(tempCopyrightText);
           setAdminEmail(tempAdminEmail);
+          setDefaultPosterBg(tempDefaultPosterBg);
 
           await saveSettingToSupabase('company_name', tempCompanyName);
           await saveSettingToSupabase('company_logo', tempCompanyLogo);
           await saveSettingToSupabase('header_title', tempHeaderTitle);
           await saveSettingToSupabase('copyright_text', tempCopyrightText);
           await saveSettingToSupabase('admin_email', tempAdminEmail);
+          await saveSettingToSupabase('default_poster_bg', tempDefaultPosterBg);
 
           setSettingsSavedMsg(true);
           setTimeout(() => setSettingsSavedMsg(false), 3000);
@@ -584,38 +590,53 @@
           };
           const [r, g, b] = hexToRgb(brandColorHex);
 
-          const generatePdfContent = (logoImgData) => {
-            doc.setFillColor(r, g, b);
-            doc.rect(0, 0, 210, 45, 'F');
-
-            if (logoImgData) {
+          const generatePdfContent = (bgImgData, logoImgData) => {
+            // Se l'amministratore ha caricato una locandina vuota di default, la usiamo come sfondo su tutto il foglio A4 (210 x 297 mm)
+            if (bgImgData) {
               try {
-                doc.addImage(logoImgData, 'PNG', 155, 8, 40, 25);
+                doc.addImage(bgImgData, 'JPEG', 0, 0, 210, 297);
               } catch (e) {
-                console.error("Errore nell'inserimento del logo nel PDF:", e);
+                console.error("Errore nell'inserimento dello sfondo locandina:", e);
               }
+            } else {
+              // Grafica standard di fallback se non è caricata alcuna locandina vuota di default
+              doc.setFillColor(r, g, b);
+              doc.rect(0, 0, 210, 45, 'F');
             }
 
-            doc.setTextColor(255, 255, 255);
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(16);
-            doc.text(course.brandName || "CORSO DI FORMAZIONE", 15, 20);
+            if (logoImgData && !bgImgData) {
+              try {
+                doc.addImage(logoImgData, 'PNG', 155, 8, 40, 25);
+              } catch (e) {}
+            }
 
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(10);
-            doc.text(`Organizzato da: ${companyName}`, 15, 30);
+            // Se c'è lo sfondo personalizzato, posizioniamo i testi negli spazi vuoti ottimizzati, altrimenti usiamo il layout classico
+            const startYTitle = bgImgData ? 60 : 65;
+
+            if (!bgImgData) {
+              doc.setTextColor(255, 255, 255);
+              doc.setFont("helvetica", "bold");
+              doc.setFontSize(16);
+              doc.text(course.brandName || "CORSO DI FORMAZIONE", 15, 20);
+
+              doc.setFont("helvetica", "normal");
+              doc.setFontSize(10);
+              doc.text(`Organizzato da: ${companyName}`, 15, 30);
+            }
 
             doc.setTextColor(30, 41, 59);
             doc.setFont("helvetica", "bold");
             doc.setFontSize(20);
             const splitTitle = doc.splitTextToSize(course.title, 180);
-            doc.text(splitTitle, 15, 65);
+            doc.text(splitTitle, 15, startYTitle);
 
-            doc.setDrawColor(r, g, b);
-            doc.setLineWidth(0.8);
-            doc.line(15, 75, 195, 75);
+            if (!bgImgData) {
+              doc.setDrawColor(r, g, b);
+              doc.setLineWidth(0.8);
+              doc.line(15, 75, 195, 75);
+            }
 
-            let y = 88;
+            let y = bgImgData ? startYTitle + (splitTitle.length * 8) + 10 : 88;
             const addDetailRow = (label, value) => {
               doc.setFont("helvetica", "bold");
               doc.setTextColor(100, 116, 139);
@@ -658,18 +679,20 @@
 
             y += (splitDesc.length * 5) + 15;
 
-            doc.setFillColor(241, 245, 249);
-            doc.roundedRect(15, y, 180, 24, 3, 3, 'F');
+            if (!bgImgData) {
+              doc.setFillColor(241, 245, 249);
+              doc.roundedRect(15, y, 180, 24, 3, 3, 'F');
+            }
             
             doc.setFont("helvetica", "bold");
             doc.setFontSize(10);
             doc.setTextColor(r, g, b);
-            doc.text("INFORMAZIONI E PARTECIPAZIONE", 20, y + 9);
+            doc.text("INFORMAZIONI E PARTECIPAZIONE", bgImgData ? 15 : 20, bgImgData ? y : y + 9);
             
             doc.setFont("helvetica", "normal");
             doc.setFontSize(9);
             doc.setTextColor(100, 116, 139);
-            doc.text(`Posti limitati (Max ${course.maxParticipants || 12} partecipanti). Iscriviti subito online sul portale aziendale.`, 20, y + 16);
+            doc.text(`Posti limitati (Max ${course.maxParticipants || 12} partecipanti). Iscriviti subito online sul portale aziendale.`, bgImgData ? 15 : 20, bgImgData ? y + 6 : y + 16);
 
             doc.setFontSize(8);
             doc.setTextColor(148, 163, 184);
@@ -679,24 +702,61 @@
             window.open(pdfOutput, '_blank');
           };
 
-          if (companyLogo) {
-            const img = new Image();
-            img.crossOrigin = 'Anonymous';
-            img.src = companyLogo;
-            img.onload = () => {
+          // Caricamento asincrono dello sfondo locandina vuoto e del logo
+          let loadedBgData = null;
+          let loadedLogoData = null;
+          let pendingImages = 0;
+
+          const checkAndGenerate = () => {
+            if (pendingImages === 0) {
+              generatePdfContent(loadedBgData, loadedLogoData);
+            }
+          };
+
+          if (defaultPosterBg) {
+            pendingImages++;
+            const bgImg = new Image();
+            bgImg.crossOrigin = 'Anonymous';
+            bgImg.src = defaultPosterBg;
+            bgImg.onload = () => {
               const canvas = document.createElement('canvas');
-              canvas.width = img.width;
-              canvas.height = img.height;
+              canvas.width = bgImg.width;
+              canvas.height = bgImg.height;
               const ctx = canvas.getContext('2d');
-              ctx.drawImage(img, 0, 0);
-              const dataURL = canvas.toDataURL('image/png');
-              generatePdfContent(dataURL);
+              ctx.drawImage(bgImg, 0, 0);
+              loadedBgData = canvas.toDataURL('image/jpeg');
+              pendingImages--;
+              checkAndGenerate();
             };
-            img.onerror = () => {
-              generatePdfContent(null);
+            bgImg.onerror = () => {
+              pendingImages--;
+              checkAndGenerate();
             };
-          } else {
-            generatePdfContent(null);
+          }
+
+          if (companyLogo) {
+            pendingImages++;
+            const logoImg = new Image();
+            logoImg.crossOrigin = 'Anonymous';
+            logoImg.src = companyLogo;
+            logoImg.onload = () => {
+              const canvas = document.createElement('canvas');
+              canvas.width = logoImg.width;
+              canvas.height = logoImg.height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(logoImg, 0, 0);
+              loadedLogoData = canvas.toDataURL('image/png');
+              pendingImages--;
+              checkAndGenerate();
+            };
+            logoImg.onerror = () => {
+              pendingImages--;
+              checkAndGenerate();
+            };
+          }
+
+          if (pendingImages === 0) {
+            generatePdfContent(null, null);
           }
         };
 
@@ -836,7 +896,6 @@
                                 <div className="grid grid-cols-12 gap-3 mb-4 pb-4 border-b border-slate-100 text-base items-start">
                                   <div className="col-span-7 sm:col-span-8">
                                     <span className="text-slate-400 font-bold uppercase block mb-1 text-xs tracking-wider">SEDE / PIATTAFORMA</span>
-                                    {/* Indirizzo più piccolo e non nero pieno */}
                                     <span className="font-medium text-slate-600 text-xs sm:text-sm leading-snug block">{course.location}</span>
                                   </div>
                                   <div className="col-span-5 sm:col-span-4 text-right">
@@ -1012,7 +1071,7 @@
                       <button onClick={() => setAdminTab('brands-management')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'brands-management' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>🏷 Marchi</button>
                       <button onClick={() => { setEditingCourseId(null); setAdminTab('add-course'); }} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'add-course' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>➕ Corsi</button>
                       <button onClick={() => setAdminTab('settings')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'settings' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>⚙ Email</button>
-                      <button onClick={() => setAdminTab('branding')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'branding' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>🎨 Azienda</button>
+                      <button onClick={() => setAdminTab('branding')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'branding' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>🎨 Azienda & Sfondo PDF</button>
                     </div>
                   </div>
 
@@ -1166,8 +1225,8 @@
 
                   {adminTab === 'branding' && (
                     <div className="max-w-xl mx-auto bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
-                      <h3 className="text-lg font-bold text-slate-900 mb-1">Personalizzazione Azienda e Logo</h3>
-                      <p className="text-xs text-slate-500 mb-6">Modifica nome azienda, logo, titolo calendario e copyright.</p>
+                      <h3 className="text-lg font-bold text-slate-900 mb-1">Personalizzazione Azienda e Sfondo PDF</h3>
+                      <p className="text-xs text-slate-500 mb-6">Modifica nome azienda, logo, titolo calendario e carica la locandina vuota di default da usare come sfondo per i PDF.</p>
                       {settingsSavedMsg && (
                         <div className="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs p-3 rounded-xl font-semibold">✓ Personalizzazioni salvate sul database!</div>
                       )}
@@ -1179,6 +1238,11 @@
                         <div>
                           <label className="block text-xs font-semibold text-slate-700 mb-1">URL Logo Aziendale (Header e PDF)</label>
                           <input type="url" value={tempCompanyLogo} onChange={(e) => setTempCompanyLogo(e.target.value)} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="https://..." />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">URL Sfondo Locandina Vuota di Default (PDF Formato A4)</label>
+                          <input type="url" value={tempDefaultPosterBg} onChange={(e) => setTempDefaultPosterBg(e.target.value)} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="https://tuosito.it/sfondo-locandina.jpg" />
+                          <span className="text-[10px] text-slate-400 mt-1 block">Se inserito, questo sfondo verrà stampato su ogni PDF e il portale scriverà automaticamente le informazioni del corso negli spazi dedicati.</span>
                         </div>
                         <div>
                           <label className="block text-xs font-semibold text-slate-700 mb-1">Titolo Principale Calendario (Banner) *</label>
