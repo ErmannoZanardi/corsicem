@@ -646,10 +646,10 @@
               doc.text(course.price || 'Gratuito', 130, 229);
 
 // Descrizione del corso con supporto per elenchi puntati
-              doc.setFont("helvetica", "normal");
               doc.setFontSize(10);
-              doc.setTextColor(71, 85, 105);
-              doc.text("DESCRIZIONE DEL CORSO", 30, 135);
+              doc.setFont("helvetica", "bold");
+              doc.setTextColor(100, 116, 139);
+              doc.text("DESCRIZIONE DEL CORSO", 20, 135);
               
               const tempDiv = document.createElement("div");
               tempDiv.innerHTML = course.description || 'Nessuna descrizione disponibile.';
