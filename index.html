@@ -708,45 +708,7 @@
 
         return (
           <div className="min-h-screen flex flex-col bg-slate-100 text-slate-800 font-sans">
-            <header className="bg-[#1b365d] text-white shadow-md">
-              <div className="max-w-[1400px] mx-auto px-6 py-4 flex justify-between items-center">
-                <div className="flex items-center space-x-3 cursor-pointer" onClick={() => { setView('courses'); setSelectedCourse(null); setSubmitted(false); }}>
-                  {companyLogo ? (
-                    <img src={companyLogo} alt={companyName} className="h-10 w-auto rounded object-contain bg-white p-1" />
-                  ) : (
-                    <div className="bg-[#d9381e] p-2 rounded-lg text-white font-bold shadow">💡</div>
-                  )}
-                  <div>
-                    <h1 className="text-base sm:text-lg font-bold tracking-tight">Portale Corsi di {companyName}</h1>
-                  </div>
-                </div>
-
-<div className="bg-slate-900/80 px-4 py-2 rounded-xl border border-slate-700/60 shadow-inner text-center hidden md:block">
-  <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">{headerTitle}</h2>
-</div>
-
-                <div>
-                  {view !== 'admin-dashboard' && view !== 'admin-login' ? (
-                    <button
-                      onClick={() => { setView('admin-login'); setAdminError(false); }}
-                      className="text-amber-300 hover:text-amber-200 text-xs sm:text-sm font-bold transition-colors uppercase tracking-wider px-3 py-1.5 rounded-lg border border-amber-300/30 hover:bg-amber-400/10"
-                    >
-                      Admin
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => { setView('courses'); setSelectedCourse(null); setSubmitted(false); }}
-                      className="text-white hover:text-slate-200 text-xs sm:text-sm font-bold transition-colors bg-blue-600 px-3 py-1.5 rounded-lg"
-                    >
-                      Home Corsi
-                    </button>
-                  )}
-                </div>
-              </div>
-              <div className="bg-slate-900/80 px-4 py-2 border-t border-slate-700/60 text-center block md:hidden">
-                <h2 className="text-xs font-black tracking-tight text-white">{headerTitle}</h2>
-              </div>
-            </header>
+            <header
 
             <main className="flex-grow max-w-[1400px] w-full mx-auto px-6 py-6">
               {view === 'courses' && !selectedCourse && (
