@@ -645,22 +645,55 @@
               
               doc.text(course.price || 'Gratuito', 130, 229);
 
-              // Descrizione del corso
-              doc.setFont("helvetica", "bold");
-              doc.setTextColor(r, g, b);
-              doc.setFontSize(12);
-              doc.text("DESCRIZIONE DEL CORSO", 30, 135);
-
+// Descrizione del corso con supporto per elenchi puntati
               doc.setFont("helvetica", "normal");
               doc.setFontSize(10);
               doc.setTextColor(71, 85, 105);
               
               const tempDiv = document.createElement("div");
               tempDiv.innerHTML = course.description || 'Nessuna descrizione disponibile.';
-              const plainDescription = tempDiv.textContent || tempDiv.innerText || '';
               
-              const splitDesc = doc.splitTextToSize(plainDescription, 85);
-              doc.text(splitDesc, 30, 140);
+              // Funzione per convertire gli elementi HTML (incluso ul/li) in righe testuali con punti elenco
+              const parseHtmlToLines = (element) => {
+                let lines = [];
+                const walk = (node) => {
+                  if (node.nodeType === Node.TEXT_NODE) {
+                    const text = node.textContent.trim();
+                    if (text) lines.push(text);
+                  } else if (node.nodeType === Node.ELEMENT_NODE) {
+                    if (node.nodeName === 'LI') {
+                      // Aggiunge il pallino puntato per ogni elemento della lista
+                      let liText = node.textContent.trim();
+                      if (liText) lines.push('• ' + liText);
+                    } else if (node.nodeName === 'BR') {
+                      lines.push('');
+                    } else {
+                      for (let child of node.childNodes) {
+                        walk(child);
+                      }
+                    }
+                  }
+                };
+                for (let child of element.childNodes) {
+                  walk(child);
+                }
+                return lines;
+              };
+
+              const rawLines = parseHtmlToLines(tempDiv);
+              let formattedTextArray = [];
+              
+              rawLines.forEach(line => {
+                if (line === '') {
+                  formattedTextArray.push('');
+                } else {
+                  // Applica lo split a riga per riga per rispettare la larghezza massima del box (es. 85 mm)
+                  const splitLine = doc.splitTextToSize(line, 85);
+                  formattedTextArray = formattedTextArray.concat(splitLine);
+                }
+              });
+
+              doc.text(formattedTextArray, 30, 140);
 
             } else {
               // Layout di fallback standard se non è caricato alcuno sfondo personalizzato
