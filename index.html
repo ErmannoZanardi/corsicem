@@ -617,8 +617,8 @@
               doc.setFont("helvetica", "bold");
               doc.setFontSize(18);
               const splitTitle = doc.splitTextToSize(course.title, 170);
-              doc.text(splitTitle, 60, 50);
-              doc.text(course.date || 'N/D', 60, 60);
+              doc.text(splitTitle, 20, 50);
+              doc.text(course.date || 'N/D', 20, 60);
  
               // Dettagli puliti allineati con i campi del template
               doc.setFontSize(10);
