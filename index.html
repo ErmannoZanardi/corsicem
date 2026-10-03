@@ -658,7 +658,7 @@
               tempDiv.innerHTML = course.description || 'Nessuna descrizione disponibile.';
               const plainDescription = tempDiv.textContent || tempDiv.innerText || '';
               
-              const splitDesc = doc.splitTextToSize(plainDescription, 110);
+              const splitDesc = doc.splitTextToSize(plainDescription, 70);
               doc.text(splitDesc, 30, 140);
 
             } else {
