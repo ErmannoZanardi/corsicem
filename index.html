@@ -1,45 +1,53 @@
 <!doctype html>
 <html lang="it">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Portale Iscrizione ai Corsi | Portale Formazione</title>
-    <!-- Google Fonts: Roboto -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap" rel="stylesheet">
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ['Roboto', 'sans-serif'],
-            }
-          }
-        }
-      }
-    </script>
-    <!-- React e ReactDOM da CDN -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- Babel per JSX -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Supabase JS Client per database cloud -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- EmailJS SDK -->
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-    <!-- jsPDF per la generazione professionale della locandina al volo -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script type="text/javascript">
-       (function(){
-          emailjs.init({
-            publicKey: "MN9MfWHy6LcqdCpif",
-          });
-       })();
-    </script>
-  </head>
+<header className="bg-[#1b365d] text-white shadow-lg relative overflow-hidden">
+  <div className="absolute inset-0 bg-gradient-to-r from-blue-900/30 via-transparent to-black/20 pointer-events-none"></div>
+  <div className="max-w-[1400px] mx-auto px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4 relative z-10">
+    
+    {/* Logo e Nome Azienda */}
+    <div 
+      className="flex items-center space-x-3 cursor-pointer group" 
+      onClick={() => { setView('courses'); setSelectedCourse(null); setSubmitted(false); }}
+    >
+      {companyLogo ? (
+        <img src={companyLogo} alt={companyName} className="h-10 w-auto rounded-lg object-contain bg-white/10 p-1 backdrop-blur-sm border border-white/10" />
+      ) : (
+        <div className="bg-[#d9381e] p-2.5 rounded-xl text-white font-bold shadow-md group-hover:scale-105 transition-transform">💡</div>
+      )}
+      <div>
+        <span className="text-[11px] uppercase tracking-wider text-slate-300 font-semibold block">Portale Formazione</span>
+        <h1 className="text-base sm:text-lg font-bold tracking-tight text-white">{companyName}</h1>
+      </div>
+    </div>
+
+    {/* Titolo Centrale Pulito (Senza riquadro pesante) */}
+    <div className="text-center">
+      <h2 className="text-xl sm:text-2xl font-black tracking-wider text-amber-300 drop-shadow-sm uppercase">
+        {headerTitle}
+      </h2>
+    </div>
+
+    {/* Pulsante Admin / Home */}
+    <div>
+      {view !== 'admin-dashboard' && view !== 'admin-login' ? (
+        <button
+          onClick={() => { setView('admin-login'); setAdminError(false); }}
+          className="bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs sm:text-sm font-bold transition-all px-4 py-2 rounded-xl uppercase tracking-wider flex items-center gap-2 shadow-2xs backdrop-blur-sm active:scale-95"
+        >
+          <span>🔒</span> Admin
+        </button>
+      ) : (
+        <button
+          onClick={() => { setView('courses'); setSelectedCourse(null); setSubmitted(false); }}
+          className="bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold transition-all px-4 py-2 rounded-xl shadow-md flex items-center gap-2 active:scale-95"
+        >
+          <span>🏠</span> Home Corsi
+        </button>
+      )}
+    </div>
+
+  </div>
+</header>
   <body class="bg-slate-100 text-slate-800 antialiased font-sans">
     <div id="root"></div>
 
