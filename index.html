@@ -288,8 +288,10 @@
                   course_date: selectedCourse.date,
                   company_name: companyName,
                   message: `Nuova iscrizione ricevuta!\n\nPartecipante: ${formData.fullName}\nAzienda: ${formData.company} \n(P.IVA: ${formData.vatNumber})\nEmail: ${formData.email}\nTelefono: ${formData.phone}`
-                });<header className="bg-[#1b365d] text-white shadow-lg relative overflow-hidden">
-  <div className="absolute inset-0 bg-gradient-to-r from-blue-900/30 via-transparent to-black/20 pointer-events-none"></div>
+                });
+                
+                <header className="bg-[#1b365d] text-white shadow-lg relative overflow-hidden">
+  <div className="absolute inset-0 bg-gradient-to-r from-blue-900/30 via-transparent to-black/25 pointer-events-none"></div>
   <div className="max-w-[1400px] mx-auto px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4 relative z-10">
     
     {/* Logo e Nome Azienda */}
@@ -308,9 +310,9 @@
       </div>
     </div>
 
-    {/* Titolo Centrale Pulito (Senza riquadro pesante) */}
+    {/* Titolo Centrale in Bianco */}
     <div className="text-center">
-      <h2 className="text-xl sm:text-2xl font-black tracking-wider text-amber-300 drop-shadow-sm uppercase">
+      <h2 className="text-xl sm:text-2xl font-black tracking-wider text-white drop-shadow-md uppercase">
         {headerTitle}
       </h2>
     </div>
