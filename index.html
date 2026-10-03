@@ -609,9 +609,60 @@
               } catch (e) {}
             }
 
-            const startYTitle = bgImgData ? 60 : 65;
+            // Se è presente lo sfondo personalizzato, posizioniamo i testi in modo pulito e ben spaziato negli spazi vuoti A4
+            if (bgImgData) {
+              doc.setTextColor(30, 41, 59);
+              
+              // Titolo del corso
+              doc.setFont("helvetica", "bold");
+              doc.setFontSize(18);
+              const splitTitle = doc.splitTextToSize(course.title, 170);
+              doc.text(splitTitle, 20, 58);
 
-            if (!bgImgData) {
+              // Dettagli puliti allineati con i campi del template
+              doc.setFontSize(10);
+              doc.setFont("helvetica", "bold");
+              doc.setTextColor(100, 116, 139);
+              doc.text("LIVELLO:", 20, 78);
+              doc.text("DATA:", 20, 88);
+              doc.text("ORARIO:", 20, 98);
+              doc.text("DURATA:", 20, 108);
+              doc.text("MODALITÀ:", 20, 118);
+              doc.text("SEDE / PIATTAFORMA:", 20, 128);
+              doc.text("QUOTA ISCRIZIONE:", 20, 138);
+
+              doc.setFont("helvetica", "normal");
+              doc.setTextColor(30, 41, 59);
+              doc.text(course.level || 'Base', 70, 78);
+              doc.text(course.date || 'N/D', 70, 88);
+              doc.text(course.time || 'N/D', 70, 98);
+              doc.text(course.duration || 'N/D', 70, 108);
+              doc.text(course.modality || 'N/D', 70, 118);
+              
+              const splitLocation = doc.splitTextToSize(course.location || 'N/D', 120);
+              doc.text(splitLocation, 70, 128);
+              
+              doc.text(course.price || 'Gratuito', 70, 138);
+
+              // Descrizione del corso
+              doc.setFont("helvetica", "bold");
+              doc.setTextColor(r, g, b);
+              doc.setFontSize(12);
+              doc.text("Descrizione del Corso", 20, 155);
+
+              doc.setFont("helvetica", "normal");
+              doc.setFontSize(10);
+              doc.setTextColor(71, 85, 105);
+              
+              const tempDiv = document.createElement("div");
+              tempDiv.innerHTML = course.description || 'Nessuna descrizione disponibile.';
+              const plainDescription = tempDiv.textContent || tempDiv.innerText || '';
+              
+              const splitDesc = doc.splitTextToSize(plainDescription, 170);
+              doc.text(splitDesc, 20, 163);
+
+            } else {
+              // Layout di fallback standard se non è caricato alcuno sfondo personalizzato
               doc.setTextColor(255, 255, 255);
               doc.setFont("helvetica", "bold");
               doc.setFontSize(16);
@@ -620,81 +671,58 @@
               doc.setFont("helvetica", "normal");
               doc.setFontSize(10);
               doc.text(`Organizzato da: ${companyName}`, 15, 30);
-            }
 
-            doc.setTextColor(30, 41, 59);
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(20);
-            const splitTitle = doc.splitTextToSize(course.title, 180);
-            doc.text(splitTitle, 15, startYTitle);
+              doc.setTextColor(30, 41, 59);
+              doc.setFont("helvetica", "bold");
+              doc.setFontSize(20);
+              const splitTitle = doc.splitTextToSize(course.title, 180);
+              doc.text(splitTitle, 15, 65);
 
-            if (!bgImgData) {
               doc.setDrawColor(r, g, b);
               doc.setLineWidth(0.8);
               doc.line(15, 75, 195, 75);
-            }
 
-            let y = bgImgData ? startYTitle + (splitTitle.length * 8) + 10 : 88;
-            const addDetailRow = (label, value) => {
-              doc.setFont("helvetica", "bold");
-              doc.setTextColor(100, 116, 139);
-              doc.setFontSize(10);
-              doc.text(label.toUpperCase(), 15, y);
+              let y = 88;
+              const addDetailRow = (label, value) => {
+                doc.setFont("helvetica", "bold");
+                doc.setTextColor(100, 116, 139);
+                doc.setFontSize(10);
+                doc.text(label.toUpperCase(), 15, y);
+                
+                doc.setFont("helvetica", "bold");
+                doc.setTextColor(30, 41, 59);
+                doc.setFontSize(11);
+                doc.text(value || 'N/D', 65, y);
+                y += 10;
+              };
+
+              addDetailRow("Livello:", course.level || 'Base');
+              addDetailRow("Data:", course.date);
+              addDetailRow("Orario:", course.time);
+              addDetailRow("Durata:", course.duration);
+              addDetailRow("Modalità:", course.modality);
+              addDetailRow("Sede / Piattaforma:", course.location);
+              addDetailRow("Quota Iscrizione:", course.price || 'Gratuito');
+
+              y += 5;
               
               doc.setFont("helvetica", "bold");
-              doc.setTextColor(30, 41, 59);
-              doc.setFontSize(11);
-              doc.text(value || 'N/D', 65, y);
-              y += 10;
-            };
+              doc.setTextColor(r, g, b);
+              doc.setFontSize(13);
+              doc.text("Descrizione del Corso", 15, y);
+              y += 7;
 
-            addDetailRow("Livello:", course.level || 'Base');
-            addDetailRow("Data:", course.date);
-            addDetailRow("Orario:", course.time);
-            addDetailRow("Durata:", course.duration);
-            addDetailRow("Modalità:", course.modality);
-            addDetailRow("Sede / Piattaforma:", course.location);
-            addDetailRow("Quota Iscrizione:", course.price || 'Gratuito');
-
-            y += 5;
-            
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(r, g, b);
-            doc.setFontSize(13);
-            doc.text("Descrizione del Corso", 15, y);
-            y += 7;
-
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(10);
-            doc.setTextColor(71, 85, 105);
-            
-            const tempDiv = document.createElement("div");
-            tempDiv.innerHTML = course.description || 'Nessuna descrizione disponibile.';
-            const plainDescription = tempDiv.textContent || tempDiv.innerText || '';
-            
-            const splitDesc = doc.splitTextToSize(plainDescription, 180);
-            doc.text(splitDesc, 15, y);
-
-            y += (splitDesc.length * 5) + 15;
-
-            if (!bgImgData) {
-              doc.setFillColor(241, 245, 249);
-              doc.roundedRect(15, y, 180, 24, 3, 3, 'F');
+              doc.setFont("helvetica", "normal");
+              doc.setFontSize(10);
+              doc.setTextColor(71, 85, 105);
+              
+              const tempDiv = document.createElement("div");
+              tempDiv.innerHTML = course.description || 'Nessuna descrizione disponibile.';
+              const plainDescription = tempDiv.textContent || tempDiv.innerText || '';
+              
+              const splitDesc = doc.splitTextToSize(plainDescription, 180);
+              doc.text(splitDesc, 15, y);
             }
-            
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(10);
-            doc.setTextColor(r, g, b);
-            doc.text("INFORMAZIONI E PARTECIPAZIONE", bgImgData ? 15 : 20, bgImgData ? y : y + 9);
-            
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(9);
-            doc.setTextColor(100, 116, 139);
-            doc.text(`Posti limitati (Max ${course.maxParticipants || 12} partecipanti). Iscriviti subito online sul portale aziendale.`, bgImgData ? 15 : 20, bgImgData ? y + 6 : y + 16);
-
-            doc.setFontSize(8);
-            doc.setTextColor(148, 163, 184);
-            doc.text(copyrightText, 105, 285, { align: 'center' });
 
             const pdfOutput = doc.output('bloburl');
             window.open(pdfOutput, '_blank');
@@ -1385,7 +1413,7 @@
                             return (
                               <div key={c.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs gap-2">
                                 <div className="truncate pr-2">
-                                  <span className="font-bold uppercase" style={{ color: bObj?.color || '#8b1e1e' }}>{c.brandName}:</span> <span className="font-semibold text-slate-900">{c.title}</span> <span className="text-slate-500 font-normal">({c.level || 'Base'})</span>
+                                  <span className="font-bold uppercase" style={{ color: bObj?.color || '#8b1e1e' }}>{bObj?.name || c.brandName}:</span> <span className="font-semibold text-slate-900">{c.title}</span> <span className="text-slate-500 font-normal">({c.level || 'Base'})</span>
                                 </div>
                                 <div className="flex items-center gap-2 flex-shrink-0">
                                   <button
