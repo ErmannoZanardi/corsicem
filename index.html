@@ -639,7 +639,7 @@
               doc.text(course.duration || 'N/D', 170, 165);
               doc.text(course.modality || 'N/D', 130, 197);
               
-              const splitLocation = doc.splitTextToSize(course.location || 'N/D', 120);
+              const splitLocation = doc.splitTextToSize(course.location || 'N/D', 60);
               doc.text(splitLocation, 130, 140);
               
               doc.text(course.price || 'Gratuito', 130, 229);
@@ -658,7 +658,7 @@
               tempDiv.innerHTML = course.description || 'Nessuna descrizione disponibile.';
               const plainDescription = tempDiv.textContent || tempDiv.innerText || '';
               
-              const splitDesc = doc.splitTextToSize(plainDescription, 70);
+              const splitDesc = doc.splitTextToSize(plainDescription, 90);
               doc.text(splitDesc, 30, 140);
 
             } else {
