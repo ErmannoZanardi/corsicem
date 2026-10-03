@@ -626,7 +626,7 @@
               doc.text("LIVELLO:", 130, 208);
               doc.text("DATA:", 130, 160);
               doc.text("ORARIO:", 150, 160);
-              doc.text("DURATA:", 170, 160);
+              doc.text("DURATA:", 175, 160);
               doc.text("RELATORE:", 130, 176);
               doc.text("MODALITÀ:", 130, 192);
               doc.text("SEDE / PIATTAFORMA:", 130, 135);
@@ -637,7 +637,7 @@
               doc.text(course.level || 'Base', 130, 213);
               doc.text(course.date || 'N/D', 130, 165);
               doc.text(course.time || 'N/D', 150, 165);
-              doc.text(course.duration || 'N/D', 170, 165);
+              doc.text(course.duration || 'N/D', 175, 165);
               doc.text(course.modality || 'N/D', 130, 197);
               
               const splitLocation = doc.splitTextToSize(course.location || 'N/D', 65);
@@ -650,6 +650,9 @@
               doc.setFont("helvetica", "bold");
               doc.setTextColor(100, 116, 139);
               doc.text("DESCRIZIONE DEL CORSO", 20, 135);
+              
+              doc.setFont("helvetica", "normal");
+              doc.setTextColor(30, 41, 59);
               
               const tempDiv = document.createElement("div");
               tempDiv.innerHTML = course.description || 'Nessuna descrizione disponibile.';
