@@ -693,12 +693,12 @@
                   formattedTextArray.push('');
                 } else {
                   // Applica lo split a riga per riga per rispettare la larghezza massima del box (es. 85 mm)
-                  const splitLine = doc.splitTextToSize(line, 85);
+                  const splitLine = doc.splitTextToSize(line, 95);
                   formattedTextArray = formattedTextArray.concat(splitLine);
                 }
               });
 
-              doc.text(formattedTextArray, 20, 150);
+              doc.text(formattedTextArray, 20, 140);
 
             } else {
               // Layout di fallback standard se non è caricato alcuno sfondo personalizzato
