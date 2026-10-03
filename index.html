@@ -626,29 +626,29 @@
               doc.text("LIVELLO:", 130, 208);
               doc.text("DATA:", 130, 160);
               doc.text("ORARIO:", 150, 160);
-              doc.text("DURATA:", 160, 160);
+              doc.text("DURATA:", 160, 170);
               doc.text("MODALITÀ:", 130, 192);
               doc.text("SEDE / PIATTAFORMA:", 130, 135);
               doc.text("QUOTA ISCRIZIONE:", 130, 224);
 
               doc.setFont("helvetica", "normal");
               doc.setTextColor(30, 41, 59);
-              doc.text(course.level || 'Base', 70, 78);
-              doc.text(course.date || 'N/D', 70, 88);
-              doc.text(course.time || 'N/D', 70, 98);
-              doc.text(course.duration || 'N/D', 70, 108);
-              doc.text(course.modality || 'N/D', 70, 118);
+              doc.text(course.level || 'Base', 130, 213);
+              doc.text(course.date || 'N/D', 130, 165);
+              doc.text(course.time || 'N/D', 150, 165);
+              doc.text(course.duration || 'N/D', 170, 165);
+              doc.text(course.modality || 'N/D', 130, 197);
               
               const splitLocation = doc.splitTextToSize(course.location || 'N/D', 120);
-              doc.text(splitLocation, 70, 128);
+              doc.text(splitLocation, 130, 140);
               
-              doc.text(course.price || 'Gratuito', 70, 138);
+              doc.text(course.price || 'Gratuito', 130, 229);
 
               // Descrizione del corso
               doc.setFont("helvetica", "bold");
               doc.setTextColor(r, g, b);
               doc.setFontSize(12);
-              doc.text("Descrizione del Corso", 20, 155);
+              doc.text("Descrizione del Corso", 30, 135);
 
               doc.setFont("helvetica", "normal");
               doc.setFontSize(10);
@@ -659,7 +659,7 @@
               const plainDescription = tempDiv.textContent || tempDiv.innerText || '';
               
               const splitDesc = doc.splitTextToSize(plainDescription, 170);
-              doc.text(splitDesc, 20, 163);
+              doc.text(splitDesc, 30, 140);
 
             } else {
               // Layout di fallback standard se non è caricato alcuno sfondo personalizzato
