@@ -628,24 +628,24 @@
               doc.text("DATA:", 130, 159);
               doc.text("ORARIO:", 150, 159);
               doc.text("DURATA:", 175, 159);
-              doc.text("RELATORE:", 130, 176);
-              doc.text("MODALITÀ:", 130, 192);
-              doc.text("LIVELLO:", 130, 208);
-              doc.text("QUOTA ISCRIZIONE:", 130, 224);
+              doc.text("RELATORE:", 130, 174);
+              doc.text("MODALITÀ:", 130, 189);
+              doc.text("LIVELLO:", 130, 204);
+              doc.text("QUOTA ISCRIZIONE:", 130, 219);
 
               doc.setFont("helvetica", "normal");
               doc.setTextColor(30, 41, 59);
-              doc.text(course.level || 'Base', 130, 213);
               doc.text(course.date || 'N/D', 130, 165);
               doc.text(course.time || 'N/D', 150, 165);
               doc.text(course.duration || 'N/D', 175, 165);
-              doc.text(course.modality || 'N/D', 130, 197);
-              
+              doc.text(course.modality || 'N/D', 130, 195);
+              doc.text(course.level || 'Base', 130, 210);
+              doc.text(course.price || 'Gratuito', 130, 225);
+
               const splitLocation = doc.splitTextToSize(course.location || 'N/D', 65);
               doc.text(splitLocation, 130, 140);
               
-              doc.text(course.price || 'Gratuito', 130, 229);
-
+              
 // Descrizione del corso con supporto per elenchi puntati
               doc.setFontSize(10);
               doc.setFont("helvetica", "bold");
