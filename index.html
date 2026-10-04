@@ -1029,8 +1029,8 @@
               doc.setFont("helvetica", "bold");
               doc.setFontSize(10);
               doc.setTextColor(80, 90, 105);
-              doc.text(`Il Relatore: ${courseSpeaker}`, 87.5, 182, { align: 'center' });
-              doc.text("Timbro e Conferma Ente", 209.5, 182, { align: 'center' });
+              doc.text(`Il Relatore: ${courseSpeaker}`, 87.5, 180, { align: 'center' });
+              doc.text(`Ente erogatore del corso: ${company}`, 209.5, 180, { align: 'center' });
             }
 
             const pdfOutput = doc.output('bloburl');
