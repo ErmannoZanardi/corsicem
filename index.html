@@ -91,6 +91,18 @@
 
         const [courses, setCourses] = useState([]);
         const [registrations, setRegistrations] = useState([]);
+        
+        // Stati per la modifica di un'iscrizione esistente dall'Admin
+        const [editingRegistrationId, setEditingRegistrationId] = useState(null);
+        const [editRegData, setEditRegData] = useState({
+          fullName: '',
+          company: '',
+          vatNumber: '',
+          email: '',
+          phone: '',
+          city: ''
+        });
+
         const editorRef = useRef(null);
 
         useEffect(() => {
@@ -321,6 +333,51 @@
             }
             setRegistrations(registrations.filter(r => r.id !== regId));
           }
+        };
+
+        // Funzioni per avviare e salvare la modifica di un'iscrizione dall'Admin
+        const handleStartEditRegistration = (reg) => {
+          setEditingRegistrationId(reg.id);
+          setEditRegData({
+            fullName: reg.fullName || '',
+            company: reg.company || '',
+            vatNumber: reg.vatNumber || '',
+            email: reg.email || '',
+            phone: reg.phone || '',
+            city: reg.city || ''
+          });
+        };
+
+        const handleSaveRegistrationEdit = async (regId) => {
+          const updatePayload = {
+            full_name: editRegData.fullName,
+            company: editRegData.company,
+            vat_number: editRegData.vatNumber,
+            email: editRegData.email,
+            phone: editRegData.phone,
+            city: editRegData.city
+          };
+
+          if (supabaseClient) {
+            const { error } = await supabaseClient.from('registrations').update(updatePayload).eq('id', regId);
+            if (error) {
+              alert("Errore durante l'aggiornamento dell'iscrizione: " + error.message);
+              return;
+            }
+          }
+
+          setRegistrations(registrations.map(r => r.id === regId ? {
+            ...r,
+            fullName: editRegData.fullName,
+            company: editRegData.company,
+            vatNumber: editRegData.vatNumber,
+            email: editRegData.email,
+            phone: editRegData.phone,
+            city: editRegData.city
+          } : r));
+
+          setEditingRegistrationId(null);
+          alert('Iscrizione aggiornata con successo!');
         };
 
         const handleAdminLogin = (e) => {
@@ -817,9 +874,6 @@
           }
         };
 
-        // ==========================================
-        // GENERAZIONE ATTESTATO PDF (Con Sfondo Personalizzato per Marchio)
-        // ==========================================
         const handleDownloadAttestato = (reg) => {
           const { jsPDF } = window.jspdf;
           const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
@@ -857,7 +911,6 @@
             }
 
             if (bgImgData) {
-              // Se è presente uno sfondo grafico personalizzato, posizioniamo i testi in modo ottimale sopra di esso
               doc.setFont("helvetica", "bold");
               doc.setFontSize(26);
               doc.setTextColor(30, 41, 59);
@@ -901,7 +954,6 @@
               doc.text("Timbro e Conferma Ente", 209.5, 180, { align: 'center' });
 
             } else {
-              // Layout standard predefinito
               doc.setFont("helvetica", "bold");
               doc.setFontSize(14);
               doc.setTextColor(r, g, b);
@@ -1351,14 +1403,58 @@
                                 {registrations.map((reg) => (
                                   <tr key={reg.id} className="hover:bg-slate-50 transition-colors">
                                     <td className="p-4 text-xs text-slate-500 whitespace-nowrap">{reg.timestamp}</td>
-                                    <td className="p-4 font-bold text-slate-900">{reg.fullName}<div className="text-xs text-slate-500 font-normal">{reg.city}</div></td>
-                                    <td className="p-4">{reg.company}<div className="text-xs text-slate-500 font-mono">P.IVA: {reg.vatNumber}</div></td>
-                                    <td className="p-4 text-xs"><div>✉️ {reg.email}</div><div className="mt-1">📞 {reg.phone}</div></td>
+                                    
+                                    {/* Se la riga è in modalità modifica */}
+                                    {editingRegistrationId === reg.id ? (
+                                      <td className="p-4" colSpan="3">
+                                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-3">
+                                          <div className="text-xs font-bold text-[#1b365d] uppercase">Modifica Dati Partecipante</div>
+                                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            <div>
+                                              <label className="text-[10px] font-bold text-slate-600 block">Nome e Cognome</label>
+                                              <input type="text" value={editRegData.fullName} onChange={(e) => setEditRegData({...editRegData, fullName: e.target.value})} className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg" />
+                                            </div>
+                                            <div>
+                                              <label className="text-[10px] font-bold text-slate-600 block">Città</label>
+                                              <input type="text" value={editRegData.city} onChange={(e) => setEditRegData({...editRegData, city: e.target.value})} className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg" />
+                                            </div>
+                                            <div>
+                                              <label className="text-[10px] font-bold text-slate-600 block">Ragione Sociale Azienda</label>
+                                              <input type="text" value={editRegData.company} onChange={(e) => setEditRegData({...editRegData, company: e.target.value})} className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg" />
+                                            </div>
+                                            <div>
+                                              <label className="text-[10px] font-bold text-slate-600 block">Partita IVA</label>
+                                              <input type="text" value={editRegData.vatNumber} onChange={(e) => setEditRegData({...editRegData, vatNumber: e.target.value})} className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg font-mono" />
+                                            </div>
+                                            <div>
+                                              <label className="text-[10px] font-bold text-slate-600 block">Email</label>
+                                              <input type="email" value={editRegData.email} onChange={(e) => setEditRegData({...editRegData, email: e.target.value})} className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg" />
+                                            </div>
+                                            <div>
+                                              <label className="text-[10px] font-bold text-slate-600 block">Telefono</label>
+                                              <input type="text" value={editRegData.phone} onChange={(e) => setEditRegData({...editRegData, phone: e.target.value})} className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg" />
+                                            </div>
+                                          </div>
+                                          <div className="flex gap-2 pt-1">
+                                            <button onClick={() => handleSaveRegistrationEdit(reg.id)} className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm">Salva Modifiche</button>
+                                            <button onClick={() => setEditingRegistrationId(null)} className="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold px-3 py-1.5 rounded-lg">Annulla</button>
+                                          </div>
+                                        </div>
+                                      </td>
+                                    ) : (
+                                      <>
+                                        <td className="p-4 font-bold text-slate-900">{reg.fullName}<div className="text-xs text-slate-500 font-normal">{reg.city}</div></td>
+                                        <td className="p-4">{reg.company}<div className="text-xs text-slate-500 font-mono">P.IVA: {reg.vatNumber}</div></td>
+                                        <td className="p-4 text-xs"><div>✉️ {reg.email}</div><div className="mt-1">📞 {reg.phone}</div></td>
+                                      </>
+                                    )}
+
                                     <td className="p-4">
                                       <div className="flex items-center gap-1.5 mb-1"><span className="inline-block bg-red-50 text-[#8b1e1e] border border-red-200 text-xs font-bold px-2.5 py-0.5 rounded">{reg.brandName}</span></div>
                                       <div className="text-xs font-bold text-slate-900">{reg.courseTitle}</div>
                                       <div className="text-xs text-slate-500">📅 {reg.date}</div>
                                     </td>
+                                    
                                     <td className="p-4 text-center">
                                       <button
                                         onClick={() => handleDownloadAttestato(reg)}
@@ -1368,14 +1464,24 @@
                                         <span>📜</span> Scarica Attestato
                                       </button>
                                     </td>
+                                    
                                     <td className="p-4 text-center">
-                                      <button
-                                        onClick={() => handleDeleteRegistration(reg.id)}
-                                        className="text-red-600 hover:text-red-800 font-bold text-xs bg-red-50 hover:bg-red-100 px-3.5 py-1.5 rounded-lg border border-red-200 transition-colors shadow-sm"
-                                        title="Elimina iscrizione"
-                                      >
-                                        Elimina
-                                      </button>
+                                      {editingRegistrationId !== reg.id && (
+                                        <div className="flex items-center justify-center gap-1.5">
+                                          <button
+                                            onClick={() => handleStartEditRegistration(reg)}
+                                            className="text-blue-600 hover:text-blue-800 font-bold text-xs bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-200 transition-colors shadow-sm"
+                                          >
+                                            Modifica
+                                          </button>
+                                          <button
+                                            onClick={() => handleDeleteRegistration(reg.id)}
+                                            className="text-red-600 hover:text-red-800 font-bold text-xs bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-200 transition-colors shadow-sm"
+                                          >
+                                            Elimina
+                                          </button>
+                                        </div>
+                                      )}
                                     </td>
                                   </tr>
                                 ))}
