@@ -918,8 +918,9 @@ const handleDownloadAttestato = (reg) => {
           const matchedCourse = courses.find(c => c.id === reg.courseId || c.title === reg.courseTitle);
           const courseSpeaker = matchedCourse?.speaker || 'Ermanno Zanardi';
           const courseLevel = matchedCourse?.level || reg.level || 'N/D';
+          const regNumber = matchedCourse?.regNumber || reg.regNumber || 'N/D';
 
-          const hexToRgb = (hex) => {
+            const hexToRgb = (hex) => {
             let c = hex.replace('#','');
             if(c.length === 3) c = c.split('').map(x => x + x).join('');
             const num = parseInt(c, 16);
