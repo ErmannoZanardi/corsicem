@@ -977,17 +977,17 @@ const handleDownloadAttestato = (reg) => {
 
               doc.setDrawColor(200, 205, 215);
               doc.setLineWidth(0.5);
-              doc.line(60, 175, 115, 175);
-              doc.line(182, 175, 237, 175);
+              doc.line(60, 175, 115, 180);
+              doc.line(182, 175, 237, 180);
               
               doc.setFont("helvetica", "bold");
               doc.setFontSize(10);
               doc.setTextColor(80, 90, 105);
 
-              doc.text("Il Relatore", 87.5, 180, { align: 'center' });
-              doc.text(courseSpeaker, 87.5, 186, { align: 'center' });
+              doc.text("Il Relatore", 87.5, 185, { align: 'center' });
+              doc.text(courseSpeaker, 87.5, 190, { align: 'center' });
               doc.text("Azienda erogatrice del corso:", 209.5, 180, { align: 'center' });
-              doc.text(companyName, 209.5, 186, { align: 'center' });
+              doc.text(companyName, 209.5, 190, { align: 'center' });
 
             } else {
               doc.setFont("helvetica", "bold");
@@ -1038,16 +1038,16 @@ const handleDownloadAttestato = (reg) => {
 
               doc.setDrawColor(200, 205, 215);
               doc.setLineWidth(0.5);
-              doc.line(60, 175, 115, 175);
-              doc.line(182, 175, 237, 175);
+              doc.line(60, 175, 115, 180);
+              doc.line(182, 175, 237, 180);
 
               doc.setFont("helvetica", "bold");
               doc.setFontSize(10);
               doc.setTextColor(80, 90, 105);
-              doc.text("Il Relatore", 87.5, 180, { align: 'center' });
-              doc.text(courseSpeaker, 87.5, 186, { align: 'center' });
+              doc.text("Il Relatore", 87.5, 185, { align: 'center' });
+              doc.text(courseSpeaker, 87.5, 190, { align: 'center' });
               doc.text("Azienda erogatrice del corso:", 209.5, 180, { align: 'center' });
-              doc.text(companyName, 209.5, 186, { align: 'center' });
+              doc.text(companyName, 209.5, 190, { align: 'center' });
             }
 
             const pdfOutput = doc.output('bloburl');
