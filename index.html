@@ -971,10 +971,10 @@ const handleDownloadAttestato = (reg) => {
               doc.setFontSize(10);
               doc.setTextColor(80, 90, 105);
 
-              doc.text("Il Relatore", 87.5, 180, { align: 'center' });
-              doc.text(courseSpeaker, 87.5, 186, { align: 'center' });
-              doc.text("Azienda erogatrice del corso:", 209.5, 178, { align: 'center' });
-              doc.text(companyName, 209.5, 184, { align: 'center' });
+              doc.text("Il Relatore", 87.5, 180, { align: 'left' });
+              doc.text(courseSpeaker, 87.5, 186, { align: 'left' });
+              doc.text("Azienda erogatrice del corso:", 209.5, 180, { align: 'right' });
+              doc.text(companyName, 209.5, 186, { align: 'right' });
 
             } else {
               doc.setFont("helvetica", "bold");
@@ -1031,10 +1031,10 @@ const handleDownloadAttestato = (reg) => {
               doc.setFont("helvetica", "bold");
               doc.setFontSize(10);
               doc.setTextColor(80, 90, 105);
-              doc.text("Il Relatore", 87.5, 180, { align: 'center' });
-              doc.text(courseSpeaker, 87.5, 186, { align: 'center' });
-              doc.text("Azienda erogatrice del corso:", 209.5, 178, { align: 'center' });
-              doc.text(companyName, 209.5, 184, { align: 'center' });
+              doc.text("Il Relatore", 87.5, 180, { align: 'left' });
+              doc.text(courseSpeaker, 87.5, 186, { align: 'left' });
+              doc.text("Azienda erogatrice del corso:", 209.5, 180, { align: 'right' });
+              doc.text(companyName, 209.5, 186, { align: 'right' });
             }
 
             const pdfOutput = doc.output('bloburl');
