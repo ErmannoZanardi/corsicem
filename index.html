@@ -975,6 +975,11 @@ const handleDownloadAttestato = (reg) => {
               doc.setTextColor(80, 90, 105);
               doc.text(`Data di svolgimento: ${reg.date || 'N/D'}`, 148.5, 155, { align: 'center' });
 
+              doc.setDrawColor(200, 205, 215);
+              doc.setLineWidth(0.5);
+              doc.line(60, 175, 115, 175);
+              doc.line(182, 175, 237, 175);
+              
               doc.setFont("helvetica", "bold");
               doc.setFontSize(10);
               doc.setTextColor(80, 90, 105);
