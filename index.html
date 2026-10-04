@@ -30,7 +30,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- EmailJS SDK -->
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-    <!-- jsPDF per la generazione professionale della locandina al volo -->
+    <!-- jsPDF per la generazione professionale della locandina e dell'attestato al volo -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script type="text/javascript">
        (function(){
@@ -229,8 +229,9 @@
           e.preventDefault();
           setSubmitError('');
 
+          const courseObj = courses.find(c => c.id === selectedCourse.id);
+          const maxAllowed = courseObj?.maxParticipants || selectedCourse.maxParticipants || 12;
           const currentCount = getCourseEnrollmentCount(selectedCourse.id);
-          const maxAllowed = selectedCourse.maxParticipants || 12;
 
           if (currentCount >= maxAllowed) {
             setSubmitError('Spiacenti, questo corso ha raggiunto il numero massimo di partecipanti ed è completo (Sold Out).');
@@ -609,18 +610,15 @@
               } catch (e) {}
             }
 
-            // Se è presente lo sfondo personalizzato, posizioniamo i testi in modo pulito e ben spaziato negli spazi vuoti A4
             if (bgImgData) {
               doc.setTextColor(30, 41, 59);
               
-              // Titolo del corso
               doc.setFont("helvetica", "bold");
               doc.setFontSize(18);
               const splitTitle = doc.splitTextToSize(course.title, 170);
               doc.text(splitTitle, 20, 50);
               doc.text(course.date || 'N/D', 20, 60);
  
-              // Dettagli puliti allineati con i campi del template
               doc.setFontSize(10);
               doc.setFont("helvetica", "bold");
               doc.setTextColor(r, g, b);
@@ -645,8 +643,6 @@
               const splitLocation = doc.splitTextToSize(course.location || 'N/D', 65);
               doc.text(splitLocation, 130, 140);
               
-              
-// Descrizione del corso con supporto per elenchi puntati
               doc.setFontSize(10);
               doc.setFont("helvetica", "bold");
               doc.setTextColor(r, g, b);
@@ -658,7 +654,6 @@
               const tempDiv = document.createElement("div");
               tempDiv.innerHTML = course.description || 'Nessuna descrizione disponibile.';
               
-              // Funzione per convertire gli elementi HTML (incluso ul/li) in righe testuali con punti elenco
               const parseHtmlToLines = (element) => {
                 let lines = [];
                 const walk = (node) => {
@@ -667,7 +662,6 @@
                     if (text) lines.push(text);
                   } else if (node.nodeType === Node.ELEMENT_NODE) {
                     if (node.nodeName === 'LI') {
-                      // Aggiunge il pallino puntato per ogni elemento della lista
                       let liText = node.textContent.trim();
                       if (liText) lines.push('• ' + liText);
                     } else if (node.nodeName === 'BR') {
@@ -692,7 +686,6 @@
                 if (line === '') {
                   formattedTextArray.push('');
                 } else {
-                  // Applica lo split a riga per riga per rispettare la larghezza massima del box (es. 85 mm)
                   const splitLine = doc.splitTextToSize(line, 95);
                   formattedTextArray = formattedTextArray.concat(splitLine);
                 }
@@ -701,7 +694,6 @@
               doc.text(formattedTextArray, 20, 140);
 
             } else {
-              // Layout di fallback standard se non è caricato alcuno sfondo personalizzato
               doc.setTextColor(255, 255, 255);
               doc.setFont("helvetica", "bold");
               doc.setFontSize(16);
@@ -824,6 +816,107 @@
           }
         };
 
+        // ==========================================
+        // NUOVA FUNZIONE: Generazione Attestato PDF
+        // ==========================================
+        const handleDownloadAttestato = (reg) => {
+          const { jsPDF } = window.jspdf;
+          // Formato Orizzontale (Landscape) A4 per l'attestato
+          const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+          const brandObj = brands.find(b => b.name === reg.brandName);
+          const brandColorHex = brandObj?.color || '#1b365d';
+
+          const hexToRgb = (hex) => {
+            let c = hex.replace('#','');
+            if(c.length === 3) c = c.split('').map(x => x + x).join('');
+            const num = parseInt(c, 16);
+            return [num >> 16, (num >> 8) & 255, num & 255];
+          };
+          const [r, g, b] = hexToRgb(brandColorHex);
+
+          // Sfondo bianco pulito con cornice elegante istituzionale
+          doc.setFillColor(255, 255, 255);
+          doc.rect(0, 0, 297, 210, 'F');
+
+          // Cornice esterna decorativa
+          doc.setDrawColor(r, g, b);
+          doc.setLineWidth(1.5);
+          doc.rect(12, 12, 273, 186);
+
+          doc.setDrawColor(210, 215, 220);
+          doc.setLineWidth(0.5);
+          doc.rect(15, 15, 267, 180);
+
+          // Intestazione con Nome Azienda organizzatrice
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(14);
+          doc.setTextColor(r, g, b);
+          doc.text((companyName || "PORTALE FORMAZIONE").toUpperCase(), 148.5, 28, { align: 'center' });
+
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(10);
+          doc.setTextColor(100, 110, 120);
+          doc.text(`Attestato Ufficiale di Partecipazione - Marchio: ${reg.brandName || 'N/D'}`, 148.5, 35, { align: 'center' });
+
+          // Titolo principale dell'Attestato
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(28);
+          doc.setTextColor(30, 41, 59);
+          doc.text("ATTESTATO DI PARTECIPAZIONE", 148.5, 56, { align: 'center' });
+
+          // Sottotitolo descrittivo
+          doc.setFont("helvetica", "italic");
+          doc.setFontSize(12);
+          doc.setTextColor(100, 110, 120);
+          doc.text("Si certifica con la presente che il professionista / installatore", 148.5, 70, { align: 'center' });
+
+          // Nome del Partecipante in evidenza
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(24);
+          doc.setTextColor(r, g, b);
+          doc.text(reg.fullName || 'Mario Rossi', 148.5, 86, { align: 'center' });
+
+          // Dati Aziendali
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(12);
+          doc.setTextColor(50, 60, 75);
+          doc.text(`in rappresentanza dell'azienda ${reg.company || 'Azienda'} (P.IVA: ${reg.vatNumber || 'N/D'}) - Città: ${reg.city || 'N/D'}`, 148.5, 96, { align: 'center' });
+
+          // Dettagli del corso frequentato
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(12);
+          doc.setTextColor(100, 110, 120);
+          doc.text("ha frequentato con profitto il percorso formativo:", 148.5, 114, { align: 'center' });
+
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(18);
+          doc.setTextColor(30, 41, 59);
+          const splitCourseTitle = doc.splitTextToSize(reg.courseTitle || 'Corso Tecnico', 240);
+          doc.text(splitCourseTitle, 148.5, 127, { align: 'center' });
+
+          // Data di svolgimento
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(11);
+          doc.setTextColor(80, 90, 105);
+          doc.text(`Data di svolgimento: ${reg.date || 'N/D'}`, 148.5, 148, { align: 'center' });
+
+          // Sezione firme / chiusura in basso
+          doc.setDrawColor(200, 205, 215);
+          doc.setLineWidth(0.5);
+          doc.line(60, 175, 115, 175);
+          doc.line(182, 175, 237, 175);
+
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(10);
+          doc.setTextColor(80, 90, 105);
+          doc.text("Il Responsabile Formazione", 87.5, 182, { align: 'center' });
+          doc.text("Timbro e Conferma Ente", 209.5, 182, { align: 'center' });
+
+          const pdfOutput = doc.output('bloburl');
+          window.open(pdfOutput, '_blank');
+        };
+
         const totalRegistrations = registrations.length;
         const registrationsByBrand = registrations.reduce((acc, reg) => {
           acc[reg.brandName] = (acc[reg.brandName] || 0) + 1;
@@ -836,7 +929,6 @@
               <div className="absolute inset-0 bg-gradient-to-r from-blue-900/30 via-transparent to-black/20 pointer-events-none"></div>
               <div className="max-w-[1400px] mx-auto px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4 relative z-10">
                 
-                {/* Logo e Nome Azienda */}
                 <div 
                   className="flex items-center space-x-3 cursor-pointer group" 
                   onClick={() => { setView('courses'); setSelectedCourse(null); setSubmitted(false); }}
@@ -852,14 +944,12 @@
                   </div>
                 </div>
 
-                {/* Titolo Centrale in Bianco */}
                 <div className="text-center">
                   <h2 className="text-xl sm:text-2xl font-black tracking-wider text-white drop-shadow-md uppercase">
                     {headerTitle}
                   </h2>
                 </div>
 
-                {/* Pulsante Admin / Home */}
                 <div>
                   {view !== 'admin-dashboard' && view !== 'admin-login' ? (
                     <button
@@ -1163,7 +1253,7 @@
                       </div>
 
                       <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-base font-bold text-slate-900">Elenco Dettagliato Installatori</h3>
+                        <h3 className="text-base font-bold text-slate-900">Elenco Dettagliato Installatori & Attestati PDF</h3>
                         {registrations.length > 0 && (
                           <button onClick={async () => { if (confirm('Vuoi davvero cancellare tutte le iscrizioni?')) { if (supabaseClient) { await supabaseClient.from('registrations').delete().neq('id', 0); } setRegistrations([]); } }} className="text-xs text-red-600 hover:text-red-800 font-bold bg-red-50 px-3.5 py-1.5 rounded-xl border border-red-200 transition-colors">
                             Svuota Storico Iscrizioni
@@ -1186,6 +1276,7 @@
                                   <th className="p-4 font-bold">Azienda / P.IVA</th>
                                   <th className="p-4 font-bold">Contatti</th>
                                   <th className="p-4 font-bold">Corso Scelto</th>
+                                  <th className="p-4 font-bold text-center">Attestato PDF</th>
                                   <th className="p-4 font-bold text-center">Azioni</th>
                                 </tr>
                               </thead>
@@ -1200,6 +1291,15 @@
                                       <div className="flex items-center gap-1.5 mb-1"><span className="inline-block bg-red-50 text-[#8b1e1e] border border-red-200 text-xs font-bold px-2.5 py-0.5 rounded">{reg.brandName}</span></div>
                                       <div className="text-xs font-bold text-slate-900">{reg.courseTitle}</div>
                                       <div className="text-xs text-slate-500">📅 {reg.date}</div>
+                                    </td>
+                                    <td className="p-4 text-center">
+                                      <button
+                                        onClick={() => handleDownloadAttestato(reg)}
+                                        className="text-emerald-700 hover:text-emerald-900 font-bold text-xs bg-emerald-50 hover:bg-emerald-100 px-3.5 py-2 rounded-xl border border-emerald-200 transition-all shadow-2xs inline-flex items-center gap-1.5"
+                                        title="Scarica attestato di partecipazione in PDF"
+                                      >
+                                        <span>📜</span> Scarica Attestato
+                                      </button>
                                     </td>
                                     <td className="p-4 text-center">
                                       <button
@@ -1452,7 +1552,7 @@
                             return (
                               <div key={c.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs gap-2">
                                 <div className="truncate pr-2">
-                                  <span className="font-bold uppercase" style={{ color: bObj?.color || '#8b1e1e' }}>{bObj?.name || c.brandName}:</span> <span className="font-semibold text-slate-900">{c.title}</span> <span className="text-slate-500 font-normal">({c.level || 'Base'})</span>
+                                  <span className="font-bold uppercase" style={{color: bObj?.color || '#8b1e1e'}}>{bObj?.name || c.brandName}:</span> <span className="font-semibold text-slate-900">{c.title}</span> <span className="text-slate-500 font-normal">({c.level || 'Base'})</span>
                                 </div>
                                 <div className="flex items-center gap-2 flex-shrink-0">
                                   <button
