@@ -150,7 +150,7 @@
               if (!regError && regData) {
                 const formattedRegs = regData.map((r, index) => ({
                   id: r.id,
-                  regNumber: `REG-${String(index + 1).padStart(3, '0')}`,
+                  regNumber: r.reg_number || `REG-${String(index + 1).padStart(3, '0')}`,
                   courseId: r.course_id,
                   fullName: r.full_name,
                   company: r.company,
@@ -163,7 +163,6 @@
                   date: r.date,
                   timestamp: r.timestamp
                 }));
-                // Invertiamo per avere le più recenti in cima
                 setRegistrations(formattedRegs.reverse());
               }
             }
@@ -260,8 +259,12 @@
             return;
           }
 
+          const nextNumber = registrations.length + 1;
+          const assignedRegNumber = `REG-${String(nextNumber).padStart(3, '0')}`;
+
           const newRegData = {
             course_id: selectedCourse.id,
+            reg_number: assignedRegNumber,
             full_name: formData.fullName,
             company: formData.company,
             vat_number: formData.vatNumber,
@@ -311,9 +314,6 @@
               console.error("Errore durante l'invio dell'email:", err);
             }
           }
-
-          const totalCountAfterAdd = registrations.length + 1;
-          const assignedRegNumber = `REG-${String(totalCountAfterAdd).padStart(3, '0')}`;
 
           const localReg = {
             id: insertedId,
@@ -959,10 +959,10 @@
               doc.setFont("helvetica", "bold");
               doc.setFontSize(12);
               doc.setTextColor(50, 60, 75);
-              doc.text("10/10", 253, 129, { align: 'center' });
+              doc.text(reg.regNumber || 'REG-001', 253, 129, { align: 'center' });
               doc.setFont("helvetica", "bold");
               doc.setFontSize(8.5);
-              doc.text("Class.", 253, 124, { align: 'center' });
+              doc.text("Cod. Iscr.", 253, 124, { align: 'center' });
 
               doc.setFont("helvetica", "normal");
               doc.setFontSize(12);
@@ -996,17 +996,6 @@
               doc.setTextColor(r, g, b);
               doc.text(courseSpeaker, 87.5, 190, { align: 'center' });
               doc.text(companyName, 209.5, 190, { align: 'center' });
-
-              doc.setFont("helvetica", "bold");
-              doc.setTextColor(80, 90, 105);
-              doc.setFontSize(8.5);
-              doc.text("Codice Registr.", 253, 157, { align: 'center' });
-
-              doc.setFont("helvetica", "normal");
-              doc.setFontSize(8.5);
-              doc.setTextColor(r, g, b);
-              doc.text(reg.regNumber || 'REG-001', 253, 161, { align: 'center' });
-            
 
             } else {
               doc.setFont("helvetica", "bold");
