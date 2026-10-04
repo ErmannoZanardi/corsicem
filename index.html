@@ -1007,7 +1007,7 @@ const handleDownloadAttestato = (reg) => {
               doc.setTextColor(50, 60, 75);
               doc.text(`in rappresentanza dell'azienda ${reg.company || 'Azienda'} (P.IVA: ${reg.vatNumber || 'N/D'}) - Città: ${reg.city || 'N/D'}`, 148.5, 96, { align: 'center' });
 
-              doc.setFont("helvetica", "normal");pulsante
+              doc.setFont("helvetica", "normal");
               doc.setFontSize(12);
               doc.setTextColor(100, 110, 120);
               doc.text("ha frequentato con profitto il percorso formativo:", 148.5, 114, { align: 'center' });
@@ -1061,6 +1061,11 @@ const handleDownloadAttestato = (reg) => {
           }
         };
 
+
+
+
+
+        
         const totalRegistrations = registrations.length;
         const registrationsByBrand = registrations.reduce((acc, reg) => {
           acc[reg.brandName] = (acc[reg.brandName] || 0) + 1;
