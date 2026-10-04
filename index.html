@@ -258,19 +258,8 @@
             return;
           }
 
-          // Generazione ID iscrizione tramite timestamp nel formato AAAAMMGG_HHMMSS
-          const now = new Date();
-          const year = now.getFullYear();
-          const month = String(now.getMonth() + 1).padStart(2, '0');
-          const day = String(now.getDate()).padStart(2, '0');
-          const hours = String(now.getHours()).padStart(2, '0');
-          const minutes = String(now.getMinutes()).padStart(2, '0');
-          const seconds = String(now.getSeconds()).padStart(2, '0');
-          const generatedRegNumber = `${year}${month}${day}_${hours}${minutes}${seconds}`;
-
           const newRegData = {
             course_id: selectedCourse.id,
-            reg_number: generatedRegNumber,
             full_name: formData.fullName,
             company: formData.company,
             vat_number: formData.vatNumber,
@@ -303,7 +292,7 @@
                 course_title: selectedCourse.title,
                 course_date: selectedCourse.date,
                 company_name: companyName,
-                message: `Grazie per esserti iscritto al corso (ID: ${generatedRegNumber}):\n\nCorso: ${selectedCourse.title}\nData: ${selectedCourse.date}\nLivello: ${selectedCourse.level || 'Base'}\nRelatore: ${selectedCourse.speaker || 'Ermanno Zanardi'}\n\nTi aspettiamo!`
+                message: `Grazie per esserti iscritto al corso:\n\nCorso: ${selectedCourse.title}\nData: ${selectedCourse.date}\nLivello: ${selectedCourse.level || 'Base'}\nRelatore: ${selectedCourse.speaker || 'Ermanno Zanardi'}\n\nTi aspettiamo!`
               });
 
               if (adminEmail) {
@@ -313,28 +302,13 @@
                   course_title: selectedCourse.title,
                   course_date: selectedCourse.date,
                   company_name: companyName,
-                  message: `Nuova iscrizione ricevuta (ID: ${generatedRegNumber})!\n\nPartecipante: ${formData.fullName}\nAzienda: ${formData.company} \n(P.IVA: ${formData.vatNumber})\nEmail: ${formData.email}\nTelefono: ${formData.phone}`
+                  message: `Nuova iscrizione ricevuta!\n\nPartecipante: ${formData.fullName}\nAzienda: ${formData.company} \n(P.IVA: ${formData.vatNumber})\nEmail: ${formData.email}\nTelefono: ${formData.phone}`
                 });
               }
             } catch (err) {
               console.error("Errore durante l'invio dell'email:", err);
             }
           }
-
-          const localReg = {
-            id: insertedId,
-            regNumber: generatedRegNumber,
-            courseId: selectedCourse.id,
-            ...formData,
-            courseTitle: selectedCourse.title,
-            brandName: selectedCourse.brandName,
-            date: selectedCourse.date,
-            timestamp: newRegData.timestamp
-          };
-
-          setRegistrations([localReg, ...registrations]);
-          setSubmitted(true);
-        };
 
           const localReg = {
             id: insertedId,
@@ -918,9 +892,8 @@ const handleDownloadAttestato = (reg) => {
           const matchedCourse = courses.find(c => c.id === reg.courseId || c.title === reg.courseTitle);
           const courseSpeaker = matchedCourse?.speaker || 'Ermanno Zanardi';
           const courseLevel = matchedCourse?.level || reg.level || 'N/D';
-          const regNumber = matchedCourse?.regNumber || reg.regNumber || 'N/D';
 
-            const hexToRgb = (hex) => {
+          const hexToRgb = (hex) => {
             let c = hex.replace('#','');
             if(c.length === 3) c = c.split('').map(x => x + x).join('');
             const num = parseInt(c, 16);
@@ -986,8 +959,6 @@ const handleDownloadAttestato = (reg) => {
               doc.setFont("helvetica", "bold");
               doc.setFontSize(8.5);
               doc.text("Class.", 253, 124, { align: 'center' });
-
-              doc.text(reg.regNumber || 'N/D', 253, 155, { align: 'center' });
 
               // Livello del corso posizionato sotto al nome del corso
               doc.setFont("helvetica", "bold");
