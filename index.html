@@ -959,11 +959,20 @@
               doc.setFont("helvetica", "bold");
               doc.setFontSize(12);
               doc.setTextColor(50, 60, 75);
-              doc.text(reg.regNumber || 'REG-001', 253, 129, { align: 'center' });
+              doc.text("10/10", 253, 129, { align: 'center' });
               doc.setFont("helvetica", "bold");
               doc.setFontSize(8.5);
-              doc.text("Cod. Iscr.", 253, 124, { align: 'center' });
-
+              doc.text("Class.", 253, 124, { align: 'center' });             
+              
+              doc.setFont("helvetica", "bold");
+              doc.setFontSize(8.5);
+              doc.setTextColor(50, 60, 75);
+              doc.text("Cod. Iscr.", 253, 155, { align: 'center' });
+              doc.setFont("helvetica", "bold");
+              doc.setFontSize(12);
+              doc.setTextColor(r, g, b);
+              doc.text(reg.regNumber || 'REG-001', 253, 158, { align: 'center' });
+              
               doc.setFont("helvetica", "normal");
               doc.setFontSize(12);
               doc.setTextColor(100, 110, 120);
