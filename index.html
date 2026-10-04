@@ -971,7 +971,8 @@ const handleDownloadAttestato = (reg) => {
               doc.setFontSize(10);
               doc.setTextColor(80, 90, 105);
               doc.text(`Il Relatore: ${courseSpeaker}`, 87.5, 180, { align: 'center' });
-              doc.text(`Ente erogatore del corso: ${companyName}`, 209.5, 180, { align: 'center' });
+              doc.text("Ente erogatore del corso:", 209.5, 178, { align: 'center' });
+              doc.text(companyName, 209.5, 184, { align: 'center' });
 
             } else {
               doc.setFont("helvetica", "bold");
@@ -1029,7 +1030,8 @@ const handleDownloadAttestato = (reg) => {
               doc.setFontSize(10);
               doc.setTextColor(80, 90, 105);
               doc.text(`Il Relatore: ${courseSpeaker}`, 87.5, 180, { align: 'center' });
-              doc.text(`Ente erogatore del corso: ${companyName}`, 209.5, 180, { align: 'center' });
+              doc.text("Ente erogatore del corso:", 209.5, 178, { align: 'center' });
+              doc.text(companyName, 209.5, 184, { align: 'center' });
             }
 
             const pdfOutput = doc.output('bloburl');
