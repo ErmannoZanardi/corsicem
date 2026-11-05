@@ -108,11 +108,10 @@
 
         const editorRef = useRef(null);
 
-        // Helper per verificare se la data del corso è antecedente a quella odierna
+        // Helper robusto per verificare se la data del corso è scaduta rispetto ad oggi
         const isCourseExpired = (dateString) => {
           if (!dateString) return false;
           try {
-            // Mappa dei mesi in italiano per il parsing corretto
             const months = {
               gen: 0, gennaio: 0,
               feb: 1, febbraio: 1,
@@ -133,7 +132,7 @@
             
             let day = null;
             let month = null;
-            let year = 2026; // Anno di riferimento predefinito
+            let year = 2026;
 
             for (let i = 0; i < words.length; i++) {
               const w = words[i];
@@ -141,7 +140,7 @@
                 const num = parseInt(w, 10);
                 if (num > 31 && num >= 2000) {
                   year = num;
-                } else if (num >= 1 && num <= 31 && !day) {
+                } else if (num >= 1 && num <= 31 && day === null) {
                   day = num;
                 }
               } else {
@@ -946,7 +945,7 @@
           }
         };
 
-        const handleDownloadAttestato = (reg, qrImgDataUrl = null) => {
+        const handleDownloadAttestato = (reg) => {
           const { jsPDF } = window.jspdf;
           const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
@@ -966,7 +965,7 @@
           };
           const [r, g, b] = hexToRgb(brandColorHex);
 
-          const generateCertPdfContent = (bgImgData) => {
+          const generateCertPdfContent = (bgImgData, qrImgDataUrl) => {
             if (bgImgData) {
               try {
                 doc.addImage(bgImgData, 'JPEG', 0, 0, 297, 210);
@@ -2087,7 +2086,7 @@
                                   >
                                     {isActive ? '✓ Attivo' : '✕ Disattivo'}
                                   </button>
-                                  <button onClick={() => handleTestCourseClick(c)} className="text-blue-600 hover:text-blue-800 font-bold px-2.5 py-1 bg-white border border-blue-200 rounded-lg text-xs">Modifica</button>
+                                  <button onClick={() => handleEditCourseClick(c)} className="text-blue-600 hover:text-blue-800 font-bold px-2.5 py-1 bg-white border border-blue-200 rounded-lg text-xs">Modifica</button>
                                   <button onClick={() => handleDeleteCourse(c.id)} className="text-red-600 hover:text-red-800 font-bold px-2.5 py-1 bg-white border border-red-200 rounded-lg text-xs">Elimina</button>
                                 </div>
                               </div>
