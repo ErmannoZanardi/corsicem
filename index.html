@@ -32,8 +32,6 @@
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
     <!-- jsPDF per la generazione professionale della locandina e dell'attestato al volo -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <!-- SheetJS (xlsx) per l'esportazione dei file Excel -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script type="text/javascript">
        (function(){
           emailjs.init({
@@ -94,8 +92,7 @@
         const [courses, setCourses] = useState([]);
         const [registrations, setRegistrations] = useState([]);
         
-        const [expandedArchiveCourseId, setExpandedArchiveCourseId] = useState(null);
-
+        // Stati per la modifica di un'iscrizione esistente dall'Admin
         const [editingRegistrationId, setEditingRegistrationId] = useState(null);
         const [editRegData, setEditRegData] = useState({
           fullName: '',
@@ -107,64 +104,6 @@
         });
 
         const editorRef = useRef(null);
-
-        // Helper per verificare se la data del corso è antecedente a quella odierna
-        const isCourseExpired = (dateString) => {
-          if (!dateString) return false;
-          try {
-            // Mappa dei mesi in italiano per il parsing corretto
-            const months = {
-              gen: 0, gennaio: 0,
-              feb: 1, febbraio: 1,
-              mar: 2, marzo: 2,
-              apr: 3, aprile: 3,
-              mag: 4, maggio: 4,
-              giu: 5, giugno: 5,
-              lug: 6, luglio: 6,
-              ago: 7, agosto: 7,
-              set: 8, settembre: 8,
-              ott: 9, ottobre: 9,
-              nov: 10, novembre: 10,
-              dic: 11, dicembre: 11
-            };
-
-            const cleanStr = dateString.toLowerCase();
-            const words = cleanStr.replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(Boolean);
-            
-            let day = null;
-            let month = null;
-            let year = 2026; // Anno di riferimento predefinito
-
-            for (let i = 0; i < words.length; i++) {
-              const w = words[i];
-              if (!isNaN(w)) {
-                const num = parseInt(w, 10);
-                if (num > 31 && num >= 2000) {
-                  year = num;
-                } else if (num >= 1 && num <= 31 && !day) {
-                  day = num;
-                }
-              } else {
-                for (let key in months) {
-                  if (w.startsWith(key)) {
-                    month = months[key];
-                    break;
-                  }
-                }
-              }
-            }
-
-            if (day !== null && month !== null) {
-              const courseDate = new Date(year, month, day);
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              return courseDate < today;
-            }
-          } catch (e) {
-            console.error("Errore parsing data corso:", e);
-          }
-          return false;
-        };
 
         useEffect(() => {
           async function fetchData() {
@@ -305,11 +244,6 @@
           setSubmitError('');
 
           const courseObj = courses.find(c => c.id === selectedCourse.id);
-          if (isCourseExpired(courseObj?.date)) {
-            setSubmitError('Spiacenti, la data di questo corso è già trascorsa. Le iscrizioni sono chiuse.');
-            return;
-          }
-
           const maxAllowed = courseObj?.maxParticipants || selectedCourse.maxParticipants || 12;
           const currentCount = getCourseEnrollmentCount(selectedCourse.id);
 
@@ -946,7 +880,7 @@
           }
         };
 
-        const handleDownloadAttestato = (reg, qrImgDataUrl = null) => {
+const handleDownloadAttestato = (reg) => {
           const { jsPDF } = window.jspdf;
           const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
@@ -954,6 +888,7 @@
           const brandColorHex = brandObj?.color || '#1b365d';
           const brandCertBg = brandObj?.certificateBgUrl || '';
 
+          // Preleva il relatore aggiornato direttamente dal corso associato a questa registrazione
           const matchedCourse = courses.find(c => c.id === reg.courseId || c.title === reg.courseTitle);
           const courseSpeaker = matchedCourse?.speaker || 'Ermanno Zanardi';
           const courseLevel = matchedCourse?.level || reg.level || 'N/D';
@@ -970,7 +905,9 @@
             if (bgImgData) {
               try {
                 doc.addImage(bgImgData, 'JPEG', 0, 0, 297, 210);
-              } catch (e) {}
+              } catch (e) {
+                console.error("Errore nell'inserimento dello sfondo personalizzato dell'attestato:", e);
+              }
             } else {
               doc.setFillColor(255, 255, 255);
               doc.rect(0, 0, 297, 210, 'F');
@@ -984,225 +921,180 @@
               doc.rect(15, 15, 267, 180);
             }
 
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(14);
-            doc.setTextColor(r, g, b);
-            doc.text((companyName || "PORTALE FORMAZIONE").toUpperCase(), 148.5, 28, { align: 'center' });
+            if (bgImgData) {
+              doc.setFont("helvetica", "bold");
+              doc.setFontSize(14);
+              doc.setTextColor(r, g, b);
+              doc.text((companyName || "PORTALE FORMAZIONE").toUpperCase(), 148.5, 28, { align: 'center' });
 
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(10);
-            doc.setTextColor(100, 110, 120);
-            doc.text(`Attestato Ufficiale di Partecipazione - Marchio: ${reg.brandName || 'N/D'}`, 148.5, 35, { align: 'center' });
+              doc.setFont("helvetica", "normal");
+              doc.setFontSize(10);
+              doc.setTextColor(100, 110, 120);
+              doc.text(`Attestato Ufficiale di Partecipazione - Marchio: ${reg.brandName || 'N/D'}`, 148.5, 35, { align: 'center' });
 
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(26);
-            doc.setTextColor(30, 41, 59);
-            doc.text("ATTESTATO DI PARTECIPAZIONE", 148.5, 62, { align: 'center' });
+              doc.setFont("helvetica", "bold");
+              doc.setFontSize(26);
+              doc.setTextColor(30, 41, 59);
+              doc.text("ATTESTATO DI PARTECIPAZIONE", 148.5, 62, { align: 'center' });
 
-            doc.setFont("helvetica", "italic");
-            doc.setFontSize(12);
-            doc.setTextColor(100, 110, 120);
-            doc.text("Si certifica con la presente che il professionista / installatore", 148.5, 76, { align: 'center' });
+              doc.setFont("helvetica", "italic");
+              doc.setFontSize(12);
+              doc.setTextColor(100, 110, 120);
+              doc.text("Si certifica con la presente che il professionista / installatore", 148.5, 76, { align: 'center' });
 
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(24);
-            doc.setTextColor(r, g, b);
-            doc.text(reg.fullName || 'Mario Rossi', 148.5, 93, { align: 'center' });
+              doc.setFont("helvetica", "bold");
+              doc.setFontSize(24);
+              doc.setTextColor(r, g, b);
+              doc.text(reg.fullName || 'Mario Rossi', 148.5, 93, { align: 'center' });
 
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(12);
-            doc.setTextColor(50, 60, 75);
-            doc.text(`in rappresentanza dell'azienda ${reg.company || 'Azienda'} (P.IVA: ${reg.vatNumber || 'N/D'}) - Città: ${reg.city || 'N/D'}`, 148.5, 103, { align: 'center' });
+              doc.setFont("helvetica", "normal");
+              doc.setFontSize(12);
+              doc.setTextColor(50, 60, 75);
+              doc.text(`in rappresentanza dell'azienda ${reg.company || 'Azienda'} (P.IVA: ${reg.vatNumber || 'N/D'}) - Città: ${reg.city || 'N/D'}`, 148.5, 103, { align: 'center' });
 
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(12);
-            doc.setTextColor(50, 60, 75);
-            doc.text("10/10", 253, 129, { align: 'center' });
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(8.5);
-            doc.text("Class.", 253, 124, { align: 'center' });
+              doc.setFont("helvetica", "bold");
+              doc.setFontSize(12);
+              doc.setTextColor(50, 60, 75);
+              doc.text("10/10", 253, 129, { align: 'center' });
+              doc.setFont("helvetica", "bold");
+              doc.setFontSize(8.5);
+              doc.text("Class.", 253, 124, { align: 'center' });
 
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(r, g, b);
-            doc.setFontSize(12);
-            doc.text(`Livello: ${courseLevel}`, 148.5, 142, { align: 'center' });              
+              // Livello del corso posizionato sotto al nome del corso
+              doc.setFont("helvetica", "bold");
+              doc.setTextColor(50, 60, 75);
+              doc.setFontSize(12);
+              doc.setTextColor(r, g, b);
+              doc.text(`Livello: ${courseLevel}`, 148.5, 142, { align: 'center' });              
 
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(12);
-            doc.setTextColor(100, 110, 120);
-            doc.text("ha frequentato con profitto il percorso formativo:", 148.5, 122, { align: 'center' });
+              doc.setFont("helvetica", "normal");
+              doc.setFontSize(12);
+              doc.setTextColor(100, 110, 120);
+              doc.text("ha frequentato con profitto il percorso formativo:", 148.5, 122, { align: 'center' });
 
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(18);
-            doc.setTextColor(30, 41, 59);
-            const splitCourseTitle = doc.splitTextToSize(reg.courseTitle || 'Corso Tecnico', 240);
-            doc.text(splitCourseTitle, 148.5, 135, { align: 'center' });
+              doc.setFont("helvetica", "bold");
+              doc.setFontSize(18);
+              doc.setTextColor(30, 41, 59);
+              const splitCourseTitle = doc.splitTextToSize(reg.courseTitle || 'Corso Tecnico', 240);
+              doc.text(splitCourseTitle, 148.5, 135, { align: 'center' });
 
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(11);
-            doc.setTextColor(80, 90, 105);
-            doc.text(`Data di svolgimento: ${reg.date || 'N/D'}`, 148.5, 155, { align: 'center' });
+              doc.setFont("helvetica", "normal");
+              doc.setFontSize(11);
+              doc.setTextColor(80, 90, 105);
+              doc.text(`Data di svolgimento: ${reg.date || 'N/D'}`, 148.5, 155, { align: 'center' });
 
-            if (qrImgDataUrl) {
-              try {
-                doc.addImage(qrImgDataUrl, 'PNG', 22, 153, 24, 24);
-                doc.setFont("helvetica", "bold");
-                doc.setFontSize(7.5);
-                doc.setTextColor(100, 110, 120);
-                doc.text("QR Autenticità", 34, 180, { align: 'center' });
-              } catch(err) {}
+              doc.setDrawColor(200, 205, 215);
+              doc.setLineWidth(0.5);
+              doc.line(60, 180, 115, 180);
+              doc.line(182, 180, 237, 180);
+              
+              doc.setFont("helvetica", "normal");
+              doc.setFontSize(8.5);
+              doc.setTextColor(80, 90, 105);
+              doc.text("Il Relatore", 87.5, 185, { align: 'center' });
+              doc.text("Azienda erogatrice del corso:", 209.5, 185, { align: 'center' });
+
+              doc.setFont("helvetica", "bold");
+              doc.setFontSize(10);
+              doc.setTextColor(r, g, b);
+              doc.text(courseSpeaker, 87.5, 190, { align: 'center' });
+              doc.text(companyName, 209.5, 190, { align: 'center' });
+
+            } else {
+              doc.setFont("helvetica", "bold");
+              doc.setFontSize(14);
+              doc.setTextColor(r, g, b);
+              doc.text((companyName || "PORTALE FORMAZIONE").toUpperCase(), 148.5, 28, { align: 'center' });
+
+              doc.setFont("helvetica", "normal");
+              doc.setFontSize(10);
+              doc.setTextColor(100, 110, 120);
+              doc.text(`Attestato Ufficiale di Partecipazione - Marchio: ${reg.brandName || 'N/D'}`, 148.5, 35, { align: 'center' });
+
+              doc.setFont("helvetica", "bold");
+              doc.setFontSize(28);
+              doc.setTextColor(30, 41, 59);
+              doc.text("ATTESTATO DI PARTECIPAZIONE", 148.5, 56, { align: 'center' });
+
+              doc.setFont("helvetica", "italic");
+              doc.setFontSize(12);
+              doc.setTextColor(100, 110, 120);
+              doc.text("Si certifica con la presente che il professionista / installatore", 148.5, 70, { align: 'center' });
+
+              doc.setFont("helvetica", "bold");
+              doc.setFontSize(24);
+              doc.setTextColor(r, g, b);
+              doc.text(reg.fullName || 'Mario Rossi', 148.5, 86, { align: 'center' });
+
+              doc.setFont("helvetica", "normal");
+              doc.setFontSize(12);
+              doc.setTextColor(50, 60, 75);
+              doc.text(`in rappresentanza dell'azienda ${reg.company || 'Azienda'} (P.IVA: ${reg.vatNumber || 'N/D'}) - Città: ${reg.city || 'N/D'}`, 148.5, 96, { align: 'center' });
+
+              doc.setFont("helvetica", "normal");
+              doc.setFontSize(12);
+              doc.setTextColor(100, 110, 120);
+              doc.text("ha frequentato con profitto il percorso formativo:", 148.5, 114, { align: 'center' });
+
+              doc.setFont("helvetica", "bold");
+              doc.setFontSize(18);
+              doc.setTextColor(30, 41, 59);
+              const splitCourseTitle = doc.splitTextToSize(reg.courseTitle || 'Corso Tecnico', 240);
+              doc.text(splitCourseTitle, 148.5, 127, { align: 'center' });
+
+              doc.setFont("helvetica", "normal");
+              doc.setFontSize(11);
+              doc.setTextColor(80, 90, 105);
+              doc.text(`Data di svolgimento: ${reg.date || 'N/D'}`, 148.5, 148, { align: 'center' });
+
+              doc.setDrawColor(200, 205, 215);
+              doc.setLineWidth(0.5);
+              doc.line(60, 180, 115, 180);
+              doc.line(182, 180, 237, 180);
+
+              doc.setFont("helvetica", "normal");
+              doc.setFontSize(8.5);
+              doc.setTextColor(80, 90, 105);
+              doc.text("Il Relatore", 87.5, 185, { align: 'center' });
+              doc.text("Azienda erogatrice del corso:", 209.5, 185, { align: 'center' });
+
+              doc.setFont("helvetica", "bold");
+              doc.setFontSize(10);
+              doc.setTextColor(r, g, b);
+              doc.text(courseSpeaker, 87.5, 190, { align: 'center' });
+              doc.text(companyName, 209.5, 190, { align: 'center' });
+
             }
-
-            doc.setDrawColor(200, 205, 215);
-            doc.setLineWidth(0.5);
-            doc.line(60, 180, 115, 180);
-            doc.line(182, 180, 237, 180);
-            
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(8.5);
-            doc.setTextColor(80, 90, 105);
-            doc.text("Il Relatore", 87.5, 185, { align: 'center' });
-            doc.text("Azienda erogatrice del corso:", 209.5, 185, { align: 'center' });
-
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(10);
-            doc.setTextColor(r, g, b);
-            doc.text(courseSpeaker, 87.5, 190, { align: 'center' });
-            doc.text(companyName, 209.5, 190, { align: 'center' });
 
             const pdfOutput = doc.output('bloburl');
             window.open(pdfOutput, '_blank');
           };
 
-          const qrText = encodeURIComponent(`ATTESTATO AUTENTICO - Corsi ${companyName} - Installatore: ${reg.fullName} - Corso: ${reg.courseTitle} - P.IVA: ${reg.vatNumber} - Data: ${reg.date}`);
-          const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${qrText}`;
-
-          const qrImg = new Image();
-          qrImg.crossOrigin = 'Anonymous';
-          qrImg.src = qrApiUrl;
-          qrImg.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = 150;
-            canvas.height = 150;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(qrImg, 0, 0);
-            const qrDataUrl = canvas.toDataURL('image/png');
-
-            if (brandCertBg) {
-              const certImg = new Image();
-              certImg.crossOrigin = 'Anonymous';
-              certImg.src = brandCertBg;
-              certImg.onload = () => {
-                const canvasBg = document.createElement('canvas');
-                canvasBg.width = certImg.width;
-                canvasBg.height = certImg.height;
-                const ctxBg = canvasBg.getContext('2d');
-                ctxBg.drawImage(certImg, 0, 0);
-                generateCertPdfContent(canvasBg.toDataURL('image/jpeg'), qrDataUrl);
-              };
-              certImg.onerror = () => generateCertPdfContent(null, qrDataUrl);
-            } else {
-              generateCertPdfContent(null, qrDataUrl);
-            }
-          };
-          qrImg.onerror = () => {
-            generateCertPdfContent(null, null);
-          };
-        };
-
-        const handleSendAttestatoEmail = async (reg) => {
-          if (!confirm(`Vuoi inviare l'attestato ufficiale con QR code via email a ${reg.fullName} (${reg.email})?`)) return;
-
-          if (window.emailjs) {
-            try {
-              await emailjs.send("service_miwig8q", "template_vtbeauc", {
-                to_name: reg.fullName,
-                to_email: reg.email,
-                course_title: reg.courseTitle,
-                course_date: reg.date,
-                company_name: companyName,
-                message: `Gentile ${reg.fullName},\n\nCongratulazioni per il completamento con successo del corso "${reg.courseTitle}" (${reg.brandName}) tenutosi in data ${reg.date}.\n\nIl tuo attestato ufficiale di partecipazione, protetto da QR Code di autenticità, è stato rilasciato da ${companyName}.\n\nGrazie per la partecipazione!`
-              });
-              alert(`Attestato inviato con successo a ${reg.email}!`);
-            } catch (err) {
-              console.error("Errore invio email:", err);
-              alert("Errore durante l'invio dell'email. Controlla la configurazione EmailJS.");
-            }
+          if (brandCertBg) {
+            const certImg = new Image();
+            certImg.crossOrigin = 'Anonymous';
+            certImg.src = brandCertBg;
+            certImg.onload = () => {
+              const canvas = document.createElement('canvas');
+              canvas.width = certImg.width;
+              canvas.height = certImg.height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(certImg, 0, 0);
+              generateCertPdfContent(canvas.toDataURL('image/jpeg'));
+            };
+            certImg.onerror = () => {
+              generateCertPdfContent(null);
+            };
           } else {
-            alert("Servizio EmailJS non disponibile.");
+            generateCertPdfContent(null);
           }
         };
 
-        const handleExportCourseTxt = (course, courseRegs) => {
-          let content = `=========================================\n`;
-          content += `ELENCO PARTECIPANTI CORSO\n`;
-          content += `=========================================\n`;
-          content += `Corso: ${course.title}\n`;
-          content += `Marchio: ${course.brandName}\n`;
-          content += `Data: ${course.date} (${course.time})\n`;
-          content += `Relatore: ${course.speaker || 'Ermanno Zanardi'}\n`;
-          content += `Azienda Erogatrice: ${companyName}\n`;
-          content += `Totale Iscritti: ${courseRegs.length}\n`;
-          content += `=========================================\n\n`;
 
-          courseRegs.forEach((r, idx) => {
-            content += `[${idx + 1}] Partecipante: ${r.fullName}\n`;
-            content += `    Azienda: ${r.company} (P.IVA: ${r.vatNumber})\n`;
-            content += `    Città: ${r.city}\n`;
-            content += `    Email: ${r.email}\n`;
-            content += `    Telefono: ${r.phone}\n`;
-            content += `    Data Iscrizione: ${r.timestamp}\n`;
-            content += `-----------------------------------------\n`;
-          });
 
-          const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `elenco_iscritti_${course.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}.txt`;
-          link.click();
-          URL.revokeObjectURL(url);
-        };
 
-        const handleExportCourseCsv = (course, courseRegs) => {
-          let csv = 'ID,Nome e Cognome,Azienda,Partita IVA,Città,Email,Telefono,Data Iscrizione,Corso,Marchio\n';
-          courseRegs.forEach(r => {
-            csv += `"${r.id}","${r.fullName}","${r.company}","${r.vatNumber}","${r.city}","${r.email}","${r.phone}","${r.timestamp}","${r.courseTitle}","${r.brandName}"\n`;
-          });
 
-          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `iscritti_${course.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}.csv`;
-          link.click();
-          URL.revokeObjectURL(url);
-        };
-
-        const handleExportCourseExcel = (course, courseRegs) => {
-          const dataToExport = courseRegs.map(r => ({
-            "ID Iscrizione": r.id,
-            "Nome Partecipante": r.fullName,
-            "Azienda": r.company,
-            "Partita IVA": r.vatNumber,
-            "Città": r.city,
-            "Email": r.email,
-            "Telefono": r.phone,
-            "Data Iscrizione": r.timestamp,
-            "Titolo Corso": r.courseTitle,
-            "Marchio": r.brandName,
-            "Data Corso": course.date,
-            "Relatore": course.speaker || 'Ermanno Zanardi'
-          }));
-
-          const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-          const workbook = XLSX.utils.book_new();
-          XLSX.utils.book_append_sheet(workbook, worksheet, "Iscritti Corso");
-          
-          const safeName = course.title.toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 25);
-          XLSX.writeFile(workbook, `report_corso_${safeName}.xlsx`);
-        };
-
+        
         const totalRegistrations = registrations.length;
         const registrationsByBrand = registrations.reduce((acc, reg) => {
           acc[reg.brandName] = (acc[reg.brandName] || 0) + 1;
@@ -1290,7 +1182,6 @@
                         const enrolled = getCourseEnrollmentCount(course.id);
                         const maxLimit = course.maxParticipants || 12;
                         const isFull = enrolled >= maxLimit;
-                        const isExpired = isCourseExpired(course.date);
                         const percentage = Math.min(100, Math.round((enrolled / maxLimit) * 100));
                         const brandObj = brands.find(b => b.id === course.brand || b.name === course.brandName);
                         const cardColor = brandObj?.color || '#8b1e1e';
@@ -1301,11 +1192,8 @@
                         return (
                           <div key={course.id} className="bg-white rounded-2xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col justify-between relative group h-full">
                             <div className="text-white p-5 relative overflow-hidden shadow-sm rounded-t-2xl" style={{ background: `linear-gradient(135deg, ${cardColor}dd, ${cardColor})` }}>
-                              {course.isNew && !isExpired && (
+                              {course.isNew && (
                                 <div className="absolute -right-12 top-4 bg-amber-400 text-slate-900 text-xs font-black py-1 px-12 rotate-45 shadow-md uppercase tracking-wider z-10 text-center">NOVITÀ</div>
-                              )}
-                              {isExpired && (
-                                <div className="absolute -right-12 top-4 bg-red-600 text-white text-[10px] font-black py-1 px-12 rotate-45 shadow-md uppercase tracking-wider z-10 text-center">CONCLUSO</div>
                               )}
                               <div className="flex justify-between items-center mb-3 pr-10 flex-wrap gap-2">
                                 <div className="flex items-center gap-2 bg-white/20 px-3 py-1 rounded-xl backdrop-blur-md border border-white/10">
@@ -1330,7 +1218,7 @@
                                 <div className="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-slate-100 text-base">
                                   <div>
                                     <span className="text-slate-400 font-bold uppercase block mb-1 text-xs tracking-wider">DATA</span>
-                                    <span className={`font-extrabold text-base sm:text-lg ${isExpired ? 'text-red-600' : 'text-slate-900'}`}>{course.date}</span>
+                                    <span className="font-extrabold text-slate-900 text-base sm:text-lg">{course.date}</span>
                                   </div>
                                   <div>
                                     <span className="text-slate-400 font-bold uppercase block mb-1 text-xs tracking-wider">ORARIO</span>
@@ -1370,20 +1258,14 @@
                                 </div>
 
                                 <div className="space-y-2.5">
-                                  {isExpired ? (
-                                    <div className="w-full bg-red-50 border border-red-200 text-red-700 font-extrabold py-3.5 px-4 rounded-xl text-sm sm:text-base text-center tracking-wide shadow-2xs">
-                                      🔒 Iscrizioni Chiuse (Corso Terminato)
-                                    </div>
-                                  ) : (
-                                    <button
-                                      onClick={() => { setSelectedCourse(course); setSubmitted(false); setSubmitError(''); }}
-                                      disabled={isFull}
-                                      className={`w-full font-extrabold py-3.5 px-4 rounded-xl text-sm sm:text-base transition-all shadow-md flex items-center justify-center gap-2 text-white tracking-wide ${isFull ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none' : 'hover:opacity-95 hover:shadow-lg active:scale-[0.99]'}`}
-                                      style={{ backgroundColor: isFull ? undefined : cardColor }}
-                                    >
-                                      {isFull ? 'Corso Esaurito (Sold Out)' : 'Iscriviti al Corso'}
-                                    </button>
-                                  )}
+                                  <button
+                                    onClick={() => { setSelectedCourse(course); setSubmitted(false); setSubmitError(''); }}
+                                    disabled={isFull}
+                                    className={`w-full font-extrabold py-3.5 px-4 rounded-xl text-sm sm:text-base transition-all shadow-md flex items-center justify-center gap-2 text-white tracking-wide ${isFull ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none' : 'hover:opacity-95 hover:shadow-lg active:scale-[0.99]'}`}
+                                    style={{ backgroundColor: isFull ? undefined : cardColor }}
+                                  >
+                                    {isFull ? 'Corso Esaurito (Sold Out)' : 'Iscriviti al Corso'}
+                                  </button>
                                   <button
                                     onClick={() => handleDownloadLocandina(course)}
                                     className="w-full bg-white hover:bg-slate-50 text-slate-700 font-bold py-2.5 px-4 rounded-xl text-xs sm:text-sm transition-colors border border-slate-300/80 flex items-center justify-center gap-2 shadow-2xs"
@@ -1409,7 +1291,6 @@
                       const brandColor = brandObj?.color || '#8b1e1e';
                       const isOnline = selectedCourse.modality && selectedCourse.modality.toLowerCase().includes('meet');
                       const courseLevel = selectedCourse.level || 'Base';
-                      const isExpired = isCourseExpired(selectedCourse.date);
 
                       return (
                         <div>
@@ -1440,54 +1321,44 @@
                             <p className="text-xs text-[#1b365d] font-semibold pt-1 border-t border-slate-200">ℹ Erogato da {companyName} (Max 2 partecipanti per azienda).</p>
                           </div>
 
-                          {isExpired ? (
-                            <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-2xl text-center space-y-3">
-                              <h3 className="font-black text-lg">Iscrizioni Chiuse</h3>
-                              <p className="text-xs">La data di questo corso è già trascorsa. Non è più possibile effettuare nuove registrazioni.</p>
-                              <button onClick={() => setSelectedCourse(null)} className="mt-2 bg-[#1b365d] text-white font-bold py-2 px-6 rounded-xl text-xs">Torna ai Corsi Disponibili</button>
-                            </div>
-                          ) : (
-                            <>
-                              <h2 className="text-xl font-bold text-slate-900 mb-4">Modulo di Registrazione Installatore</h2>
-                              {submitError && (
-                                <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded-xl font-medium">{submitError}</div>
-                              )}
-
-                              <form onSubmit={handleSubmit} className="space-y-4">
-                                <div>
-                                  <label className="block text-xs font-semibold text-slate-700 mb-1">Nome e Cognome del Partecipante *</label>
-                                  <input type="text" name="fullName" required value={formData.fullName} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="Mario Rossi" />
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                  <div>
-                                    <label className="block text-xs font-semibold text-slate-700 mb-1">Ragione Sociale Azienda *</label>
-                                    <input type="text" name="company" required value={formData.company} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="Impianti Elettrici Srl" />
-                                  </div>
-                                  <div>
-                                    <label className="block text-xs font-semibold text-slate-700 mb-1">Partita IVA (limite 2) *</label>
-                                    <input type="text" name="vatNumber" required value={formData.vatNumber} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d] font-mono" placeholder="01234567890" />
-                                  </div>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                  <div>
-                                    <label className="block text-xs font-semibold text-slate-700 mb-1">Email Aziendale *</label>
-                                    <input type="email" name="email" required value={formData.email} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="mario@impianti.it" />
-                                  </div>
-                                  <div>
-                                    <label className="block text-xs font-semibold text-slate-700 mb-1">Telefono / Cellulare *</label>
-                                    <input type="tel" name="phone" required value={formData.phone} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="333 1234567" />
-                                  </div>
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-semibold text-slate-700 mb-1">Città sede lavorativa *</label>
-                                  <input type="text" name="city" required value={formData.city} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="Milano (MI)" />
-                                </div>
-                                <button type="submit" className="w-full mt-4 text-white font-bold py-3 px-4 rounded-xl text-sm transition-colors shadow-md hover:opacity-90" style={{ backgroundColor: brandColor }}>
-                                  Conferma Iscrizione al Corso
-                                </button>
-                              </form>
-                            </>
+                          <h2 className="text-xl font-bold text-slate-900 mb-4">Modulo di Registrazione Installatore</h2>
+                          {submitError && (
+                            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded-xl font-medium">{submitError}</div>
                           )}
+
+                          <form onSubmit={handleSubmit} className="space-y-4">
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-700 mb-1">Nome e Cognome del Partecipante *</label>
+                              <input type="text" name="fullName" required value={formData.fullName} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="Mario Rossi" />
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-700 mb-1">Ragione Sociale Azienda *</label>
+                                <input type="text" name="company" required value={formData.company} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="Impianti Elettrici Srl" />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-700 mb-1">Partita IVA (limite 2) *</label>
+                                <input type="text" name="vatNumber" required value={formData.vatNumber} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d] font-mono" placeholder="01234567890" />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-700 mb-1">Email Aziendale *</label>
+                                <input type="email" name="email" required value={formData.email} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="mario@impianti.it" />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-700 mb-1">Telefono / Cellulare *</label>
+                                <input type="tel" name="phone" required value={formData.phone} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="333 1234567" />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-700 mb-1">Città sede lavorativa *</label>
+                              <input type="text" name="city" required value={formData.city} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="Milano (MI)" />
+                            </div>
+                            <button type="submit" className="w-full mt-4 text-white font-bold py-3 px-4 rounded-xl text-sm transition-colors shadow-md hover:opacity-90" style={{ backgroundColor: brandColor }}>
+                              Conferma Iscrizione al Corso
+                            </button>
+                          </form>
                         </div>
                       );
                     })()
@@ -1536,11 +1407,10 @@
                     <div>
                       <span className="text-xs text-amber-300 font-bold uppercase tracking-wider">Pannello di Controllo</span>
                       <h2 className="text-xl font-black mt-1">{companyName}</h2>
-                      <p className="text-xs text-slate-300 mt-1">Gestione corsi, marchi, attestati con QR e archivio storico cronologico</p>
+                      <p className="text-xs text-slate-300 mt-1">Gestione corsi, marchi e reportistica (Cloud Supabase)</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <button onClick={() => setAdminTab('registrations')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'registrations' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>📊 Report & Attestati ({registrations.length})</button>
-                      <button onClick={() => setAdminTab('archive')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'archive' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>📚 Archivio Storico Corsi</button>
+                      <button onClick={() => setAdminTab('registrations')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'registrations' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>📊 Report ({registrations.length})</button>
                       <button onClick={() => setAdminTab('brands-management')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'brands-management' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>🏷 Marchi & Sfondi PDF</button>
                       <button onClick={() => { setEditingCourseId(null); setAdminTab('add-course'); }} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'add-course' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>➕ Corsi</button>
                       <button onClick={() => setAdminTab('settings')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'settings' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>⚙ Email</button>
@@ -1572,7 +1442,7 @@
                       </div>
 
                       <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-base font-bold text-slate-900">Elenco Dettagliato Installatori & Invio Attestati con QR Code</h3>
+                        <h3 className="text-base font-bold text-slate-900">Elenco Dettagliato Installatori & Attestati PDF</h3>
                         {registrations.length > 0 && (
                           <button onClick={async () => { if (confirm('Vuoi davvero cancellare tutte le iscrizioni?')) { if (supabaseClient) { await supabaseClient.from('registrations').delete().neq('id', 0); } setRegistrations([]); } }} className="text-xs text-red-600 hover:text-red-800 font-bold bg-red-50 px-3.5 py-1.5 rounded-xl border border-red-200 transition-colors">
                             Svuota Storico Iscrizioni
@@ -1595,8 +1465,7 @@
                                   <th className="p-4 font-bold">Azienda / P.IVA</th>
                                   <th className="p-4 font-bold">Contatti</th>
                                   <th className="p-4 font-bold">Corso Scelto</th>
-                                  <th className="p-4 font-bold text-center">Attestato con QR</th>
-                                  <th className="p-4 font-bold text-center">Invia via Email</th>
+                                  <th className="p-4 font-bold text-center">Attestato PDF</th>
                                   <th className="p-4 font-bold text-center">Azioni</th>
                                 </tr>
                               </thead>
@@ -1658,20 +1527,10 @@
                                     <td className="p-4 text-center">
                                       <button
                                         onClick={() => handleDownloadAttestato(reg)}
-                                        className="text-emerald-700 hover:text-emerald-900 font-bold text-xs bg-emerald-50 hover:bg-emerald-100 px-3 py-2 rounded-xl border border-emerald-200 transition-all shadow-2xs inline-flex items-center gap-1"
-                                        title="Scarica attestato in PDF con QR code"
+                                        className="text-emerald-700 hover:text-emerald-900 font-bold text-xs bg-emerald-50 hover:bg-emerald-100 px-3.5 py-2 rounded-xl border border-emerald-200 transition-all shadow-2xs inline-flex items-center gap-1.5"
+                                        title="Scarica attestato di partecipazione in PDF"
                                       >
-                                        <span>📜</span> Scarica PDF
-                                      </button>
-                                    </td>
-
-                                    <td className="p-4 text-center">
-                                      <button
-                                        onClick={() => handleSendAttestatoEmail(reg)}
-                                        className="text-indigo-700 hover:text-indigo-900 font-bold text-xs bg-indigo-50 hover:bg-indigo-100 px-3 py-2 rounded-xl border border-indigo-200 transition-all shadow-2xs inline-flex items-center gap-1"
-                                        title="Invia attestato via email all'utente"
-                                      >
-                                        <span>📧</span> Invia Email
+                                        <span>📜</span> Scarica Attestato
                                       </button>
                                     </td>
                                     
@@ -1700,135 +1559,6 @@
                           </div>
                         </div>
                       )}
-                    </div>
-                  )}
-
-                  {adminTab === 'archive' && (
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
-                      <div className="flex justify-between items-center mb-6">
-                        <div>
-                          <h3 className="text-lg font-bold text-slate-900">📚 Archivio Storico Corsi e Partecipanti</h3>
-                          <p className="text-xs text-slate-500 mt-1">Corsi ordinati cronologicamente dal più recente al più vecchio. Clicca su "Visualizza Dettaglio" per consultare gli iscritti ed esportare i dati in Excel, CSV o TXT.</p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-3">
-                        {[...courses].reverse().map(course => {
-                          const courseRegs = registrations.filter(r => r.courseId === course.id || r.courseTitle === course.title);
-                          const brandObj = brands.find(b => b.id === course.brand || b.name === course.brandName);
-                          const cardColor = brandObj?.color || '#1b365d';
-                          const isExpanded = expandedArchiveCourseId === course.id;
-                          const isExpired = isCourseExpired(course.date);
-
-                          return (
-                            <div key={course.id} className="border border-slate-200 rounded-xl bg-white shadow-2xs hover:border-slate-300 transition-all overflow-hidden">
-                              <div className="p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-50/60">
-                                <div className="flex items-center gap-3 flex-wrap">
-                                  <span className="text-[11px] font-black px-2.5 py-1 rounded text-white uppercase tracking-wider" style={{ backgroundColor: cardColor }}>
-                                    {course.brandName}
-                                  </span>
-                                  <div>
-                                    <div className="flex items-center gap-2">
-                                      <h4 className="text-sm font-extrabold text-slate-900 uppercase">{course.title}</h4>
-                                      {isExpired && (
-                                        <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-md">Concluso</span>
-                                      )}
-                                    </div>
-                                    <span className="text-xs text-slate-500 font-medium">📅 {course.date} ({course.time}) | 🎤 {course.speaker || 'Ermanno Zanardi'} | 📍 {course.location}</span>
-                                  </div>
-                                </div>
-
-                                <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
-                                  <span className="text-xs font-bold bg-blue-50 text-[#1b365d] border border-blue-200 px-3 py-1.5 rounded-xl">
-                                    👥 {courseRegs.length} Iscritti
-                                  </span>
-
-                                  <div className="flex items-center gap-2">
-                                    <button
-                                      onClick={() => handleExportCourseExcel(course, courseRegs)}
-                                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition-colors shadow-2xs flex items-center gap-1"
-                                      title="Esporta in Excel (.xlsx)"
-                                    >
-                                      📊 Esporta Excel
-                                    </button>
-
-                                    <button
-                                      onClick={() => setExpandedArchiveCourseId(isExpanded ? null : course.id)}
-                                      className="bg-[#1b365d] hover:bg-[#162d4f] text-white font-bold px-3.5 py-1.5 rounded-xl text-xs transition-colors shadow-2xs flex items-center gap-1.5"
-                                    >
-                                      {isExpanded ? '▲ Chiudi Dettaglio' : '▼ Visualizza Dettaglio'}
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {isExpanded && (
-                                <div className="p-5 border-t border-slate-200 bg-white space-y-4">
-                                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-2 border-b border-slate-100">
-                                    <div>
-                                      <h5 className="text-xs font-black uppercase tracking-wider text-slate-700">Elenco Partecipanti Registrati</h5>
-                                      <p className="text-[11px] text-slate-400">Puoi esportare la lista completa anche nei formati TXT o CSV.</p>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <button
-                                        onClick={() => handleExportCourseCsv(course, courseRegs)}
-                                        className="bg-white hover:bg-slate-50 text-slate-700 font-bold px-3 py-1.5 rounded-lg border border-slate-300 text-xs shadow-2xs"
-                                      >
-                                        📥 Scarica CSV
-                                      </button>
-                                      <button
-                                        onClick={() => handleExportCourseTxt(course, courseRegs)}
-                                        className="bg-white hover:bg-slate-50 text-slate-700 font-bold px-3 py-1.5 rounded-lg border border-slate-300 text-xs shadow-2xs"
-                                      >
-                                        📄 Scarica TXT
-                                      </button>
-                                    </div>
-                                  </div>
-
-                                  {courseRegs.length === 0 ? (
-                                    <p className="text-xs text-slate-400 italic py-4 text-center">Nessun utente iscritto a questo corso nello storico.</p>
-                                  ) : (
-                                    <div className="overflow-x-auto rounded-xl border border-slate-200">
-                                      <table className="w-full text-left text-xs">
-                                        <thead>
-                                          <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase">
-                                            <th className="p-3 font-bold">Data Iscrizione</th>
-                                            <th className="p-3 font-bold">Partecipante</th>
-                                            <th className="p-3 font-bold">Azienda / P.IVA</th>
-                                            <th className="p-3 font-bold">Contatti</th>
-                                            <th className="p-3 font-bold text-center">Attestato con QR</th>
-                                            <th className="p-3 font-bold text-center">Invia Email</th>
-                                          </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-100 text-slate-700">
-                                          {courseRegs.map(reg => (
-                                            <tr key={reg.id} className="hover:bg-slate-50">
-                                              <td className="p-3 text-slate-500 whitespace-nowrap">{reg.timestamp}</td>
-                                              <td className="p-3 font-bold text-slate-900">{reg.fullName} <span className="font-normal text-slate-500 block">({reg.city})</span></td>
-                                              <td className="p-3">{reg.company} <span className="font-mono text-slate-500 block">P.IVA: {reg.vatNumber}</span></td>
-                                              <td className="p-3">✉️ {reg.email}<br/>📞 {reg.phone}</td>
-                                              <td className="p-3 text-center">
-                                                <button onClick={() => handleDownloadAttestato(reg)} className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold px-3 py-1.5 rounded-lg border border-emerald-200 transition-colors">
-                                                  📜 Scarica PDF
-                                                </button>
-                                              </td>
-                                              <td className="p-3 text-center">
-                                                <button onClick={() => handleSendAttestatoEmail(reg)} className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-3 py-1.5 rounded-lg border border-indigo-200 transition-colors">
-                                                  📧 Invia Email
-                                                </button>
-                                              </td>
-                                            </tr>
-                                          ))}
-                                        </tbody>
-                                      </table>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
                     </div>
                   )}
 
@@ -2087,7 +1817,7 @@
                                   >
                                     {isActive ? '✓ Attivo' : '✕ Disattivo'}
                                   </button>
-                                  <button onClick={() => handleTestCourseClick(c)} className="text-blue-600 hover:text-blue-800 font-bold px-2.5 py-1 bg-white border border-blue-200 rounded-lg text-xs">Modifica</button>
+                                  <button onClick={() => handleEditCourseClick(c)} className="text-blue-600 hover:text-blue-800 font-bold px-2.5 py-1 bg-white border border-blue-200 rounded-lg text-xs">Modifica</button>
                                   <button onClick={() => handleDeleteCourse(c.id)} className="text-red-600 hover:text-red-800 font-bold px-2.5 py-1 bg-white border border-red-200 rounded-lg text-xs">Elimina</button>
                                 </div>
                               </div>
