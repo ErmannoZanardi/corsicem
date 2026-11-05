@@ -94,10 +94,8 @@
         const [courses, setCourses] = useState([]);
         const [registrations, setRegistrations] = useState([]);
         
-        // Stato per l'espansione del dettaglio corso nell'archivio storico
         const [expandedArchiveCourseId, setExpandedArchiveCourseId] = useState(null);
 
-        // Stati per la modifica di un'iscrizione esistente dall'Admin
         const [editingRegistrationId, setEditingRegistrationId] = useState(null);
         const [editRegData, setEditRegData] = useState({
           fullName: '',
@@ -109,6 +107,64 @@
         });
 
         const editorRef = useRef(null);
+
+        // Helper per verificare se la data del corso è antecedente a quella odierna
+        const isCourseExpired = (dateString) => {
+          if (!dateString) return false;
+          try {
+            // Mappa dei mesi in italiano per il parsing corretto
+            const months = {
+              gen: 0, gennaio: 0,
+              feb: 1, febbraio: 1,
+              mar: 2, marzo: 2,
+              apr: 3, aprile: 3,
+              mag: 4, maggio: 4,
+              giu: 5, giugno: 5,
+              lug: 6, luglio: 6,
+              ago: 7, agosto: 7,
+              set: 8, settembre: 8,
+              ott: 9, ottobre: 9,
+              nov: 10, novembre: 10,
+              dic: 11, dicembre: 11
+            };
+
+            const cleanStr = dateString.toLowerCase();
+            const words = cleanStr.replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(Boolean);
+            
+            let day = null;
+            let month = null;
+            let year = 2026; // Anno di riferimento predefinito
+
+            for (let i = 0; i < words.length; i++) {
+              const w = words[i];
+              if (!isNaN(w)) {
+                const num = parseInt(w, 10);
+                if (num > 31 && num >= 2000) {
+                  year = num;
+                } else if (num >= 1 && num <= 31 && !day) {
+                  day = num;
+                }
+              } else {
+                for (let key in months) {
+                  if (w.startsWith(key)) {
+                    month = months[key];
+                    break;
+                  }
+                }
+              }
+            }
+
+            if (day !== null && month !== null) {
+              const courseDate = new Date(year, month, day);
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              return courseDate < today;
+            }
+          } catch (e) {
+            console.error("Errore parsing data corso:", e);
+          }
+          return false;
+        };
 
         useEffect(() => {
           async function fetchData() {
@@ -249,6 +305,11 @@
           setSubmitError('');
 
           const courseObj = courses.find(c => c.id === selectedCourse.id);
+          if (isCourseExpired(courseObj?.date)) {
+            setSubmitError('Spiacenti, la data di questo corso è già trascorsa. Le iscrizioni sono chiuse.');
+            return;
+          }
+
           const maxAllowed = courseObj?.maxParticipants || selectedCourse.maxParticipants || 12;
           const currentCount = getCourseEnrollmentCount(selectedCourse.id);
 
@@ -982,7 +1043,6 @@
             doc.setTextColor(80, 90, 105);
             doc.text(`Data di svolgimento: ${reg.date || 'N/D'}`, 148.5, 155, { align: 'center' });
 
-            // Inserimento chiaro del QR Code di autenticità in basso a sinistra
             if (qrImgDataUrl) {
               try {
                 doc.addImage(qrImgDataUrl, 'PNG', 22, 153, 24, 24);
@@ -1073,7 +1133,6 @@
           }
         };
 
-        // Funzione per esportare gli iscritti di un corso in file TXT
         const handleExportCourseTxt = (course, courseRegs) => {
           let content = `=========================================\n`;
           content += `ELENCO PARTECIPANTI CORSO\n`;
@@ -1105,7 +1164,6 @@
           URL.revokeObjectURL(url);
         };
 
-        // Funzione per esportare gli iscritti di un corso in file CSV
         const handleExportCourseCsv = (course, courseRegs) => {
           let csv = 'ID,Nome e Cognome,Azienda,Partita IVA,Città,Email,Telefono,Data Iscrizione,Corso,Marchio\n';
           courseRegs.forEach(r => {
@@ -1121,7 +1179,6 @@
           URL.revokeObjectURL(url);
         };
 
-        // Funzione per esportare gli iscritti di un corso in file Excel (.xlsx) tramite SheetJS
         const handleExportCourseExcel = (course, courseRegs) => {
           const dataToExport = courseRegs.map(r => ({
             "ID Iscrizione": r.id,
@@ -1233,6 +1290,7 @@
                         const enrolled = getCourseEnrollmentCount(course.id);
                         const maxLimit = course.maxParticipants || 12;
                         const isFull = enrolled >= maxLimit;
+                        const isExpired = isCourseExpired(course.date);
                         const percentage = Math.min(100, Math.round((enrolled / maxLimit) * 100));
                         const brandObj = brands.find(b => b.id === course.brand || b.name === course.brandName);
                         const cardColor = brandObj?.color || '#8b1e1e';
@@ -1243,8 +1301,11 @@
                         return (
                           <div key={course.id} className="bg-white rounded-2xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col justify-between relative group h-full">
                             <div className="text-white p-5 relative overflow-hidden shadow-sm rounded-t-2xl" style={{ background: `linear-gradient(135deg, ${cardColor}dd, ${cardColor})` }}>
-                              {course.isNew && (
+                              {course.isNew && !isExpired && (
                                 <div className="absolute -right-12 top-4 bg-amber-400 text-slate-900 text-xs font-black py-1 px-12 rotate-45 shadow-md uppercase tracking-wider z-10 text-center">NOVITÀ</div>
+                              )}
+                              {isExpired && (
+                                <div className="absolute -right-12 top-4 bg-red-600 text-white text-[10px] font-black py-1 px-12 rotate-45 shadow-md uppercase tracking-wider z-10 text-center">CONCLUSO</div>
                               )}
                               <div className="flex justify-between items-center mb-3 pr-10 flex-wrap gap-2">
                                 <div className="flex items-center gap-2 bg-white/20 px-3 py-1 rounded-xl backdrop-blur-md border border-white/10">
@@ -1269,7 +1330,7 @@
                                 <div className="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-slate-100 text-base">
                                   <div>
                                     <span className="text-slate-400 font-bold uppercase block mb-1 text-xs tracking-wider">DATA</span>
-                                    <span className="font-extrabold text-slate-900 text-base sm:text-lg">{course.date}</span>
+                                    <span className={`font-extrabold text-base sm:text-lg ${isExpired ? 'text-red-600' : 'text-slate-900'}`}>{course.date}</span>
                                   </div>
                                   <div>
                                     <span className="text-slate-400 font-bold uppercase block mb-1 text-xs tracking-wider">ORARIO</span>
@@ -1309,14 +1370,20 @@
                                 </div>
 
                                 <div className="space-y-2.5">
-                                  <button
-                                    onClick={() => { setSelectedCourse(course); setSubmitted(false); setSubmitError(''); }}
-                                    disabled={isFull}
-                                    className={`w-full font-extrabold py-3.5 px-4 rounded-xl text-sm sm:text-base transition-all shadow-md flex items-center justify-center gap-2 text-white tracking-wide ${isFull ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none' : 'hover:opacity-95 hover:shadow-lg active:scale-[0.99]'}`}
-                                    style={{ backgroundColor: isFull ? undefined : cardColor }}
-                                  >
-                                    {isFull ? 'Corso Esaurito (Sold Out)' : 'Iscriviti al Corso'}
-                                  </button>
+                                  {isExpired ? (
+                                    <div className="w-full bg-red-50 border border-red-200 text-red-700 font-extrabold py-3.5 px-4 rounded-xl text-sm sm:text-base text-center tracking-wide shadow-2xs">
+                                      🔒 Iscrizioni Chiuse (Corso Terminato)
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => { setSelectedCourse(course); setSubmitted(false); setSubmitError(''); }}
+                                      disabled={isFull}
+                                      className={`w-full font-extrabold py-3.5 px-4 rounded-xl text-sm sm:text-base transition-all shadow-md flex items-center justify-center gap-2 text-white tracking-wide ${isFull ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none' : 'hover:opacity-95 hover:shadow-lg active:scale-[0.99]'}`}
+                                      style={{ backgroundColor: isFull ? undefined : cardColor }}
+                                    >
+                                      {isFull ? 'Corso Esaurito (Sold Out)' : 'Iscriviti al Corso'}
+                                    </button>
+                                  )}
                                   <button
                                     onClick={() => handleDownloadLocandina(course)}
                                     className="w-full bg-white hover:bg-slate-50 text-slate-700 font-bold py-2.5 px-4 rounded-xl text-xs sm:text-sm transition-colors border border-slate-300/80 flex items-center justify-center gap-2 shadow-2xs"
@@ -1342,6 +1409,7 @@
                       const brandColor = brandObj?.color || '#8b1e1e';
                       const isOnline = selectedCourse.modality && selectedCourse.modality.toLowerCase().includes('meet');
                       const courseLevel = selectedCourse.level || 'Base';
+                      const isExpired = isCourseExpired(selectedCourse.date);
 
                       return (
                         <div>
@@ -1372,44 +1440,54 @@
                             <p className="text-xs text-[#1b365d] font-semibold pt-1 border-t border-slate-200">ℹ Erogato da {companyName} (Max 2 partecipanti per azienda).</p>
                           </div>
 
-                          <h2 className="text-xl font-bold text-slate-900 mb-4">Modulo di Registrazione Installatore</h2>
-                          {submitError && (
-                            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded-xl font-medium">{submitError}</div>
-                          )}
+                          {isExpired ? (
+                            <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-2xl text-center space-y-3">
+                              <h3 className="font-black text-lg">Iscrizioni Chiuse</h3>
+                              <p className="text-xs">La data di questo corso è già trascorsa. Non è più possibile effettuare nuove registrazioni.</p>
+                              <button onClick={() => setSelectedCourse(null)} className="mt-2 bg-[#1b365d] text-white font-bold py-2 px-6 rounded-xl text-xs">Torna ai Corsi Disponibili</button>
+                            </div>
+                          ) : (
+                            <>
+                              <h2 className="text-xl font-bold text-slate-900 mb-4">Modulo di Registrazione Installatore</h2>
+                              {submitError && (
+                                <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded-xl font-medium">{submitError}</div>
+                              )}
 
-                          <form onSubmit={handleSubmit} className="space-y-4">
-                            <div>
-                              <label className="block text-xs font-semibold text-slate-700 mb-1">Nome e Cognome del Partecipante *</label>
-                              <input type="text" name="fullName" required value={formData.fullName} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="Mario Rossi" />
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                              <div>
-                                <label className="block text-xs font-semibold text-slate-700 mb-1">Ragione Sociale Azienda *</label>
-                                <input type="text" name="company" required value={formData.company} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="Impianti Elettrici Srl" />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-semibold text-slate-700 mb-1">Partita IVA (limite 2) *</label>
-                                <input type="text" name="vatNumber" required value={formData.vatNumber} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d] font-mono" placeholder="01234567890" />
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                              <div>
-                                <label className="block text-xs font-semibold text-slate-700 mb-1">Email Aziendale *</label>
-                                <input type="email" name="email" required value={formData.email} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="mario@impianti.it" />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-semibold text-slate-700 mb-1">Telefono / Cellulare *</label>
-                                <input type="tel" name="phone" required value={formData.phone} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="333 1234567" />
-                              </div>
-                            </div>
-                            <div>
-                              <label className="block text-xs font-semibold text-slate-700 mb-1">Città sede lavorativa *</label>
-                              <input type="text" name="city" required value={formData.city} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="Milano (MI)" />
-                            </div>
-                            <button type="submit" className="w-full mt-4 text-white font-bold py-3 px-4 rounded-xl text-sm transition-colors shadow-md hover:opacity-90" style={{ backgroundColor: brandColor }}>
-                              Conferma Iscrizione al Corso
-                            </button>
-                          </form>
+                              <form onSubmit={handleSubmit} className="space-y-4">
+                                <div>
+                                  <label className="block text-xs font-semibold text-slate-700 mb-1">Nome e Cognome del Partecipante *</label>
+                                  <input type="text" name="fullName" required value={formData.fullName} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="Mario Rossi" />
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                  <div>
+                                    <label className="block text-xs font-semibold text-slate-700 mb-1">Ragione Sociale Azienda *</label>
+                                    <input type="text" name="company" required value={formData.company} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="Impianti Elettrici Srl" />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-semibold text-slate-700 mb-1">Partita IVA (limite 2) *</label>
+                                    <input type="text" name="vatNumber" required value={formData.vatNumber} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d] font-mono" placeholder="01234567890" />
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                  <div>
+                                    <label className="block text-xs font-semibold text-slate-700 mb-1">Email Aziendale *</label>
+                                    <input type="email" name="email" required value={formData.email} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="mario@impianti.it" />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-semibold text-slate-700 mb-1">Telefono / Cellulare *</label>
+                                    <input type="tel" name="phone" required value={formData.phone} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="333 1234567" />
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-semibold text-slate-700 mb-1">Città sede lavorativa *</label>
+                                  <input type="text" name="city" required value={formData.city} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="Milano (MI)" />
+                                </div>
+                                <button type="submit" className="w-full mt-4 text-white font-bold py-3 px-4 rounded-xl text-sm transition-colors shadow-md hover:opacity-90" style={{ backgroundColor: brandColor }}>
+                                  Conferma Iscrizione al Corso
+                                </button>
+                              </form>
+                            </>
+                          )}
                         </div>
                       );
                     })()
@@ -1635,23 +1713,27 @@
                       </div>
 
                       <div className="space-y-3">
-                        {/* Ordinamento cronologico dal più recente al più vecchio (invertendo l'array in base all'ID o data) */}
                         {[...courses].reverse().map(course => {
                           const courseRegs = registrations.filter(r => r.courseId === course.id || r.courseTitle === course.title);
                           const brandObj = brands.find(b => b.id === course.brand || b.name === course.brandName);
                           const cardColor = brandObj?.color || '#1b365d';
                           const isExpanded = expandedArchiveCourseId === course.id;
+                          const isExpired = isCourseExpired(course.date);
 
                           return (
                             <div key={course.id} className="border border-slate-200 rounded-xl bg-white shadow-2xs hover:border-slate-300 transition-all overflow-hidden">
-                              {/* Singola Riga del Corso */}
                               <div className="p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-50/60">
                                 <div className="flex items-center gap-3 flex-wrap">
                                   <span className="text-[11px] font-black px-2.5 py-1 rounded text-white uppercase tracking-wider" style={{ backgroundColor: cardColor }}>
                                     {course.brandName}
                                   </span>
                                   <div>
-                                    <h4 className="text-sm font-extrabold text-slate-900 uppercase">{course.title}</h4>
+                                    <div className="flex items-center gap-2">
+                                      <h4 className="text-sm font-extrabold text-slate-900 uppercase">{course.title}</h4>
+                                      {isExpired && (
+                                        <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-md">Concluso</span>
+                                      )}
+                                    </div>
                                     <span className="text-xs text-slate-500 font-medium">📅 {course.date} ({course.time}) | 🎤 {course.speaker || 'Ermanno Zanardi'} | 📍 {course.location}</span>
                                   </div>
                                 </div>
@@ -1680,7 +1762,6 @@
                                 </div>
                               </div>
 
-                              {/* Pannello Espandibile con Elenco Partecipanti e opzioni export TXT/CSV */}
                               {isExpanded && (
                                 <div className="p-5 border-t border-slate-200 bg-white space-y-4">
                                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-2 border-b border-slate-100">
@@ -2006,7 +2087,7 @@
                                   >
                                     {isActive ? '✓ Attivo' : '✕ Disattivo'}
                                   </button>
-                                  <button onClick={() => handleEditCourseClick(c)} className="text-blue-600 hover:text-blue-800 font-bold px-2.5 py-1 bg-white border border-blue-200 rounded-lg text-xs">Modifica</button>
+                                  <button onClick={() => handleTestCourseClick(c)} className="text-blue-600 hover:text-blue-800 font-bold px-2.5 py-1 bg-white border border-blue-200 rounded-lg text-xs">Modifica</button>
                                   <button onClick={() => handleDeleteCourse(c.id)} className="text-red-600 hover:text-red-800 font-bold px-2.5 py-1 bg-white border border-red-200 rounded-lg text-xs">Elimina</button>
                                 </div>
                               </div>
