@@ -87,7 +87,7 @@
         const [tempCompanyName, setTempCompanyName] = useState(companyName);
         const [tempCompanyLogo, setTempCompanyLogo] = useState(companyLogo);
         const [tempHeaderTitle, setTempHeaderTitle] = useState(headerTitle);
-        const [tempCopyrightText, setTempCopyrightText] = useState(copyrightText);
+        const [tempCopyrightTest, setTempCopyrightText] = useState(copyrightText);
         const [tempAdminEmail, setTempAdminEmail] = useState(adminEmail);
         const [settingsSavedMsg, setSettingsSavedMsg] = useState(false);
 
@@ -108,10 +108,37 @@
 
         const editorRef = useRef(null);
 
-        // Helper robusto per verificare se la data del corso è scaduta rispetto ad oggi
+        // Helper ultra-robusto per verificare se la data del corso è scaduta rispetto ad oggi
         const isCourseExpired = (dateString) => {
           if (!dateString) return false;
           try {
+            const cleanStr = dateString.trim();
+            
+            // 1. Controllo se è in formato ISO o numerico standard (es. YYYY-MM-DD o DD/MM/YYYY)
+            if (cleanStr.includes('-') || cleanStr.includes('/')) {
+              const parts = cleanStr.split(/[-/]/);
+              if (parts.length === 3) {
+                let y, m, d;
+                if (parts[0].length === 4) {
+                  y = parseInt(parts[0], 10);
+                  m = parseInt(parts[1], 10) - 1;
+                  d = parseInt(parts[2], 10);
+                } else {
+                  d = parseInt(parts[0], 10);
+                  m = parseInt(parts[1], 10) - 1;
+                  y = parseInt(parts[2], 10);
+                  if (y < 100) y += 2000;
+                }
+                if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+                  const courseDate = new Date(y, m, d);
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  return courseDate < today;
+                }
+              }
+            }
+
+            // 2. Controllo formato testuale (es. "15 nov 2026" o "giovedì 15 novembre 2026")
             const months = {
               gen: 0, gennaio: 0,
               feb: 1, febbraio: 1,
@@ -127,9 +154,7 @@
               dic: 11, dicembre: 11
             };
 
-            const cleanStr = dateString.toLowerCase();
-            const words = cleanStr.replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(Boolean);
-            
+            const words = cleanStr.toLowerCase().replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(Boolean);
             let day = null;
             let month = null;
             let year = 2026;
@@ -153,6 +178,7 @@
               }
             }
 
+            // Se troviamo giorno e mese nelle parole, oppure se c'è un numero sequenziale e un mese
             if (day !== null && month !== null) {
               const courseDate = new Date(year, month, day);
               const today = new Date();
