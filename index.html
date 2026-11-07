@@ -452,7 +452,7 @@
           });
         };
 
-        const handleSaveRegistrationEdit = async (regId) => {
+const handleSaveRegistrationEdit = async (regId) => {
           const updatePayload = {
             full_name: editRegData.fullName,
             company: editRegData.company,
@@ -463,9 +463,13 @@
           };
 
           if (supabaseClient) {
-            const { error } = await supabaseClient.from('registrations').update(updatePayload).eq('id', regId);
+            const { error } = await supabaseClient
+              .from('registrations')
+              .update(updatePayload)
+              .eq('id', regId);
+              
             if (error) {
-              alert("Errore durante l'aggiornamento dell'iscrizione: " + error.message);
+              alert("Errore durante l'aggiornamento dell'iscrizione su Supabase: " + error.message);
               return;
             }
           }
@@ -481,7 +485,7 @@
           } : r));
 
           setEditingRegistrationId(null);
-          alert('Iscrizione aggiornata con successo!');
+          alert('Iscrizione aggiornata e salvata sul cloud con successo!');
         };
 
         const handleAdminLogin = (e) => {
