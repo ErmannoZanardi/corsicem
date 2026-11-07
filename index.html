@@ -64,11 +64,13 @@
         const [selectedBrand, setSelectedBrand] = useState('all');
         const [selectedCourse, setSelectedCourse] = useState(null);
         const [submitted, setSubmitted] = useState(false);
-        const [isSubmitting, setIsSubmitting] = useState(false);
         const [submitError, setSubmitError] = useState('');
         const [adminPin, setAdminPin] = useState('');
         const [adminError, setAdminError] = useState(false);
-        const [adminTab, setAdminTab] = useState('archive'); 
+        const [adminTab, setAdminTab] = useState('registrations'); 
+
+        // Stato per la ricerca rapida nella sezione Check-in Segreteria
+        const [checkinSearchQuery, setCheckinSearchQuery] = useState('');
 
         const [companyName, setCompanyName] = useState('Azienda di prova');
         const [companyLogo, setCompanyLogo] = useState('');
@@ -88,7 +90,7 @@
         const [tempCompanyName, setTempCompanyName] = useState(companyName);
         const [tempCompanyLogo, setTempCompanyLogo] = useState(companyLogo);
         const [tempHeaderTitle, setTempHeaderTitle] = useState(headerTitle);
-        const [tempCopyrightTest, setTempCopyrightText] = useState(copyrightText);
+        const [tempCopyrightText, setTempCopyrightText] = useState(copyrightText);
         const [tempAdminEmail, setTempAdminEmail] = useState(adminEmail);
         const [settingsSavedMsg, setSettingsSavedMsg] = useState(false);
 
@@ -109,35 +111,10 @@
 
         const editorRef = useRef(null);
 
-        // Helper per verificare se la data del corso è scaduta rispetto ad oggi
+        // Helper per verificare se la data del corso è antecedente a quella odierna
         const isCourseExpired = (dateString) => {
           if (!dateString) return false;
           try {
-            const cleanStr = dateString.trim();
-            
-            if (cleanStr.includes('-') || cleanStr.includes('/')) {
-              const parts = cleanStr.split(/[-/]/);
-              if (parts.length === 3) {
-                let y, m, d;
-                if (parts[0].length === 4) {
-                  y = parseInt(parts[0], 10);
-                  m = parseInt(parts[1], 10) - 1;
-                  d = parseInt(parts[2], 10);
-                } else {
-                  d = parseInt(parts[0], 10);
-                  m = parseInt(parts[1], 10) - 1;
-                  y = parseInt(parts[2], 10);
-                  if (y < 100) y += 2000;
-                }
-                if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
-                  const courseDate = new Date(y, m, d);
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  return courseDate < today;
-                }
-              }
-            }
-
             const months = {
               gen: 0, gennaio: 0,
               feb: 1, febbraio: 1,
@@ -153,7 +130,9 @@
               dic: 11, dicembre: 11
             };
 
-            const words = cleanStr.toLowerCase().replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(Boolean);
+            const cleanStr = dateString.toLowerCase();
+            const words = cleanStr.replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(Boolean);
+            
             let day = null;
             let month = null;
             let year = 2026;
@@ -164,7 +143,7 @@
                 const num = parseInt(w, 10);
                 if (num > 31 && num >= 2000) {
                   year = num;
-                } else if (num >= 1 && num <= 31 && day === null) {
+                } else if (num >= 1 && num <= 31 && !day) {
                   day = num;
                 }
               } else {
@@ -244,7 +223,9 @@
                   courseTitle: r.course_title,
                   brandName: r.brand_name,
                   date: r.date,
-                  timestamp: r.timestamp
+                  timestamp: r.timestamp,
+                  isPresent: r.is_present || false,
+                  checkinTime: r.checkin_time || null
                 }));
                 setRegistrations(formattedRegs);
               }
@@ -323,110 +304,122 @@
           }
         };
 
+        // Gestione Check-in presenza in segreteria
+        const handleToggleCheckin = async (regId, currentStatus) => {
+          const newStatus = !currentStatus;
+          const checkinTimestamp = newStatus ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
+
+          if (supabaseClient) {
+            const { error } = await supabaseClient.from('registrations').update({
+              is_present: newStatus,
+              checkin_time: checkinTimestamp
+            }).eq('id', regId);
+
+            if (error) {
+              alert("Errore durante l'aggiornamento della presenza: " + error.message);
+              return;
+            }
+          }
+
+          setRegistrations(registrations.map(r => r.id === regId ? {
+            ...r,
+            isPresent: newStatus,
+            checkinTime: checkinTimestamp
+          } : r));
+        };
+
         const handleSubmit = async (e) => {
           e.preventDefault();
-          if (isSubmitting) return; // Impedisce doppi click e invii multipli
-          
           setSubmitError('');
-          setIsSubmitting(true);
 
-          try {
-            const courseObj = courses.find(c => c.id === selectedCourse.id);
-            if (isCourseExpired(courseObj?.date)) {
-              setSubmitError('Spiacenti, la data di questo corso è già trascorsa. Le iscrizioni sono chiuse.');
-              setIsSubmitting(false);
+          const courseObj = courses.find(c => c.id === selectedCourse.id);
+          if (isCourseExpired(courseObj?.date)) {
+            setSubmitError('Spiacenti, la data di questo corso è già trascorsa. Le iscrizioni sono chiuse.');
+            return;
+          }
+
+          const maxAllowed = courseObj?.maxParticipants || selectedCourse.maxParticipants || 12;
+          const currentCount = getCourseEnrollmentCount(selectedCourse.id);
+
+          if (currentCount >= maxAllowed) {
+            setSubmitError('Spiacenti, questo corso ha raggiunto il numero massimo di partecipanti ed è completo (Sold Out).');
+            return;
+          }
+
+          const companyCount = getCompanyEnrollmentCountForCourse(selectedCourse.id, formData.vatNumber);
+          if (companyCount >= 2) {
+            setSubmitError('Attenzione: La tua azienda ha già raggiunto il limite massimo di 2 partecipanti iscritti a questo corso.');
+            return;
+          }
+
+          const newRegData = {
+            course_id: selectedCourse.id,
+            full_name: formData.fullName,
+            company: formData.company,
+            vat_number: formData.vatNumber,
+            email: formData.email,
+            phone: formData.phone,
+            city: formData.city,
+            course_title: selectedCourse.title,
+            brand_name: selectedCourse.brandName,
+            date: selectedCourse.date,
+            timestamp: new Date().toLocaleString(),
+            is_present: false,
+            checkin_time: null
+          };
+
+          let insertedId = Date.now();
+          if (supabaseClient) {
+            const { data, error } = await supabaseClient.from('registrations').insert([newRegData]).select();
+            if (error) {
+              setSubmitError("Errore di connessione al database cloud: " + error.message);
               return;
             }
-
-            const maxAllowed = courseObj?.maxParticipants || selectedCourse.maxParticipants || 12;
-            const currentCount = getCourseEnrollmentCount(selectedCourse.id);
-
-            if (currentCount >= maxAllowed) {
-              setSubmitError('Spiacenti, questo corso ha raggiunto il numero massimo di partecipanti ed è completo (Sold Out).');
-              setIsSubmitting(false);
-              return;
+            if (data && data[0]) {
+              insertedId = data[0].id;
             }
+          }
 
-            const companyCount = getCompanyEnrollmentCountForCourse(selectedCourse.id, formData.vatNumber);
-            if (companyCount >= 2) {
-              setSubmitError('Attenzione: La tua azienda ha già raggiunto il limite massimo di 2 partecipanti iscritti a questo corso.');
-              setIsSubmitting(false);
-              return;
-            }
+          if (window.emailjs) {
+            try {
+              await emailjs.send("service_miwig8q", "template_vtbeauc", {
+                to_name: formData.fullName,
+                to_email: formData.email,
+                course_title: selectedCourse.title,
+                course_date: selectedCourse.date,
+                company_name: companyName,
+                message: `Grazie per esserti iscritto al corso:\n\nCorso: ${selectedCourse.title}\nData: ${selectedCourse.date}\nLivello: ${selectedCourse.level || 'Base'}\nRelatore: ${selectedCourse.speaker || 'Ermanno Zanardi'}\n\nTi aspettiamo!`
+              });
 
-            const newRegData = {
-              course_id: selectedCourse.id,
-              full_name: formData.fullName,
-              company: formData.company,
-              vat_number: formData.vatNumber,
-              email: formData.email,
-              phone: formData.phone,
-              city: formData.city,
-              course_title: selectedCourse.title,
-              brand_name: selectedCourse.brandName,
-              date: selectedCourse.date,
-              timestamp: new Date().toLocaleString()
-            };
-
-            let insertedId = Date.now();
-            if (supabaseClient) {
-              const { data, error } = await supabaseClient.from('registrations').insert([newRegData]).select();
-              if (error) {
-                setSubmitError("Errore di connessione al database cloud: " + error.message);
-                setIsSubmitting(false);
-                return;
-              }
-              if (data && data[0]) {
-                insertedId = data[0].id;
-              }
-            }
-
-           if (window.emailjs) {
-              try {
-                // Email di conferma al partecipante con Orario e Sede/Piattaforma inclusi
+              if (adminEmail) {
                 await emailjs.send("service_miwig8q", "template_vtbeauc", {
-                  to_name: formData.fullName,
-                  to_email: formData.email,
+                  to_name: "Amministratore",
+                  to_email: adminEmail,
                   course_title: selectedCourse.title,
                   course_date: selectedCourse.date,
                   company_name: companyName,
-                  message: `Grazie per esserti iscritto al corso:\n\nCorso: ${selectedCourse.title}\nMarchio: ${selectedCourse.brandName}\nData: ${selectedCourse.date}\nOrario: ${selectedCourse.time}\nSede / Piattaforma: ${selectedCourse.location}\nLivello: ${selectedCourse.level || 'Base'}\nRelatore: ${selectedCourse.speaker || 'Ermanno Zanardi'}\n\nTi aspettiamo!`
+                  message: `Nuova iscrizione ricevuta!\n\nPartecipante: ${formData.fullName}\nAzienda: ${formData.company} \n(P.IVA: ${formData.vatNumber})\nEmail: ${formData.email}\nTelefono: ${formData.phone}`
                 });
-
-                // Email di notifica per l'amministratore
-                if (adminEmail) {
-                  await emailjs.send("service_miwig8q", "template_vtbeauc", {
-                    to_name: "Amministratore",
-                    to_email: adminEmail,
-                    course_title: selectedCourse.title,
-                    course_date: selectedCourse.date,
-                    company_name: companyName,
-                    message: `Nuova iscrizione ricevuta!\n\nPartecipante: ${formData.fullName}\nAzienda: ${formData.company} (P.IVA: ${formData.vatNumber})\nCorso: ${selectedCourse.title} (${selectedCourse.date} - ${selectedCourse.time})\nSede: ${selectedCourse.location}\nEmail: ${formData.email}\nTelefono: ${formData.phone}`
-                  });
-                }
-              } catch (err) {
-                console.error("Errore durante l'invio dell'email:", err);
               }
+            } catch (err) {
+              console.error("Errore durante l'invio dell'email:", err);
             }
-
-            const localReg = {
-              id: insertedId,
-              courseId: selectedCourse.id,
-              ...formData,
-              courseTitle: selectedCourse.title,
-              brandName: selectedCourse.brandName,
-              date: selectedCourse.date,
-              timestamp: newRegData.timestamp
-            };
-
-            setRegistrations([localReg, ...registrations]);
-            setSubmitted(true);
-          } catch (err) {
-            console.error("Errore imprevisto:", err);
-            setSubmitError("Si è verificato un errore inatteso. Riprova.");
-          } finally {
-            setIsSubmitting(false);
           }
+
+          const localReg = {
+            id: insertedId,
+            courseId: selectedCourse.id,
+            ...formData,
+            courseTitle: selectedCourse.title,
+            brandName: selectedCourse.brandName,
+            date: selectedCourse.date,
+            timestamp: newRegData.timestamp,
+            isPresent: false,
+            checkinTime: null
+          };
+
+          setRegistrations([localReg, ...registrations]);
+          setSubmitted(true);
         };
 
         const handleDeleteRegistration = async (regId) => {
@@ -454,7 +447,7 @@
           });
         };
 
-const handleSaveRegistrationEdit = async (regId) => {
+        const handleSaveRegistrationEdit = async (regId) => {
           const updatePayload = {
             full_name: editRegData.fullName,
             company: editRegData.company,
@@ -465,13 +458,9 @@ const handleSaveRegistrationEdit = async (regId) => {
           };
 
           if (supabaseClient) {
-            const { error } = await supabaseClient
-              .from('registrations')
-              .update(updatePayload)
-              .eq('id', regId);
-              
+            const { error } = await supabaseClient.from('registrations').update(updatePayload).eq('id', regId);
             if (error) {
-              alert("Errore durante l'aggiornamento dell'iscrizione su Supabase: " + error.message);
+              alert("Errore durante l'aggiornamento dell'iscrizione: " + error.message);
               return;
             }
           }
@@ -487,7 +476,7 @@ const handleSaveRegistrationEdit = async (regId) => {
           } : r));
 
           setEditingRegistrationId(null);
-          alert('Iscrizione aggiornata e salvata sul cloud con successo!');
+          alert('Iscrizione aggiornata con successo!');
         };
 
         const handleAdminLogin = (e) => {
@@ -691,7 +680,7 @@ const handleSaveRegistrationEdit = async (regId) => {
             isActive: true
           });
           if (editorRef.current) editorRef.current.innerHTML = '';
-          setAdminTab('archive');
+          setAdminTab('registrations');
         };
 
         const handleEditCourseClick = (course) => {
@@ -987,7 +976,7 @@ const handleSaveRegistrationEdit = async (regId) => {
           }
         };
 
-        const handleDownloadAttestato = (reg) => {
+        const handleDownloadAttestato = (reg, qrImgDataUrl = null) => {
           const { jsPDF } = window.jspdf;
           const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
@@ -1007,7 +996,7 @@ const handleSaveRegistrationEdit = async (regId) => {
           };
           const [r, g, b] = hexToRgb(brandColorHex);
 
-          const generateCertPdfContent = (bgImgData, qrImgDataUrl) => {
+          const generateCertPdfContent = (bgImgData) => {
             if (bgImgData) {
               try {
                 doc.addImage(bgImgData, 'JPEG', 0, 0, 297, 210);
@@ -1192,6 +1181,7 @@ const handleSaveRegistrationEdit = async (regId) => {
             content += `    Città: ${r.city}\n`;
             content += `    Email: ${r.email}\n`;
             content += `    Telefono: ${r.phone}\n`;
+            content += `    Presenza Segreteria: ${r.isPresent ? 'Presente (' + (r.checkinTime || '') + ')' : 'Non arrivato'}\n`;
             content += `    Data Iscrizione: ${r.timestamp}\n`;
             content += `-----------------------------------------\n`;
           });
@@ -1206,9 +1196,9 @@ const handleSaveRegistrationEdit = async (regId) => {
         };
 
         const handleExportCourseCsv = (course, courseRegs) => {
-          let csv = 'ID,Nome e Cognome,Azienda,Partita IVA,Città,Email,Telefono,Data Iscrizione,Corso,Marchio\n';
+          let csv = 'ID,Nome e Cognome,Azienda,Partita IVA,Città,Email,Telefono,Presente,Ora Check-in,Data Iscrizione,Corso,Marchio\n';
           courseRegs.forEach(r => {
-            csv += `"${r.id}","${r.fullName}","${r.company}","${r.vatNumber}","${r.city}","${r.email}","${r.phone}","${r.timestamp}","${r.courseTitle}","${r.brandName}"\n`;
+            csv += `"${r.id}","${r.fullName}","${r.company}","${r.vatNumber}","${r.city}","${r.email}","${r.phone}","${r.isPresent ? 'Sì' : 'No'}","${r.checkinTime || ''}","${r.timestamp}","${r.courseTitle}","${r.brandName}"\n`;
           });
 
           const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -1229,6 +1219,8 @@ const handleSaveRegistrationEdit = async (regId) => {
             "Città": r.city,
             "Email": r.email,
             "Telefono": r.phone,
+            "Presente in Segreteria": r.isPresent ? "Sì" : "No",
+            "Ora Check-in": r.checkinTime || "",
             "Data Iscrizione": r.timestamp,
             "Titolo Corso": r.courseTitle,
             "Marchio": r.brandName,
@@ -1245,10 +1237,25 @@ const handleSaveRegistrationEdit = async (regId) => {
         };
 
         const totalRegistrations = registrations.length;
+        const presentRegistrationsCount = registrations.filter(r => r.isPresent).length;
         const registrationsByBrand = registrations.reduce((acc, reg) => {
           acc[reg.brandName] = (acc[reg.brandName] || 0) + 1;
           return acc;
         }, {});
+
+        // Filtraggio per la sezione Check-in Presenze
+        const filteredCheckinRegistrations = registrations.filter(r => {
+          if (!checkinSearchQuery.trim()) return true;
+          const q = checkinSearchQuery.toLowerCase();
+          return (
+            (r.fullName && r.fullName.toLowerCase().includes(q)) ||
+            (r.company && r.company.toLowerCase().includes(q)) ||
+            (r.vatNumber && r.vatNumber.toLowerCase().includes(q)) ||
+            (r.email && r.email.toLowerCase().includes(q)) ||
+            (r.courseTitle && r.courseTitle.toLowerCase().includes(q)) ||
+            (r.brandName && r.brandName.toLowerCase().includes(q))
+          );
+        });
 
         return (
           <div className="min-h-screen flex flex-col bg-slate-100 text-slate-800 font-sans">
@@ -1283,7 +1290,7 @@ const handleSaveRegistrationEdit = async (regId) => {
                       onClick={() => { setView('admin-login'); setAdminError(false); }}
                       className="bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs sm:text-sm font-bold transition-all px-4 py-2 rounded-xl uppercase tracking-wider flex items-center gap-2 shadow-2xs backdrop-blur-sm active:scale-95"
                     >
-                      <span>🔒</span> Admin
+                      <span>🔒</span> Admin / Segreteria
                     </button>
                   ) : (
                     <button
@@ -1497,49 +1504,34 @@ const handleSaveRegistrationEdit = async (regId) => {
                               <form onSubmit={handleSubmit} className="space-y-4">
                                 <div>
                                   <label className="block text-xs font-semibold text-slate-700 mb-1">Nome e Cognome del Partecipante *</label>
-                                  <input type="text" name="fullName" required value={formData.fullName} onChange={handleInputChange} disabled={isSubmitting} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d] disabled:bg-slate-100" placeholder="Mario Rossi" />
+                                  <input type="text" name="fullName" required value={formData.fullName} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="Mario Rossi" />
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                   <div>
                                     <label className="block text-xs font-semibold text-slate-700 mb-1">Ragione Sociale Azienda *</label>
-                                    <input type="text" name="company" required value={formData.company} onChange={handleInputChange} disabled={isSubmitting} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d] disabled:bg-slate-100" placeholder="Impianti Elettrici Srl" />
+                                    <input type="text" name="company" required value={formData.company} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="Impianti Elettrici Srl" />
                                   </div>
                                   <div>
                                     <label className="block text-xs font-semibold text-slate-700 mb-1">Partita IVA (limite 2) *</label>
-                                    <input type="text" name="vatNumber" required value={formData.vatNumber} onChange={handleInputChange} disabled={isSubmitting} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d] font-mono disabled:bg-slate-100" placeholder="01234567890" />
+                                    <input type="text" name="vatNumber" required value={formData.vatNumber} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d] font-mono" placeholder="01234567890" />
                                   </div>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                   <div>
                                     <label className="block text-xs font-semibold text-slate-700 mb-1">Email Aziendale *</label>
-                                    <input type="email" name="email" required value={formData.email} onChange={handleInputChange} disabled={isSubmitting} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d] disabled:bg-slate-100" placeholder="mario@impianti.it" />
+                                    <input type="email" name="email" required value={formData.email} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="mario@impianti.it" />
                                   </div>
                                   <div>
                                     <label className="block text-xs font-semibold text-slate-700 mb-1">Telefono / Cellulare *</label>
-                                    <input type="tel" name="phone" required value={formData.phone} onChange={handleInputChange} disabled={isSubmitting} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d] disabled:bg-slate-100" placeholder="333 1234567" />
+                                    <input type="tel" name="phone" required value={formData.phone} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="333 1234567" />
                                   </div>
                                 </div>
                                 <div>
                                   <label className="block text-xs font-semibold text-slate-700 mb-1">Città sede lavorativa *</label>
-                                  <input type="text" name="city" required value={formData.city} onChange={handleInputChange} disabled={isSubmitting} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d] disabled:bg-slate-100" placeholder="Milano (MI)" />
+                                  <input type="text" name="city" required value={formData.city} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="Milano (MI)" />
                                 </div>
-                                <button 
-                                  type="submit" 
-                                  disabled={isSubmitting}
-                                  className="w-full mt-4 text-white font-bold py-3 px-4 rounded-xl text-sm transition-colors shadow-md flex items-center justify-center gap-2 disabled:opacity-75 disabled:cursor-wait" 
-                                  style={{ backgroundColor: brandColor }}
-                                >
-                                  {isSubmitting ? (
-                                    <>
-                                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                      </svg>
-                                      Elaborazione iscrizione in corso...
-                                    </>
-                                  ) : (
-                                    'Conferma Iscrizione al Corso'
-                                  )}
+                                <button type="submit" className="w-full mt-4 text-white font-bold py-3 px-4 rounded-xl text-sm transition-colors shadow-md hover:opacity-90" style={{ backgroundColor: brandColor }}>
+                                  Conferma Iscrizione al Corso
                                 </button>
                               </form>
                             </>
@@ -1570,7 +1562,7 @@ const handleSaveRegistrationEdit = async (regId) => {
                 <div className="max-w-md mx-auto bg-white rounded-2xl border border-slate-200 shadow-xl p-8 mt-12">
                   <div className="text-center mb-6">
                     <div className="w-12 h-12 bg-blue-50 text-[#1b365d] rounded-xl flex items-center justify-center mx-auto mb-3 text-xl font-bold shadow">🔒</div>
-                    <h2 className="text-xl font-bold text-slate-900">Area Riservata Admin</h2>
+                    <h2 className="text-xl font-bold text-slate-900">Area Riservata Admin / Segreteria</h2>
                     <p className="text-xs text-slate-500 mt-1">{companyName}</p>
                   </div>
                   <form onSubmit={handleAdminLogin} className="space-y-4">
@@ -1590,25 +1582,285 @@ const handleSaveRegistrationEdit = async (regId) => {
                 <div>
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 bg-[#1b365d] text-white p-6 rounded-2xl shadow-md">
                     <div>
-                      <span className="text-xs text-amber-300 font-bold uppercase tracking-wider">Pannello di Controllo</span>
+                      <span className="text-xs text-amber-300 font-bold uppercase tracking-wider">Pannello di Controllo & Segreteria</span>
                       <h2 className="text-xl font-black mt-1">{companyName}</h2>
-                      <p className="text-xs text-slate-300 mt-1">Gestione corsi, marchi, attestati con QR e archivio storico cronologico</p>
+                      <p className="text-xs text-slate-300 mt-1">Gestione corsi, marchi, check-in presenze in tempo reale, attestati con QR e archivio</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <button onClick={() => setAdminTab('archive')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'archive' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>📚 Archivio Storico Corsi ({registrations.length})</button>
-                      <button onClick={() => setAdminTab('brands-management')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'brands-management' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>🏷 Marchi & Sfondi PDF</button>
+                      <button onClick={() => setAdminTab('checkin')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'checkin' ? 'bg-[#d9381e] text-white shadow-md' : 'bg-white/20 text-white hover:bg-white/30'}`}>🎫 Segreteria - Check-in ({presentRegistrationsCount}/{totalRegistrations})</button>
+                      <button onClick={() => setAdminTab('registrations')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'registrations' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>📊 Report & Attestati ({registrations.length})</button>
+                      <button onClick={() => setAdminTab('archive')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'archive' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>📚 Archivio Storico</button>
+                      <button onClick={() => setAdminTab('brands-management')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'brands-management' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>🏷 Marchi & Sfondi</button>
                       <button onClick={() => { setEditingCourseId(null); setAdminTab('add-course'); }} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'add-course' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>➕ Corsi</button>
                       <button onClick={() => setAdminTab('settings')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'settings' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>⚙ Email</button>
                       <button onClick={() => setAdminTab('branding')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'branding' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>🎨 Azienda</button>
                     </div>
                   </div>
 
+                  {/* ========================================================= */}
+                  {/* NUOVA SEZIONE: SEGRETERIA - CHECK-IN PRESENZE              */}
+                  {/* ========================================================= */}
+                  {adminTab === 'checkin' && (
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
+                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                        <div>
+                          <span className="text-xs font-bold text-[#d9381e] uppercase tracking-wider block mb-1">Accoglienza Corsi in Sede</span>
+                          <h3 className="text-xl font-black text-slate-900">Segreteria - Check-in Presenze Partecipanti</h3>
+                          <p className="text-xs text-slate-500 mt-1">Cerca rapidamente l'iscritto e conferma la sua presenza all'arrivo in segreteria con un solo click.</p>
+                        </div>
+                        <div className="bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-right">
+                          <span className="text-[11px] font-bold text-slate-500 uppercase block">Totale Presenti in Aula</span>
+                          <span className="text-2xl font-black text-emerald-600">{presentRegistrationsCount} <span className="text-sm font-semibold text-slate-400">/ {totalRegistrations}</span></span>
+                        </div>
+                      </div>
+
+                      {/* Campo di ricerca rapida in tempo reale */}
+                      <div className="mb-6 relative">
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                          🔍
+                        </div>
+                        <input
+                          type="text"
+                          value={checkinSearchQuery}
+                          onChange={(e) => setCheckinSearchQuery(e.target.value)}
+                          placeholder="Cerca rapida per nome, cognome, azienda, P.IVA, email o titolo del corso..."
+                          className="w-full pl-11 pr-4 py-3.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d] focus:bg-white transition-all shadow-2xs font-medium"
+                        />
+                        {checkinSearchQuery && (
+                          <button
+                            onClick={() => setCheckinSearchQuery('')}
+                            className="absolute inset-y-0 right-0 pr-4 flex items-center text-xs text-slate-400 hover:text-slate-600 font-bold"
+                          >
+                            Pulisci ✕
+                          </button>
+                        )}
+                      </div>
+
+                      {filteredCheckinRegistrations.length === 0 ? (
+                        <div className="bg-slate-50 rounded-xl border border-slate-200 p-12 text-center text-slate-500">
+                          Nessun iscritto trovato corrispondente alla ricerca "{checkinSearchQuery}".
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto rounded-xl border border-slate-200">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="bg-slate-50 border-b border-slate-200 text-xs text-slate-600 uppercase tracking-wider">
+                                <th className="p-4 font-bold">Partecipante</th>
+                                <th className="p-4 font-bold">Azienda / P.IVA</th>
+                                <th className="p-4 font-bold">Corso Assegnato</th>
+                                <th className="p-4 font-bold text-center">Stato Presenza</th>
+                                <th className="p-4 font-bold text-center">Azione Check-in Segreteria</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+                              {filteredCheckinRegistrations.map((reg) => (
+                                <tr key={reg.id} className={`hover:bg-slate-50 transition-colors ${reg.isPresent ? 'bg-emerald-50/40' : ''}`}>
+                                  <td className="p-4">
+                                    <div className="font-extrabold text-slate-900">{reg.fullName}</div>
+                                    <div className="text-xs text-slate-500">{reg.city} • 📞 {reg.phone}</div>
+                                  </td>
+                                  <td className="p-4">
+                                    <div className="font-bold text-slate-800">{reg.company}</div>
+                                    <div className="text-xs text-slate-500 font-mono">P.IVA: {reg.vatNumber}</div>
+                                  </td>
+                                  <td className="p-4">
+                                    <span className="inline-block bg-red-50 text-[#8b1e1e] border border-red-200 text-[11px] font-bold px-2 py-0.5 rounded mb-1">{reg.brandName}</span>
+                                    <div className="text-xs font-bold text-slate-900">{reg.courseTitle}</div>
+                                    <div className="text-[11px] text-slate-500">📅 {reg.date}</div>
+                                  </td>
+                                  <td className="p-4 text-center">
+                                    {reg.isPresent ? (
+                                      <span className="inline-flex items-center gap-1.5 bg-emerald-100 text-emerald-800 font-black text-xs px-3 py-1.5 rounded-full shadow-2xs border border-emerald-200">
+                                        <span>✓</span> Presente ({reg.checkinTime || 'Registrato'})
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1.5 bg-amber-100 text-amber-800 font-bold text-xs px-3 py-1.5 rounded-full shadow-2xs border border-amber-200">
+                                        <span>⏳</span> Non ancora arrivato
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="p-4 text-center">
+                                    <button
+                                      onClick={() => handleToggleCheckin(reg.id, reg.isPresent)}
+                                      className={`font-bold px-4 py-2.5 rounded-xl text-xs transition-all shadow-sm flex items-center justify-center gap-2 mx-auto ${
+                                        reg.isPresent 
+                                          ? 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-300' 
+                                          : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md'
+                                      }`}
+                                    >
+                                      {reg.isPresent ? 'Annulla Check-in' : '✓ Conferma Presenza'}
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {adminTab === 'registrations' && (
+                    <div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Totale Iscrizioni</p>
+                          <p className="text-3xl font-black text-slate-900 mt-1">{totalRegistrations}</p>
+                        </div>
+                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm sm:col-span-2">
+                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Iscritti per Marchio</p>
+                          <div className="flex flex-wrap gap-2">
+                            {Object.keys(registrationsByBrand).length === 0 ? (
+                              <span className="text-xs text-slate-400">Nessun dato disponibile</span>
+                            ) : (
+                              Object.entries(registrationsByBrand).map(([brand, count]) => (
+                                <span key={brand} className="bg-red-50 text-[#8b1e1e] border border-red-200 text-xs font-bold px-3.5 py-1.5 rounded-xl">
+                                  {brand}: <strong>{count}</strong>
+                                </span>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-base font-bold text-slate-900">Elenco Dettagliato Installatori & Invio Attestati con QR Code</h3>
+                        {registrations.length > 0 && (
+                          <button onClick={async () => { if (confirm('Vuoi davvero cancellare tutte le iscrizioni?')) { if (supabaseClient) { await supabaseClient.from('registrations').delete().neq('id', 0); } setRegistrations([]); } }} className="text-xs text-red-600 hover:text-red-800 font-bold bg-red-50 px-3.5 py-1.5 rounded-xl border border-red-200 transition-colors">
+                            Svuota Storico Iscrizioni
+                          </button>
+                        )}
+                      </div>
+
+                      {registrations.length === 0 ? (
+                        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-sm">
+                          <p className="text-slate-500 text-sm">Nessuna iscrizione registrata al momento.</p>
+                        </div>
+                      ) : (
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                              <thead>
+                                <tr className="bg-slate-50 border-b border-slate-200 text-xs text-slate-600 uppercase tracking-wider">
+                                  <th className="p-4 font-bold">Data & Ora</th>
+                                  <th className="p-4 font-bold">Installatore</th>
+                                  <th className="p-4 font-bold">Azienda / P.IVA</th>
+                                  <th className="p-4 font-bold">Contatti</th>
+                                  <th className="p-4 font-bold">Corso Scelto</th>
+                                  <th className="p-4 font-bold text-center">Attestato con QR</th>
+                                  <th className="p-4 font-bold text-center">Invia via Email</th>
+                                  <th className="p-4 font-bold text-center">Azioni</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+                                {registrations.map((reg) => (
+                                  <tr key={reg.id} className="hover:bg-slate-50 transition-colors">
+                                    <td className="p-4 text-xs text-slate-500 whitespace-nowrap">{reg.timestamp}</td>
+                                    
+                                    {editingRegistrationId === reg.id ? (
+                                      <td className="p-4" colSpan="3">
+                                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-3">
+                                          <div className="text-xs font-bold text-[#1b365d] uppercase">Modifica Dati Partecipante</div>
+                                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            <div>
+                                              <label className="text-[10px] font-bold text-slate-600 block">Nome e Cognome</label>
+                                              <input type="text" value={editRegData.fullName} onChange={(e) => setEditRegData({...editRegData, fullName: e.target.value})} className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg" />
+                                            </div>
+                                            <div>
+                                              <label className="text-[10px] font-bold text-slate-600 block">Città</label>
+                                              <input type="text" value={editRegData.city} onChange={(e) => setEditRegData({...editRegData, city: e.target.value})} className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg" />
+                                            </div>
+                                            <div>
+                                              <label className="text-[10px] font-bold text-slate-600 block">Ragione Sociale Azienda</label>
+                                              <input type="text" value={editRegData.company} onChange={(e) => setEditRegData({...editRegData, company: e.target.value})} className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg" />
+                                            </div>
+                                            <div>
+                                              <label className="text-[10px] font-bold text-slate-600 block">Partita IVA</label>
+                                              <input type="text" value={editRegData.vatNumber} onChange={(e) => setEditRegData({...editRegData, vatNumber: e.target.value})} className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg font-mono" />
+                                            </div>
+                                            <div>
+                                              <label className="text-[10px] font-bold text-slate-600 block">Email</label>
+                                              <input type="email" value={editRegData.email} onChange={(e) => setEditRegData({...editRegData, email: e.target.value})} className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg" />
+                                            </div>
+                                            <div>
+                                              <label className="text-[10px] font-bold text-slate-600 block">Telefono</label>
+                                              <input type="text" value={editRegData.phone} onChange={(e) => setEditRegData({...editRegData, phone: e.target.value})} className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg" />
+                                            </div>
+                                          </div>
+                                          <div className="flex gap-2 pt-1">
+                                            <button onClick={() => handleSaveRegistrationEdit(reg.id)} className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm">Salva Modifiche</button>
+                                            <button onClick={() => setEditingRegistrationId(null)} className="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold px-3 py-1.5 rounded-lg">Annulla</button>
+                                          </div>
+                                        </div>
+                                      </td>
+                                    ) : (
+                                      <>
+                                        <td className="p-4 font-bold text-slate-900">{reg.fullName}<div className="text-xs text-slate-500 font-normal">{reg.city}</div></td>
+                                        <td className="p-4">{reg.company}<div className="text-xs text-slate-500 font-mono">P.IVA: {reg.vatNumber}</div></td>
+                                        <td className="p-4 text-xs"><div>✉️ {reg.email}</div><div className="mt-1">📞 {reg.phone}</div></td>
+                                      </>
+                                    )}
+
+                                    <td className="p-4">
+                                      <div className="flex items-center gap-1.5 mb-1"><span className="inline-block bg-red-50 text-[#8b1e1e] border border-red-200 text-xs font-bold px-2.5 py-0.5 rounded">{reg.brandName}</span></div>
+                                      <div className="text-xs font-bold text-slate-900">{reg.courseTitle}</div>
+                                      <div className="text-xs text-slate-500">📅 {reg.date}</div>
+                                    </td>
+                                    
+                                    <td className="p-4 text-center">
+                                      <button
+                                        onClick={() => handleDownloadAttestato(reg)}
+                                        className="text-emerald-700 hover:text-emerald-900 font-bold text-xs bg-emerald-50 hover:bg-emerald-100 px-3 py-2 rounded-xl border border-emerald-200 transition-all shadow-2xs inline-flex items-center gap-1"
+                                        title="Scarica attestato in PDF con QR code"
+                                      >
+                                        <span>📜</span> Scarica PDF
+                                      </button>
+                                    </td>
+
+                                    <td className="p-4 text-center">
+                                      <button
+                                        onClick={() => handleSendAttestatoEmail(reg)}
+                                        className="text-indigo-700 hover:text-indigo-900 font-bold text-xs bg-indigo-50 hover:bg-indigo-100 px-3 py-2 rounded-xl border border-indigo-200 transition-all shadow-2xs inline-flex items-center gap-1"
+                                        title="Invia attestato via email all'utente"
+                                      >
+                                        <span>📧</span> Invia Email
+                                      </button>
+                                    </td>
+                                    
+                                    <td className="p-4 text-center">
+                                      {editingRegistrationId !== reg.id && (
+                                        <div className="flex items-center justify-center gap-1.5">
+                                          <button
+                                            onClick={() => handleStartEditRegistration(reg)}
+                                            className="text-blue-600 hover:text-blue-800 font-bold text-xs bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-200 transition-colors shadow-sm"
+                                          >
+                                            Modifica
+                                          </button>
+                                          <button
+                                            onClick={() => handleDeleteRegistration(reg.id)}
+                                            className="text-red-600 hover:text-red-800 font-bold text-xs bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-200 transition-colors shadow-sm"
+                                          >
+                                            Elimina
+                                          </button>
+                                        </div>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {adminTab === 'archive' && (
                     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
                       <div className="flex justify-between items-center mb-6">
                         <div>
-                          <h3 className="text-lg font-bold text-slate-900">📚 Archivio Storico Corsi, Iscritti & Gestione Attestati</h3>
-                          <p className="text-xs text-slate-500 mt-1">Corsi ordinati cronologicamente. Espandi un corso per consultare gli iscritti, modificarne i dati, eliminarli, scaricare gli attestati PDF con QR code o esportare la lista in Excel, CSV e TXT.</p>
+                          <h3 className="text-lg font-bold text-slate-900">📚 Archivio Storico Corsi e Partecipanti</h3>
+                          <p className="text-xs text-slate-500 mt-1">Corsi ordinati cronologicamente dal più recente al più vecchio. Clicca su "Visualizza Dettaglio" per consultare gli iscritti ed esportare i dati in Excel, CSV o TXT.</p>
                         </div>
                       </div>
 
@@ -1649,14 +1901,14 @@ const handleSaveRegistrationEdit = async (regId) => {
                                       className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition-colors shadow-2xs flex items-center gap-1"
                                       title="Esporta in Excel (.xlsx)"
                                     >
-                                      📊 Excel
+                                      📊 Esporta Excel
                                     </button>
 
                                     <button
                                       onClick={() => setExpandedArchiveCourseId(isExpanded ? null : course.id)}
                                       className="bg-[#1b365d] hover:bg-[#162d4f] text-white font-bold px-3.5 py-1.5 rounded-xl text-xs transition-colors shadow-2xs flex items-center gap-1.5"
                                     >
-                                      {isExpanded ? '▲ Chiudi Iscritti' : '▼ Visualizza Iscritti'}
+                                      {isExpanded ? '▲ Chiudi Dettaglio' : '▼ Visualizza Dettaglio'}
                                     </button>
                                   </div>
                                 </div>
@@ -1666,27 +1918,27 @@ const handleSaveRegistrationEdit = async (regId) => {
                                 <div className="p-5 border-t border-slate-200 bg-white space-y-4">
                                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-2 border-b border-slate-100">
                                     <div>
-                                      <h5 className="text-xs font-black uppercase tracking-wider text-slate-700">Elenco Partecipanti Registrati a questo Corso</h5>
-                                      <p className="text-[11px] text-slate-400">Modifica dati anagrafici, elimina iscrizioni o scarica/invia attestati ufficiali.</p>
+                                      <h5 className="text-xs font-black uppercase tracking-wider text-slate-700">Elenco Partecipanti Registrati</h5>
+                                      <p className="text-[11px] text-slate-400">Puoi esportare la lista completa anche nei formati TXT o CSV.</p>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                      <button
-                                        onClick={() => handleExportCourseTxt(course, courseRegs)}
-                                        className="bg-white hover:bg-slate-50 text-slate-700 font-bold px-3 py-1.5 rounded-lg border border-slate-300 text-xs shadow-2xs"
-                                      >
-                                        📄 Scarica TXT
-                                      </button>
                                       <button
                                         onClick={() => handleExportCourseCsv(course, courseRegs)}
                                         className="bg-white hover:bg-slate-50 text-slate-700 font-bold px-3 py-1.5 rounded-lg border border-slate-300 text-xs shadow-2xs"
                                       >
                                         📥 Scarica CSV
                                       </button>
+                                      <button
+                                        onClick={() => handleExportCourseTxt(course, courseRegs)}
+                                        className="bg-white hover:bg-slate-50 text-slate-700 font-bold px-3 py-1.5 rounded-lg border border-slate-300 text-xs shadow-2xs"
+                                      >
+                                        📄 Scarica TXT
+                                      </button>
                                     </div>
                                   </div>
 
                                   {courseRegs.length === 0 ? (
-                                    <p className="text-xs text-slate-400 italic py-4 text-center">Nessun utente iscritto a questo corso.</p>
+                                    <p className="text-xs text-slate-400 italic py-4 text-center">Nessun utente iscritto a questo corso nello storico.</p>
                                   ) : (
                                     <div className="overflow-x-auto rounded-xl border border-slate-200">
                                       <table className="w-full text-left text-xs">
@@ -1698,58 +1950,15 @@ const handleSaveRegistrationEdit = async (regId) => {
                                             <th className="p-3 font-bold">Contatti</th>
                                             <th className="p-3 font-bold text-center">Attestato con QR</th>
                                             <th className="p-3 font-bold text-center">Invia Email</th>
-                                            <th className="p-3 font-bold text-center">Azioni</th>
                                           </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 text-slate-700">
                                           {courseRegs.map(reg => (
                                             <tr key={reg.id} className="hover:bg-slate-50">
                                               <td className="p-3 text-slate-500 whitespace-nowrap">{reg.timestamp}</td>
-                                              
-                                              {editingRegistrationId === reg.id ? (
-                                                <td className="p-3" colSpan="3">
-                                                  <div className="bg-blue-50 p-3 rounded-xl border border-blue-200 space-y-2">
-                                                    <div className="text-[11px] font-bold text-[#1b365d] uppercase">Modifica Dati Partecipante</div>
-                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                      <div>
-                                                        <label className="text-[10px] font-bold text-slate-600 block">Nome e Cognome</label>
-                                                        <input type="text" value={editRegData.fullName} onChange={(e) => setEditRegData({...editRegData, fullName: e.target.value})} className="w-full px-2 py-1 text-xs bg-white border border-slate-300 rounded-lg" />
-                                                      </div>
-                                                      <div>
-                                                        <label className="text-[10px] font-bold text-slate-600 block">Città</label>
-                                                        <input type="text" value={editRegData.city} onChange={(e) => setEditRegData({...editRegData, city: e.target.value})} className="w-full px-2 py-1 text-xs bg-white border border-slate-300 rounded-lg" />
-                                                      </div>
-                                                      <div>
-                                                        <label className="text-[10px] font-bold text-slate-600 block">Ragione Sociale Azienda</label>
-                                                        <input type="text" value={editRegData.company} onChange={(e) => setEditRegData({...editRegData, company: e.target.value})} className="w-full px-2 py-1 text-xs bg-white border border-slate-300 rounded-lg" />
-                                                      </div>
-                                                      <div>
-                                                        <label className="text-[10px] font-bold text-slate-600 block">Partita IVA</label>
-                                                        <input type="text" value={editRegData.vatNumber} onChange={(e) => setEditRegData({...editRegData, vatNumber: e.target.value})} className="w-full px-2 py-1 text-xs bg-white border border-slate-300 rounded-lg font-mono" />
-                                                      </div>
-                                                      <div>
-                                                        <label className="text-[10px] font-bold text-slate-600 block">Email</label>
-                                                        <input type="email" value={editRegData.email} onChange={(e) => setEditRegData({...editRegData, email: e.target.value})} className="w-full px-2 py-1 text-xs bg-white border border-slate-300 rounded-lg" />
-                                                      </div>
-                                                      <div>
-                                                        <label className="text-[10px] font-bold text-slate-600 block">Telefono</label>
-                                                        <input type="text" value={editRegData.phone} onChange={(e) => setEditRegData({...editRegData, phone: e.target.value})} className="w-full px-2 py-1 text-xs bg-white border border-slate-300 rounded-lg" />
-                                                      </div>
-                                                    </div>
-                                                    <div className="flex gap-2 pt-1">
-                                                      <button onClick={() => handleSaveRegistrationEdit(reg.id)} className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-sm">Salva</button>
-                                                      <button onClick={() => setEditingRegistrationId(null)} className="bg-slate-200 hover:bg-slate-300 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-lg">Annulla</button>
-                                                    </div>
-                                                  </div>
-                                                </td>
-                                              ) : (
-                                                <>
-                                                  <td className="p-3 font-bold text-slate-900">{reg.fullName} <span className="font-normal text-slate-500 block">({reg.city})</span></td>
-                                                  <td className="p-3">{reg.company} <span className="font-mono text-slate-500 block">P.IVA: {reg.vatNumber}</span></td>
-                                                  <td className="p-3">✉️ {reg.email}<br/>📞 {reg.phone}</td>
-                                                </>
-                                              )}
-
+                                              <td className="p-3 font-bold text-slate-900">{reg.fullName} <span className="font-normal text-slate-500 block">({reg.city})</span></td>
+                                              <td className="p-3">{reg.company} <span className="font-mono text-slate-500 block">P.IVA: {reg.vatNumber}</span></td>
+                                              <td className="p-3">✉️ {reg.email}<br/>📞 {reg.phone}</td>
                                               <td className="p-3 text-center">
                                                 <button onClick={() => handleDownloadAttestato(reg)} className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold px-3 py-1.5 rounded-lg border border-emerald-200 transition-colors">
                                                   📜 Scarica PDF
@@ -1759,14 +1968,6 @@ const handleSaveRegistrationEdit = async (regId) => {
                                                 <button onClick={() => handleSendAttestatoEmail(reg)} className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-3 py-1.5 rounded-lg border border-indigo-200 transition-colors">
                                                   📧 Invia Email
                                                 </button>
-                                              </td>
-                                              <td className="p-3 text-center">
-                                                {editingRegistrationId !== reg.id && (
-                                                  <div className="flex items-center justify-center gap-1">
-                                                    <button onClick={() => handleStartEditRegistration(reg)} className="text-blue-600 hover:text-blue-800 font-bold px-2.5 py-1 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200">Modifica</button>
-                                                    <button onClick={() => handleDeleteRegistration(reg.id)} className="text-red-600 hover:text-red-800 font-bold px-2.5 py-1 bg-red-50 hover:bg-red-100 rounded border border-red-200">Elimina</button>
-                                                  </div>
-                                                )}
                                               </td>
                                             </tr>
                                           ))}
@@ -2016,7 +2217,7 @@ const handleSaveRegistrationEdit = async (regId) => {
 
                         <div className="pt-2 flex gap-3">
                           <button type="submit" className="flex-1 bg-[#1b365d] hover:bg-[#162d4f] text-white font-bold py-3 px-4 rounded-xl text-sm transition-colors shadow-md">{editingCourseId ? 'Salva Modifiche Corso' : 'Pubblica Corso nel Catalogo'}</button>
-                          <button type="button" onClick={() => { setEditingCourseId(null); setAdminTab('archive'); }} className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-3 px-4 rounded-xl text-sm transition-colors">Annulla</button>
+                          <button type="button" onClick={() => { setEditingCourseId(null); setAdminTab('registrations'); }} className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-3 px-4 rounded-xl text-sm transition-colors">Annulla</button>
                         </div>
                       </form>
 
