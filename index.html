@@ -262,8 +262,9 @@
         const editorRef = useRef(null);
 
         // Helper per verificare se la data del corso è antecedente a quella odierna
-        const isCourseExpired = (dateString) => {
-          if (!dateString) return false;
+        // Converte il testo della data del corso in un oggetto Date (null se non riconosciuta)
+        const parseCourseDate = (dateString) => {
+          if (!dateString) return null;
           try {
             const months = {
               gen: 0, gennaio: 0,
@@ -290,15 +291,12 @@
               const nMonth = parseInt(numericMatch[2], 10);
               const nYear = parseInt(numericMatch[3], 10);
               if (nMonth >= 1 && nMonth <= 12 && nDay >= 1 && nDay <= 31) {
-                const numericDate = new Date(nYear, nMonth - 1, nDay);
-                const todayNum = new Date();
-                todayNum.setHours(0, 0, 0, 0);
-                return numericDate < todayNum;
+                return new Date(nYear, nMonth - 1, nDay);
               }
             }
 
             const words = cleanStr.replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(Boolean);
-            
+
             let day = null;
             let month = null;
             let year = 2026;
@@ -323,15 +321,20 @@
             }
 
             if (day !== null && month !== null) {
-              const courseDate = new Date(year, month, day);
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              return courseDate < today;
+              return new Date(year, month, day);
             }
           } catch (e) {
             console.error("Errore parsing data corso:", e);
           }
-          return false;
+          return null;
+        };
+
+        const isCourseExpired = (dateString) => {
+          const courseDate = parseCourseDate(dateString);
+          if (!courseDate) return false;
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          return courseDate < today;
         };
 
         useEffect(() => {
@@ -1509,7 +1512,23 @@ if (window.emailjs) {
 
         // Gestione Corsi = corsi futuri / in corso, Storico Corsi = corsi già conclusi
         const isHistoryTab = adminTab === 'courses-history';
+        const courseStartMinutes = (c) => {
+          const m = (c.time || '').match(/(\d{1,2})[:.](\d{2})/);
+          return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : 0;
+        };
         const coursesForTab = [...courses].reverse().filter(c => !!isCourseExpired(c.date) === isHistoryTab);
+        if (!isHistoryTab) {
+          // Gestione Corsi: dal più imminente al più lontano (date non riconosciute in fondo)
+          coursesForTab.sort((a, b) => {
+            const da = parseCourseDate(a.date);
+            const db = parseCourseDate(b.date);
+            if (!da && !db) return 0;
+            if (!da) return 1;
+            if (!db) return -1;
+            if (da.getTime() !== db.getTime()) return da - db;
+            return courseStartMinutes(a) - courseStartMinutes(b);
+          });
+        }
 
         // Ricerca / scansione codice ticket nella gestione corsi (check-in)
         const matchesCheckinSearch = (r) => {
