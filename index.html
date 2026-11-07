@@ -334,7 +334,8 @@
                   price: c.price || 'Gratuito',
                   speaker: c.speaker || 'Ermanno Zanardi',
                   isNew: c.is_new,
-                  isActive: c.is_active !== undefined ? c.is_active : true
+                  isActive: c.is_active !== undefined ? c.is_active : true,
+                  registrationsClosed: c.registrations_closed === true
                 }));
                 setCourses(formattedCourses);
               }
@@ -479,6 +480,19 @@
           const courseObj = courses.find(c => c.id === selectedCourse.id);
           if (isCourseExpired(courseObj?.date)) {
             setSubmitError('Spiacenti, la data di questo corso è già trascorsa. Le iscrizioni sono chiuse.');
+            return;
+          }
+
+          // Iscrizioni chiuse manualmente dall'amministratore (controllo anche sul database)
+          let closedByAdmin = !!courseObj?.registrationsClosed;
+          if (!closedByAdmin && supabaseClient) {
+            try {
+              const { data: closedData } = await supabaseClient.from('courses').select('registrations_closed').eq('id', selectedCourse.id).limit(1);
+              if (closedData && closedData[0] && closedData[0].registrations_closed === true) closedByAdmin = true;
+            } catch (err) { /* colonna non presente: ignora */ }
+          }
+          if (closedByAdmin) {
+            setSubmitError('Le iscrizioni a questo corso sono chiuse.');
             return;
           }
 
@@ -894,6 +908,24 @@ if (window.emailjs) {
           setCourses(courses.map(c => c.id === course.id ? { ...c, isActive: newStatus } : c));
         };
 
+        // Chiude / riapre le iscrizioni di un singolo corso
+        const handleToggleRegistrationsClosed = async (course) => {
+          const closing = !course.registrationsClosed;
+          const msg = closing
+            ? `Vuoi CHIUDERE le iscrizioni al corso "${course.title}"?\nSul sito comparirà "Iscrizioni chiuse" e non sarà più possibile iscriversi.`
+            : `Vuoi RIAPRIRE le iscrizioni al corso "${course.title}"?`;
+          if (!confirm(msg)) return;
+
+          if (supabaseClient) {
+            const { error } = await supabaseClient.from('courses').update({ registrations_closed: closing }).eq('id', course.id);
+            if (error) {
+              alert("Errore durante l'aggiornamento delle iscrizioni: " + error.message + "\n\nVerifica che nella tabella 'courses' di Supabase esista la colonna booleana 'registrations_closed'.");
+              return;
+            }
+          }
+          setCourses(courses.map(c => c.id === course.id ? { ...c, registrationsClosed: closing } : c));
+        };
+
         const handleDeleteCourse = async (id) => {
           if (confirm('Vuoi davvero eliminare questo corso?')) {
             if (supabaseClient) {
@@ -1248,11 +1280,11 @@ if (window.emailjs) {
 
             if (qrImgDataUrl) {
               try {
-                doc.addImage(qrImgDataUrl, 'PNG', 22, 170, 24, 24);
+                doc.addImage(qrImgDataUrl, 'PNG', 22, 153, 24, 24);
                 doc.setFont("helvetica", "bold");
                 doc.setFontSize(7.5);
                 doc.setTextColor(100, 110, 120);
-                doc.text("QR Autenticità", 34, 194, { align: 'center' });
+                doc.text("QR Autenticità", 34, 180, { align: 'center' });
               } catch(err) { console.error('Errore inserimento QR nel PDF:', err); }
             }
 
@@ -1531,6 +1563,7 @@ if (window.emailjs) {
                         const maxLimit = course.maxParticipants || 12;
                         const isFull = enrolled >= maxLimit;
                         const isExpired = isCourseExpired(course.date);
+                        const isClosed = !isExpired && !!course.registrationsClosed;
                         const percentage = Math.min(100, Math.round((enrolled / maxLimit) * 100));
                         const brandObj = brands.find(b => b.id === course.brand || b.name === course.brandName);
                         const cardColor = brandObj?.color || '#8b1e1e';
@@ -1541,11 +1574,14 @@ if (window.emailjs) {
                         return (
                           <div key={course.id} className="bg-white rounded-2xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col justify-between relative group h-full">
                             <div className="text-white p-5 relative overflow-hidden shadow-sm rounded-t-2xl" style={{ background: `linear-gradient(135deg, ${cardColor}dd, ${cardColor})` }}>
-                              {course.isNew && !isExpired && (
+                              {course.isNew && !isExpired && !isClosed && (
                                 <div className="absolute -right-12 top-4 bg-amber-400 text-slate-900 text-xs font-black py-1 px-12 rotate-45 shadow-md uppercase tracking-wider z-10 text-center">NOVITÀ</div>
                               )}
                               {isExpired && (
                                 <div className="absolute -right-12 top-4 bg-red-600 text-white text-[10px] font-black py-1 px-12 rotate-45 shadow-md uppercase tracking-wider z-10 text-center">CONCLUSO</div>
+                              )}
+                              {isClosed && (
+                                <div className="absolute -right-14 top-4 bg-red-600 text-white text-[9px] font-black py-1 px-14 rotate-45 shadow-md uppercase tracking-wider z-10 text-center">ISCRIZIONI CHIUSE</div>
                               )}
                               <div className="flex justify-between items-center mb-3 pr-10 flex-wrap gap-2">
                                 <div className="flex items-center gap-2 bg-white/20 px-3 py-1 rounded-xl backdrop-blur-md border border-white/10">
@@ -1614,6 +1650,10 @@ if (window.emailjs) {
                                     <div className="w-full bg-red-50 border border-red-200 text-red-700 font-extrabold py-3.5 px-4 rounded-xl text-sm sm:text-base text-center tracking-wide shadow-2xs">
                                       🔒 Iscrizioni Chiuse (Corso Terminato)
                                     </div>
+                                  ) : isClosed ? (
+                                    <div className="w-full bg-red-50 border border-red-200 text-red-700 font-extrabold py-3.5 px-4 rounded-xl text-sm sm:text-base text-center tracking-wide shadow-2xs">
+                                      🔒 Iscrizioni chiuse per questo corso
+                                    </div>
                                   ) : (
                                     <button
                                       onClick={() => { setSelectedCourse(course); setSubmitted(false); setSubmitError(''); }}
@@ -1650,6 +1690,7 @@ if (window.emailjs) {
                       const isOnline = selectedCourse.modality && selectedCourse.modality.toLowerCase().includes('meet');
                       const courseLevel = selectedCourse.level || 'Base';
                       const isExpired = isCourseExpired(selectedCourse.date);
+                      const isClosedByAdmin = !!courses.find(c => c.id === selectedCourse.id)?.registrationsClosed;
 
                       return (
                         <div>
@@ -1680,10 +1721,10 @@ if (window.emailjs) {
                             <p className="text-xs text-[#1b365d] font-semibold pt-1 border-t border-slate-200">ℹ Erogato da {companyName} (Max 2 partecipanti per azienda).</p>
                           </div>
 
-                          {isExpired ? (
+                          {isExpired || isClosedByAdmin ? (
                             <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-2xl text-center space-y-3">
                               <h3 className="font-black text-lg">Iscrizioni Chiuse</h3>
-                              <p className="text-xs">La data di questo corso è già trascorsa. Non è più possibile effettuare nuove registrazioni.</p>
+                              <p className="text-xs">{isExpired ? 'La data di questo corso è già trascorsa. Non è più possibile effettuare nuove registrazioni.' : 'Le iscrizioni a questo corso sono chiuse. Non è più possibile effettuare nuove registrazioni.'}</p>
                               <button onClick={() => setSelectedCourse(null)} className="mt-2 bg-[#1b365d] text-white font-bold py-2 px-6 rounded-xl text-xs">Torna ai Corsi Disponibili</button>
                             </div>
                           ) : (
@@ -1812,6 +1853,7 @@ if (window.emailjs) {
                           const isExpanded = expandedArchiveCourseId === course.id;
                           const isExpired = isCourseExpired(course.date);
                           const presentCount = courseRegs.filter(r => r.isPresent).length;
+                          const isRegClosed = !!course.registrationsClosed;
 
                           return (
                             <div key={course.id} className="border border-slate-200 rounded-2xl bg-white shadow-2xs hover:border-slate-300 transition-all overflow-hidden">
@@ -1825,6 +1867,9 @@ if (window.emailjs) {
                                       <h4 className="text-sm sm:text-base font-extrabold text-slate-900 uppercase">{course.title}</h4>
                                       {isExpired && (
                                         <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-md">Concluso</span>
+                                      )}
+                                      {isRegClosed && (
+                                        <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">🔒 Iscrizioni chiuse</span>
                                       )}
                                     </div>
                                     <span className="text-xs text-slate-500 font-medium">📅 {course.date} ({course.time}) | 🎤 {course.speaker || 'Ermanno Zanardi'} | 📍 {course.location}</span>
@@ -1854,11 +1899,11 @@ if (window.emailjs) {
                                     </button>
 
                                     <button
-                                      onClick={() => handleExportCourseExcel(course, courseRegs)}
-                                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition-colors shadow-2xs"
-                                      title="Esporta in Excel (.xlsx)"
+                                      onClick={() => handleToggleRegistrationsClosed(course)}
+                                      className={`font-bold px-3 py-1.5 rounded-xl text-xs transition-colors shadow-2xs border ${isRegClosed ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700' : 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600'}`}
+                                      title={isRegClosed ? 'Riapri le iscrizioni a questo corso' : 'Chiudi le iscrizioni a questo corso'}
                                     >
-                                      📊 Excel
+                                      {isRegClosed ? '🔓 Riapri Iscrizioni' : '🔒 Chiudi Iscrizioni'}
                                     </button>
 
                                     <button
@@ -1879,6 +1924,13 @@ if (window.emailjs) {
                                       <p className="text-[11px] text-slate-400">Gestisci l'accoglienza, modifica dati, scarica il PDF dell'attestato o esporta i report in TXT.</p>
                                     </div>
                                     <div className="flex items-center gap-2 flex-wrap">
+                                      <button
+                                        onClick={() => handleExportCourseExcel(course, courseRegs)}
+                                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs shadow-2xs"
+                                        title="Esporta in Excel (.xlsx)"
+                                      >
+                                        📊 Excel
+                                      </button>
                                       <button
                                         onClick={() => handleExportCourseCsv(course, courseRegs)}
                                         className="bg-white hover:bg-slate-50 text-slate-700 font-bold px-3 py-1.5 rounded-lg border border-slate-300 text-xs shadow-2xs"
