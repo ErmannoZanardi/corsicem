@@ -67,7 +67,7 @@
         const [submitError, setSubmitError] = useState('');
         const [adminPin, setAdminPin] = useState('');
         const [adminError, setAdminError] = useState(false);
-        const [adminTab, setAdminTab] = useState('registrations'); 
+        const [adminTab, setAdminTab] = useState('courses-management'); // Rinominato da archivio storico a gestione corsi
 
         // Stato per il corso selezionato nella sezione Check-in Segreteria specifica
         const [selectedCheckinCourseId, setSelectedCheckinCourseId] = useState('all');
@@ -225,6 +225,7 @@
                   brandName: r.brand_name,
                   date: r.date,
                   timestamp: r.timestamp,
+                  ticketCode: r.ticket_code || ('REG-' + r.id),
                   isPresent: r.is_present || false,
                   checkinTime: r.checkin_time || null
                 }));
@@ -353,6 +354,8 @@
             return;
           }
 
+          const generatedTicketCode = 'TICKET-' + Math.floor(100000 + Math.random() * 900000);
+
           const newRegData = {
             course_id: selectedCourse.id,
             full_name: formData.fullName,
@@ -365,6 +368,7 @@
             brand_name: selectedCourse.brandName,
             date: selectedCourse.date,
             timestamp: new Date().toLocaleString(),
+            ticket_code: generatedTicketCode,
             is_present: false,
             checkin_time: null
           };
@@ -389,7 +393,7 @@
                 course_title: selectedCourse.title,
                 course_date: selectedCourse.date,
                 company_name: companyName,
-                message: `Grazie per esserti iscritto al corso:\n\nCorso: ${selectedCourse.title}\nData: ${selectedCourse.date}\nLivello: ${selectedCourse.level || 'Base'}\nRelatore: ${selectedCourse.speaker || 'Ermanno Zanardi'}\n\nTi aspettiamo!`
+                message: `Grazie per esserti iscritto al corso:\n\nCorso: ${selectedCourse.title}\nData: ${selectedCourse.date}\nCodice Biglietto / QR Code: ${generatedTicketCode}\n\nPresenta questo codice o QR code in segreteria all'arrivo per il check-in rapido.\n\nTi aspettiamo!`
               });
 
               if (adminEmail) {
@@ -399,7 +403,7 @@
                   course_title: selectedCourse.title,
                   course_date: selectedCourse.date,
                   company_name: companyName,
-                  message: `Nuova iscrizione ricevuta!\n\nPartecipante: ${formData.fullName}\nAzienda: ${formData.company} \n(P.IVA: ${formData.vatNumber})\nEmail: ${formData.email}\nTelefono: ${formData.phone}`
+                  message: `Nuova iscrizione ricevuta!\n\nPartecipante: ${formData.fullName}\nAzienda: ${formData.company} \n(P.IVA: ${formData.vatNumber})\nCodice Biglietto: ${generatedTicketCode}`
                 });
               }
             } catch (err) {
@@ -415,6 +419,7 @@
             brandName: selectedCourse.brandName,
             date: selectedCourse.date,
             timestamp: newRegData.timestamp,
+            ticketCode: generatedTicketCode,
             isPresent: false,
             checkinTime: null
           };
@@ -681,7 +686,7 @@
             isActive: true
           });
           if (editorRef.current) editorRef.current.innerHTML = '';
-          setAdminTab('registrations');
+          setAdminTab('courses-management');
         };
 
         const handleEditCourseClick = (course) => {
@@ -1182,6 +1187,7 @@
             content += `[${idx + 1}] Partecipante: ${r.fullName}\n`;
             content += `    Azienda: ${r.company} (P.IVA: ${r.vatNumber})\n`;
             content += `    Città: ${r.city}\n`;
+            content += `    Codice Biglietto / QR: ${r.ticketCode || ('REG-' + r.id)}\n`;
             content += `    Email: ${r.email}\n`;
             content += `    Telefono: ${r.phone}\n`;
             content += `    Presenza Segreteria: ${r.isPresent ? 'Presente alle ore ' + (r.checkinTime || 'N/D') : 'Non arrivato'}\n`;
@@ -1199,9 +1205,9 @@
         };
 
         const handleExportCourseCsv = (course, courseRegs) => {
-          let csv = 'ID,Nome e Cognome,Azienda,Partita IVA,Città,Email,Telefono,Presente,Ora Check-in,Data Iscrizione,Corso,Marchio\n';
+          let csv = 'ID,Codice Ticket,Nome e Cognome,Azienda,Partita IVA,Città,Email,Telefono,Presente,Ora Check-in,Data Iscrizione,Corso,Marchio\n';
           courseRegs.forEach(r => {
-            csv += `"${r.id}","${r.fullName}","${r.company}","${r.vatNumber}","${r.city}","${r.email}","${r.phone}","${r.isPresent ? 'Sì' : 'No'}","${r.checkinTime || ''}","${r.timestamp}","${r.courseTitle}","${r.brandName}"\n`;
+            csv += `"${r.id}","${r.ticketCode || 'REG-' + r.id}","${r.fullName}","${r.company}","${r.vatNumber}","${r.city}","${r.email}","${r.phone}","${r.isPresent ? 'Sì' : 'No'}","${r.checkinTime || ''}","${r.timestamp}","${r.courseTitle}","${r.brandName}"\n`;
           });
 
           const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -1216,6 +1222,7 @@
         const handleExportCourseExcel = (course, courseRegs) => {
           const dataToExport = courseRegs.map(r => ({
             "ID Iscrizione": r.id,
+            "Codice Ticket / QR": r.ticketCode || ('REG-' + r.id),
             "Nome Partecipante": r.fullName,
             "Azienda": r.company,
             "Partita IVA": r.vatNumber,
@@ -1256,12 +1263,11 @@
           if (!checkinSearchQuery.trim()) return true;
           const q = checkinSearchQuery.toLowerCase();
           return (
+            (r.ticketCode && r.ticketCode.toLowerCase().includes(q)) ||
             (r.fullName && r.fullName.toLowerCase().includes(q)) ||
             (r.company && r.company.toLowerCase().includes(q)) ||
             (r.vatNumber && r.vatNumber.toLowerCase().includes(q)) ||
-            (r.email && r.email.toLowerCase().includes(q)) ||
-            (r.courseTitle && r.courseTitle.toLowerCase().includes(q)) ||
-            (r.brandName && r.brandName.toLowerCase().includes(q))
+            (r.email && r.email.toLowerCase().includes(q))
           );
         });
 
@@ -1554,11 +1560,11 @@
                       <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl font-bold shadow-inner">✓</div>
                       <h3 className="text-xl font-bold text-slate-900 mb-2">Iscrizione Effettuata con Successo!</h3>
                       <p className="text-slate-600 text-sm mb-6 leading-relaxed">
-                        Grazie <strong>{formData.fullName}</strong> ({formData.company}). Abbiamo registrato la tua richiesta per il corso <strong>{selectedCourse.title}</strong> (Relatore: {selectedCourse.speaker || 'Ermanno Zanardi'}).
+                        Grazie <strong>{formData.fullName}</strong> ({formData.company}). Abbiamo registrato la tua richiesta per il corso <strong>{selectedCourse.title}</strong>. Riceverai un'email con il tuo codice ticket e QR code per l'accesso in segreteria.
                       </p>
                       <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-xs text-slate-700 mb-6 text-left space-y-2">
                         <p>✉️ <strong>Email inviata a:</strong> {formData.email}</p>
-                        <p className="text-emerald-700 font-semibold pt-1">✓ Email di conferma e notifica admin spedite tramite Gmail!</p>
+                        <p className="text-emerald-700 font-semibold pt-1">✓ Codice di iscrizione e QR code inviati con successo tramite Gmail!</p>
                       </div>
                       <button onClick={() => { setSubmitted(false); setSelectedCourse(null); }} className="bg-[#1b365d] hover:bg-[#162d4f] text-white font-bold py-2.5 px-6 rounded-xl text-sm transition-colors shadow-md">
                         Torna alla Home Corsi
@@ -1594,29 +1600,28 @@
                     <div>
                       <span className="text-xs text-amber-300 font-bold uppercase tracking-wider">Pannello di Controllo & Segreteria</span>
                       <h2 className="text-xl font-black mt-1">{companyName}</h2>
-                      <p className="text-xs text-slate-300 mt-1">Gestione corsi, marchi, check-in presenze in tempo reale, attestati con QR e archivio</p>
+                      <p className="text-xs text-slate-300 mt-1">Gestione corsi, iscritti per corso, check-in con QR code, attestati e configurazioni</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <button onClick={() => setAdminTab('checkin')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'checkin' ? 'bg-[#d9381e] text-white shadow-md' : 'bg-white/20 text-white hover:bg-white/30'}`}>🎫 Segreteria Check-in per Corso</button>
-                      <button onClick={() => setAdminTab('registrations')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'registrations' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>📊 Report & Attestati ({registrations.length})</button>
-                      <button onClick={() => setAdminTab('archive')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'archive' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>📚 Archivio Storico</button>
+                      <button onClick={() => setAdminTab('checkin')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'checkin' ? 'bg-[#d9381e] text-white shadow-md' : 'bg-white/20 text-white hover:bg-white/30'}`}>🎫 Segreteria Check-in (QR)</button>
+                      <button onClick={() => setAdminTab('courses-management')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'courses-management' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>📚 Gestione Corsi & Iscritti</button>
                       <button onClick={() => setAdminTab('brands-management')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'brands-management' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>🏷 Marchi & Sfondi</button>
-                      <button onClick={() => { setEditingCourseId(null); setAdminTab('add-course'); }} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'add-course' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>➕ Corsi</button>
+                      <button onClick={() => { setEditingCourseId(null); setAdminTab('add-course'); }} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'add-course' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>➕ Nuovo Corso</button>
                       <button onClick={() => setAdminTab('settings')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'settings' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>⚙ Email</button>
                       <button onClick={() => setAdminTab('branding')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'branding' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>🎨 Azienda</button>
                     </div>
                   </div>
 
                   {/* ========================================================= */}
-                  {/* SEZIONE: SEGRETERIA - CHECK-IN SPECIFICO PER CORSO        */}
+                  {/* SEZIONE: SEGRETERIA - CHECK-IN SPECIFICO PER CORSO (QR)   */}
                   {/* ========================================================= */}
                   {adminTab === 'checkin' && (
                     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
                       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                         <div>
                           <span className="text-xs font-bold text-[#d9381e] uppercase tracking-wider block mb-1">Accoglienza in Sede per Corso</span>
-                          <h3 className="text-xl font-black text-slate-900">Segreteria - Check-in Specifico</h3>
-                          <p className="text-xs text-slate-500 mt-1">Seleziona il corso desiderato per gestire le presenze degli iscritti in aula ed esportare i report dedicati.</p>
+                          <h3 className="text-xl font-black text-slate-900">Segreteria - Check-in con QR Code / Ticket</h3>
+                          <p className="text-xs text-slate-500 mt-1">Digita o scansiona il codice ticket / QR code dell'utente per effettuare il check-in immediato all'arrivo.</p>
                         </div>
                         <div className="bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-right">
                           <span className="text-[11px] font-bold text-slate-500 uppercase block">Presenti / Iscritti (Corso Selezionato)</span>
@@ -1664,17 +1669,17 @@
                         </div>
                       </div>
 
-                      {/* Campo di ricerca rapida in tempo reale */}
+                      {/* Campo di ricerca rapida con QR Code / Ticket */}
                       <div className="mb-6 relative">
                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                          🔍
+                          📷
                         </div>
                         <input
                           type="text"
                           value={checkinSearchQuery}
                           onChange={(e) => setCheckinSearchQuery(e.target.value)}
-                          placeholder="Cerca rapida per nome, cognome, azienda, P.IVA o email nel corso..."
-                          className="w-full pl-11 pr-4 py-3.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d] focus:bg-white transition-all shadow-2xs font-medium"
+                          placeholder="Scansiona o digita il codice QR / Ticket (es. TICKET-548291), nome o P.IVA..."
+                          className="w-full pl-11 pr-4 py-4 text-base bg-emerald-50/50 border-2 border-emerald-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition-all shadow-sm font-bold text-slate-900"
                         />
                         {checkinSearchQuery && (
                           <button
@@ -1688,23 +1693,27 @@
 
                       {filteredCheckinRegistrations.length === 0 ? (
                         <div className="bg-slate-50 rounded-xl border border-slate-200 p-12 text-center text-slate-500">
-                          Nessun iscritto trovato per questo corso corrispondente alla ricerca "{checkinSearchQuery}".
+                          Nessun iscritto trovato corrispondente al codice o alla ricerca "{checkinSearchQuery}".
                         </div>
                       ) : (
                         <div className="overflow-x-auto rounded-xl border border-slate-200">
                           <table className="w-full text-left border-collapse">
                             <thead>
                               <tr className="bg-slate-50 border-b border-slate-200 text-xs text-slate-600 uppercase tracking-wider">
+                                <th className="p-4 font-bold">Codice QR / Ticket</th>
                                 <th className="p-4 font-bold">Partecipante</th>
                                 <th className="p-4 font-bold">Azienda / P.IVA</th>
                                 <th className="p-4 font-bold">Corso Assegnato</th>
                                 <th className="p-4 font-bold text-center">Stato Presenza</th>
-                                <th className="p-4 font-bold text-center">Check-in Segreteria</th>
+                                <th className="p-4 font-bold text-center">Azione Check-in</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
                               {filteredCheckinRegistrations.map((reg) => (
                                 <tr key={reg.id} className={`hover:bg-slate-50 transition-colors ${reg.isPresent ? 'bg-emerald-50/40' : ''}`}>
+                                  <td className="p-4 font-mono font-bold text-indigo-700 bg-indigo-50/50">
+                                    {reg.ticketCode || ('REG-' + reg.id)}
+                                  </td>
                                   <td className="p-4">
                                     <div className="font-extrabold text-slate-900">{reg.fullName}</div>
                                     <div className="text-xs text-slate-500">{reg.city} • 📞 {reg.phone}</div>
@@ -1750,188 +1759,37 @@
                     </div>
                   )}
 
-                  {adminTab === 'registrations' && (
-                    <div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Totale Iscrizioni</p>
-                          <p className="text-3xl font-black text-slate-900 mt-1">{totalRegistrations}</p>
-                        </div>
-                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm sm:col-span-2">
-                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Iscritti per Marchio</p>
-                          <div className="flex flex-wrap gap-2">
-                            {Object.keys(registrationsByBrand).length === 0 ? (
-                              <span className="text-xs text-slate-400">Nessun dato disponibile</span>
-                            ) : (
-                              Object.entries(registrationsByBrand).map(([brand, count]) => (
-                                <span key={brand} className="bg-red-50 text-[#8b1e1e] border border-red-200 text-xs font-bold px-3.5 py-1.5 rounded-xl">
-                                  {brand}: <strong>{count}</strong>
-                                </span>
-                              ))
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-base font-bold text-slate-900">Elenco Dettagliato Installatori & Invio Attestati con QR Code</h3>
-                        {registrations.length > 0 && (
-                          <button onClick={async () => { if (confirm('Vuoi davvero cancellare tutte le iscrizioni?')) { if (supabaseClient) { await supabaseClient.from('registrations').delete().neq('id', 0); } setRegistrations([]); } }} className="text-xs text-red-600 hover:text-red-800 font-bold bg-red-50 px-3.5 py-1.5 rounded-xl border border-red-200 transition-colors">
-                            Svuota Storico Iscrizioni
-                          </button>
-                        )}
-                      </div>
-
-                      {registrations.length === 0 ? (
-                        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-sm">
-                          <p className="text-slate-500 text-sm">Nessuna iscrizione registrata al momento.</p>
-                        </div>
-                      ) : (
-                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
-                              <thead>
-                                <tr className="bg-slate-50 border-b border-slate-200 text-xs text-slate-600 uppercase tracking-wider">
-                                  <th className="p-4 font-bold">Data & Ora</th>
-                                  <th className="p-4 font-bold">Installatore</th>
-                                  <th className="p-4 font-bold">Azienda / P.IVA</th>
-                                  <th className="p-4 font-bold">Contatti</th>
-                                  <th className="p-4 font-bold">Corso Scelto</th>
-                                  <th className="p-4 font-bold text-center">Attestato con QR</th>
-                                  <th className="p-4 font-bold text-center">Invia via Email</th>
-                                  <th className="p-4 font-bold text-center">Azioni</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-                                {registrations.map((reg) => (
-                                  <tr key={reg.id} className="hover:bg-slate-50 transition-colors">
-                                    <td className="p-4 text-xs text-slate-500 whitespace-nowrap">{reg.timestamp}</td>
-                                    
-                                    {editingRegistrationId === reg.id ? (
-                                      <td className="p-4" colSpan="3">
-                                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-3">
-                                          <div className="text-xs font-bold text-[#1b365d] uppercase">Modifica Dati Partecipante</div>
-                                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                            <div>
-                                              <label className="text-[10px] font-bold text-slate-600 block">Nome e Cognome</label>
-                                              <input type="text" value={editRegData.fullName} onChange={(e) => setEditRegData({...editRegData, fullName: e.target.value})} className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg" />
-                                            </div>
-                                            <div>
-                                              <label className="text-[10px] font-bold text-slate-600 block">Città</label>
-                                              <input type="text" value={editRegData.city} onChange={(e) => setEditRegData({...editRegData, city: e.target.value})} className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg" />
-                                            </div>
-                                            <div>
-                                              <label className="text-[10px] font-bold text-slate-600 block">Ragione Sociale Azienda</label>
-                                              <input type="text" value={editRegData.company} onChange={(e) => setEditRegData({...editRegData, company: e.target.value})} className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg" />
-                                            </div>
-                                            <div>
-                                              <label className="text-[10px] font-bold text-slate-600 block">Partita IVA</label>
-                                              <input type="text" value={editRegData.vatNumber} onChange={(e) => setEditRegData({...editRegData, vatNumber: e.target.value})} className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg font-mono" />
-                                            </div>
-                                            <div>
-                                              <label className="text-[10px] font-bold text-slate-600 block">Email</label>
-                                              <input type="email" value={editRegData.email} onChange={(e) => setEditRegData({...editRegData, email: e.target.value})} className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg" />
-                                            </div>
-                                            <div>
-                                              <label className="text-[10px] font-bold text-slate-600 block">Telefono</label>
-                                              <input type="text" value={editRegData.phone} onChange={(e) => setEditRegData({...editRegData, phone: e.target.value})} className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg" />
-                                            </div>
-                                          </div>
-                                          <div className="flex gap-2 pt-1">
-                                            <button onClick={() => handleSaveRegistrationEdit(reg.id)} className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm">Salva Modifiche</button>
-                                            <button onClick={() => setEditingRegistrationId(null)} className="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold px-3 py-1.5 rounded-lg">Annulla</button>
-                                          </div>
-                                        </div>
-                                      </td>
-                                    ) : (
-                                      <>
-                                        <td className="p-4 font-bold text-slate-900">{reg.fullName}<div className="text-xs text-slate-500 font-normal">{reg.city}</div></td>
-                                        <td className="p-4">{reg.company}<div className="text-xs text-slate-500 font-mono">P.IVA: {reg.vatNumber}</div></td>
-                                        <td className="p-4 text-xs"><div>✉️ {reg.email}</div><div className="mt-1">📞 {reg.phone}</div></td>
-                                      </>
-                                    )}
-
-                                    <td className="p-4">
-                                      <div className="flex items-center gap-1.5 mb-1"><span className="inline-block bg-red-50 text-[#8b1e1e] border border-red-200 text-xs font-bold px-2.5 py-0.5 rounded">{reg.brandName}</span></div>
-                                      <div className="text-xs font-bold text-slate-900">{reg.courseTitle}</div>
-                                      <div className="text-xs text-slate-500">📅 {reg.date}</div>
-                                    </td>
-                                    
-                                    <td className="p-4 text-center">
-                                      <button
-                                        onClick={() => handleDownloadAttestato(reg)}
-                                        className="text-emerald-700 hover:text-emerald-900 font-bold text-xs bg-emerald-50 hover:bg-emerald-100 px-3 py-2 rounded-xl border border-emerald-200 transition-all shadow-2xs inline-flex items-center gap-1"
-                                        title="Scarica attestato in PDF con QR code"
-                                      >
-                                        <span>📜</span> Scarica PDF
-                                      </button>
-                                    </td>
-
-                                    <td className="p-4 text-center">
-                                      <button
-                                        onClick={() => handleSendAttestatoEmail(reg)}
-                                        className="text-indigo-700 hover:text-indigo-900 font-bold text-xs bg-indigo-50 hover:bg-indigo-100 px-3 py-2 rounded-xl border border-indigo-200 transition-all shadow-2xs inline-flex items-center gap-1"
-                                        title="Invia attestato via email all'utente"
-                                      >
-                                        <span>📧</span> Invia Email
-                                      </button>
-                                    </td>
-                                    
-                                    <td className="p-4 text-center">
-                                      {editingRegistrationId !== reg.id && (
-                                        <div className="flex items-center justify-center gap-1.5">
-                                          <button
-                                            onClick={() => handleStartEditRegistration(reg)}
-                                            className="text-blue-600 hover:text-blue-800 font-bold text-xs bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-200 transition-colors shadow-sm"
-                                          >
-                                            Modifica
-                                          </button>
-                                          <button
-                                            onClick={() => handleDeleteRegistration(reg.id)}
-                                            className="text-red-600 hover:text-red-800 font-bold text-xs bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-200 transition-colors shadow-sm"
-                                          >
-                                            Elimina
-                                          </button>
-                                        </div>
-                                      )}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {adminTab === 'archive' && (
+                  {/* ========================================================= */}
+                  {/* SEZIONE: GESTIONE CORSI & ISCRITTI DIVISI PER CORSO       */}
+                  {/* ========================================================= */}
+                  {adminTab === 'courses-management' && (
                     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
                       <div className="flex justify-between items-center mb-6">
                         <div>
-                          <h3 className="text-lg font-bold text-slate-900">📚 Archivio Storico Corsi e Partecipanti</h3>
-                          <p className="text-xs text-slate-500 mt-1">Corsi ordinati cronologicamente dal più recente al più vecchio. Clicca su "Visualizza Dettaglio" per consultare gli iscritti ed esportare i dati in Excel, CSV o TXT (inclusi i soli presenti).</p>
+                          <h3 className="text-lg font-bold text-slate-900">📚 Gestione Corsi & Iscritti</h3>
+                          <p className="text-xs text-slate-500 mt-1">Gli iscritti sono divisi per ogni corso. Espandi ciascun corso per gestire partecipanti, modifiche, eliminazione, scaricamento PDF e check-in all'accoglienza.</p>
                         </div>
                       </div>
 
-                      <div className="space-y-3">
+                      <div className="space-y-4">
                         {[...courses].reverse().map(course => {
                           const courseRegs = registrations.filter(r => r.courseId === course.id || r.courseTitle === course.title);
                           const brandObj = brands.find(b => b.id === course.brand || b.name === course.brandName);
                           const cardColor = brandObj?.color || '#1b365d';
                           const isExpanded = expandedArchiveCourseId === course.id;
                           const isExpired = isCourseExpired(course.date);
+                          const presentCount = courseRegs.filter(r => r.isPresent).length;
 
                           return (
-                            <div key={course.id} className="border border-slate-200 rounded-xl bg-white shadow-2xs hover:border-slate-300 transition-all overflow-hidden">
-                              <div className="p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-50/60">
+                            <div key={course.id} className="border border-slate-200 rounded-2xl bg-white shadow-2xs hover:border-slate-300 transition-all overflow-hidden">
+                              <div className="p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-50/70">
                                 <div className="flex items-center gap-3 flex-wrap">
                                   <span className="text-[11px] font-black px-2.5 py-1 rounded text-white uppercase tracking-wider" style={{ backgroundColor: cardColor }}>
                                     {course.brandName}
                                   </span>
                                   <div>
                                     <div className="flex items-center gap-2">
-                                      <h4 className="text-sm font-extrabold text-slate-900 uppercase">{course.title}</h4>
+                                      <h4 className="text-sm sm:text-base font-extrabold text-slate-900 uppercase">{course.title}</h4>
                                       {isExpired && (
                                         <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-md">Concluso</span>
                                       )}
@@ -1940,15 +1798,31 @@
                                   </div>
                                 </div>
 
-                                <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
+                                <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end flex-wrap">
                                   <span className="text-xs font-bold bg-blue-50 text-[#1b365d] border border-blue-200 px-3 py-1.5 rounded-xl">
-                                    👥 {courseRegs.length} Iscritti ({courseRegs.filter(r => r.isPresent).length} presenti)
+                                    👥 {courseRegs.length} Iscritti ({presentCount} presenti)
                                   </span>
 
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <button
+                                      onClick={() => handleEditCourseClick(course)}
+                                      className="bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold px-3 py-1.5 rounded-xl text-xs transition-colors border border-blue-200"
+                                      title="Modifica Corso"
+                                    >
+                                      ✏ Modifica Corso
+                                    </button>
+
+                                    <button
+                                      onClick={() => handleDeleteCourse(course.id)}
+                                      className="bg-red-50 hover:bg-red-100 text-red-700 font-bold px-3 py-1.5 rounded-xl text-xs transition-colors border border-red-200"
+                                      title="Elimina Corso"
+                                    >
+                                      🗑 Elimina
+                                    </button>
+
                                     <button
                                       onClick={() => handleExportCourseExcel(course, courseRegs)}
-                                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition-colors shadow-2xs flex items-center gap-1"
+                                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition-colors shadow-2xs"
                                       title="Esporta in Excel (.xlsx)"
                                     >
                                       📊 Excel
@@ -1958,18 +1832,18 @@
                                       onClick={() => setExpandedArchiveCourseId(isExpanded ? null : course.id)}
                                       className="bg-[#1b365d] hover:bg-[#162d4f] text-white font-bold px-3.5 py-1.5 rounded-xl text-xs transition-colors shadow-2xs flex items-center gap-1.5"
                                     >
-                                      {isExpanded ? '▲ Chiudi' : '▼ Dettaglio'}
+                                      {isExpanded ? '▲ Chiudi Iscritti' : `▼ Visualizza Iscritti (${courseRegs.length})`}
                                     </button>
                                   </div>
                                 </div>
                               </div>
 
                               {isExpanded && (
-                                <div className="p-5 border-t border-slate-200 bg-white space-y-4">
-                                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-2 border-b border-slate-100">
+                                <div className="p-6 border-t border-slate-200 bg-white space-y-4">
+                                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-100">
                                     <div>
-                                      <h5 className="text-xs font-black uppercase tracking-wider text-slate-700">Elenco Partecipanti Registrati</h5>
-                                      <p className="text-[11px] text-slate-400">Esporta la lista completa oppure solo il file TXT dei partecipanti presenti in aula.</p>
+                                      <h5 className="text-xs font-black uppercase tracking-wider text-slate-700">Elenco Partecipanti Iscritti a questo Corso</h5>
+                                      <p className="text-[11px] text-slate-400">Gestisci l'accoglienza, modifica dati, scarica il PDF dell'attestato o esporta i report in TXT.</p>
                                     </div>
                                     <div className="flex items-center gap-2 flex-wrap">
                                       <button
@@ -1994,42 +1868,73 @@
                                   </div>
 
                                   {courseRegs.length === 0 ? (
-                                    <p className="text-xs text-slate-400 italic py-4 text-center">Nessun utente iscritto a questo corso nello storico.</p>
+                                    <p className="text-xs text-slate-400 italic py-6 text-center">Nessun utente iscritto a questo corso al momento.</p>
                                   ) : (
                                     <div className="overflow-x-auto rounded-xl border border-slate-200">
                                       <table className="w-full text-left text-xs">
                                         <thead>
                                           <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase">
-                                            <th className="p-3 font-bold">Data Iscrizione</th>
+                                            <th className="p-3 font-bold">Ticket / QR</th>
                                             <th className="p-3 font-bold">Partecipante</th>
                                             <th className="p-3 font-bold">Azienda / P.IVA</th>
-                                            <th className="p-3 font-bold text-center">Stato Presenza</th>
-                                            <th className="p-3 font-bold text-center">Attestato con QR</th>
-                                            <th className="p-3 font-bold text-center">Invia Email</th>
+                                            <th className="p-3 font-bold text-center">Accoglienza Check-in</th>
+                                            <th className="p-3 font-bold text-center">Attestato PDF</th>
+                                            <th className="p-3 font-bold text-center">Azioni</th>
                                           </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 text-slate-700">
                                           {courseRegs.map(reg => (
-                                            <tr key={reg.id} className={`hover:bg-slate-50 ${reg.isPresent ? 'bg-emerald-50/30' : ''}`}>
-                                              <td className="p-3 text-slate-500 whitespace-nowrap">{reg.timestamp}</td>
-                                              <td className="p-3 font-bold text-slate-900">{reg.fullName} <span className="font-normal text-slate-500 block">({reg.city})</span></td>
-                                              <td className="p-3">{reg.company} <span className="font-mono text-slate-500 block">P.IVA: {reg.vatNumber}</span></td>
+                                            <tr key={reg.id} className={`hover:bg-slate-50 ${reg.isPresent ? 'bg-emerald-50/40' : ''}`}>
+                                              <td className="p-3 font-mono font-bold text-indigo-700">{reg.ticketCode || ('REG-' + reg.id)}</td>
+                                              
+                                              {editingRegistrationId === reg.id ? (
+                                                <td className="p-3" colSpan="2">
+                                                  <div className="bg-blue-50 p-3 rounded-lg border border-blue-200 space-y-2">
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                      <input type="text" value={editRegData.fullName} onChange={(e) => setEditRegData({...editRegData, fullName: e.target.value})} placeholder="Nome" className="px-2 py-1 bg-white border border-slate-300 rounded text-xs" />
+                                                      <input type="text" value={editRegData.company} onChange={(e) => setEditRegData({...editRegData, company: e.target.value})} placeholder="Azienda" className="px-2 py-1 bg-white border border-slate-300 rounded text-xs" />
+                                                      <input type="text" value={editRegData.vatNumber} onChange={(e) => setEditRegData({...editRegData, vatNumber: e.target.value})} placeholder="P.IVA" className="px-2 py-1 bg-white border border-slate-300 rounded text-xs font-mono" />
+                                                      <input type="email" value={editRegData.email} onChange={(e) => setEditRegData({...editRegData, email: e.target.value})} placeholder="Email" className="px-2 py-1 bg-white border border-slate-300 rounded text-xs" />
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                      <button onClick={() => handleSaveRegistrationEdit(reg.id)} className="bg-emerald-600 text-white px-2.5 py-1 rounded font-bold">Salva</button>
+                                                      <button onClick={() => setEditingRegistrationId(null)} className="bg-slate-200 px-2.5 py-1 rounded">Annulla</button>
+                                                    </div>
+                                                  </div>
+                                                </td>
+                                              ) : (
+                                                <>
+                                                  <td className="p-3 font-bold text-slate-900">{reg.fullName} <span className="font-normal text-slate-500 block">{reg.city} • {reg.email}</span></td>
+                                                  <td className="p-3">{reg.company} <span className="font-mono text-slate-500 block">P.IVA: {reg.vatNumber}</span></td>
+                                                </>
+                                              )}
+
                                               <td className="p-3 text-center">
-                                                {reg.isPresent ? (
-                                                  <span className="text-emerald-700 font-bold bg-emerald-100 px-2.5 py-1 rounded-full">Presente</span>
-                                                ) : (
-                                                  <span className="text-amber-700 bg-amber-100 px-2.5 py-1 rounded-full">Non arrivato</span>
-                                                )}
+                                                <button
+                                                  onClick={() => handleToggleCheckin(reg.id, reg.isPresent)}
+                                                  className={`font-bold px-3 py-1.5 rounded-lg text-xs transition-colors shadow-2xs ${
+                                                    reg.isPresent 
+                                                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+                                                      : 'bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200'
+                                                  }`}
+                                                >
+                                                  {reg.isPresent ? `✓ Presente (${reg.checkinTime || ''})` : '⏳ Assente (Registra)'}
+                                                </button>
                                               </td>
+
                                               <td className="p-3 text-center">
                                                 <button onClick={() => handleDownloadAttestato(reg)} className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold px-3 py-1.5 rounded-lg border border-emerald-200 transition-colors">
-                                                  📜 PDF
+                                                  📜 PDF Attestato
                                                 </button>
                                               </td>
+
                                               <td className="p-3 text-center">
-                                                <button onClick={() => handleSendAttestatoEmail(reg)} className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-3 py-1.5 rounded-lg border border-indigo-200 transition-colors">
-                                                  📧 Email
-                                                </button>
+                                                {editingRegistrationId !== reg.id && (
+                                                  <div className="flex items-center justify-center gap-1">
+                                                    <button onClick={() => handleStartEditRegistration(reg)} className="text-blue-600 hover:text-blue-800 font-bold px-2.5 py-1 bg-blue-50 border border-blue-200 rounded-lg">Modifica</button>
+                                                    <button onClick={() => handleDeleteRegistration(reg.id)} className="text-red-600 hover:text-red-800 font-bold px-2.5 py-1 bg-red-50 border border-red-200 rounded-lg">Elimina</button>
+                                                  </div>
+                                                )}
                                               </td>
                                             </tr>
                                           ))}
@@ -2279,7 +2184,7 @@
 
                         <div className="pt-2 flex gap-3">
                           <button type="submit" className="flex-1 bg-[#1b365d] hover:bg-[#162d4f] text-white font-bold py-3 px-4 rounded-xl text-sm transition-colors shadow-md">{editingCourseId ? 'Salva Modifiche Corso' : 'Pubblica Corso nel Catalogo'}</button>
-                          <button type="button" onClick={() => { setEditingCourseId(null); setAdminTab('registrations'); }} className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-3 px-4 rounded-xl text-sm transition-colors">Annulla</button>
+                          <button type="button" onClick={() => { setEditingCourseId(null); setAdminTab('courses-management'); }} className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-3 px-4 rounded-xl text-sm transition-colors">Annulla</button>
                         </div>
                       </form>
 
