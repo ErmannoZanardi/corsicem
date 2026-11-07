@@ -62,6 +62,37 @@
       }
 
       // ==========================================
+      // CODICI TICKET SICURI
+      // 12 caratteri casuali (alfabeto senza simboli ambigui 0/O/1/I/L)
+      // generati con il generatore crittografico del browser.
+      // Formato: TICKET-XXXX-XXXX-XXXX (circa 8 x 10^17 combinazioni)
+      // ==========================================
+      const TICKET_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+      function generateSecureTicketCode() {
+        const limit = 256 - (256 % TICKET_ALPHABET.length); // evita distorsioni statistiche
+        let chars = '';
+        while (chars.length < 12) {
+          const bytes = new Uint8Array(24);
+          window.crypto.getRandomValues(bytes);
+          for (const b of bytes) {
+            if (b < limit && chars.length < 12) chars += TICKET_ALPHABET[b % TICKET_ALPHABET.length];
+          }
+        }
+        return 'TICKET-' + chars.slice(0, 4) + '-' + chars.slice(4, 8) + '-' + chars.slice(8, 12);
+      }
+
+      async function ticketCodeExists(code) {
+        if (!supabaseClient) return false;
+        try {
+          const { data, error } = await supabaseClient.from('registrations').select('id').eq('ticket_code', code).limit(1);
+          return !error && data && data.length > 0;
+        } catch (err) {
+          return false;
+        }
+      }
+
+      // ==========================================
       // PAGINA PUBBLICA DI VERIFICA AUTENTICITÀ ATTESTATO
       // Si apre scansionando il QR dell'attestato: index.html?verifica=CODICE
       // Interroga il database e mostra solo i dati minimi necessari.
@@ -475,7 +506,13 @@
             return;
           }
 
-          const generatedTicketCode = 'TICKET-' + Math.floor(100000 + Math.random() * 900000);
+          // Codice ticket casuale e sicuro, con controllo che non esista già
+          let generatedTicketCode = generateSecureTicketCode();
+          for (let attempt = 0; attempt < 5; attempt++) {
+            const alreadyUsed = registrations.some(r => r.ticketCode === generatedTicketCode) || await ticketCodeExists(generatedTicketCode);
+            if (!alreadyUsed) break;
+            generatedTicketCode = generateSecureTicketCode();
+          }
 
           // QR code con il solo codice ticket: la segreteria lo scansiona nel campo di check-in
           const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(generatedTicketCode)}`;
