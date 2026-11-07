@@ -381,17 +381,19 @@
               }
             }
 
-            if (window.emailjs) {
+           if (window.emailjs) {
               try {
+                // Email di conferma al partecipante con Orario e Sede/Piattaforma inclusi
                 await emailjs.send("service_miwig8q", "template_vtbeauc", {
                   to_name: formData.fullName,
                   to_email: formData.email,
                   course_title: selectedCourse.title,
                   course_date: selectedCourse.date,
                   company_name: companyName,
-                  message: `Grazie per esserti iscritto al corso:\n\nCorso: ${selectedCourse.title}\nData: ${selectedCourse.date}\nLivello: ${selectedCourse.level || 'Base'}\nRelatore: ${selectedCourse.speaker || 'Ermanno Zanardi'}\n\nTi aspettiamo!`
+                  message: `Grazie per esserti iscritto al corso:\n\nCorso: ${selectedCourse.title}\nMarchio: ${selectedCourse.brandName}\nData: ${selectedCourse.date}\nOrario: ${selectedCourse.time}\nSede / Piattaforma: ${selectedCourse.location}\nLivello: ${selectedCourse.level || 'Base'}\nRelatore: ${selectedCourse.speaker || 'Ermanno Zanardi'}\n\nTi aspettiamo!`
                 });
 
+                // Email di notifica per l'amministratore
                 if (adminEmail) {
                   await emailjs.send("service_miwig8q", "template_vtbeauc", {
                     to_name: "Amministratore",
@@ -399,7 +401,7 @@
                     course_title: selectedCourse.title,
                     course_date: selectedCourse.date,
                     company_name: companyName,
-                    message: `Nuova iscrizione ricevuta!\n\nPartecipante: ${formData.fullName}\nAzienda: ${formData.company} \n(P.IVA: ${formData.vatNumber})\nEmail: ${formData.email}\nTelefono: ${formData.phone}`
+                    message: `Nuova iscrizione ricevuta!\n\nPartecipante: ${formData.fullName}\nAzienda: ${formData.company} (P.IVA: ${formData.vatNumber})\nCorso: ${selectedCourse.title} (${selectedCourse.date} - ${selectedCourse.time})\nSede: ${selectedCourse.location}\nEmail: ${formData.email}\nTelefono: ${formData.phone}`
                   });
                 }
               } catch (err) {
