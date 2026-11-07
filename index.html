@@ -887,7 +887,7 @@ if (window.emailjs) {
             isActive: true
           });
           if (editorRef.current) editorRef.current.innerHTML = '';
-          setAdminTab('courses-management');
+          setAdminTab(isCourseExpired(newCourseData.date) ? 'courses-history' : 'courses-management');
         };
 
         const handleEditCourseClick = (course) => {
@@ -1491,6 +1491,10 @@ if (window.emailjs) {
           return acc;
         }, {});
 
+        // Gestione Corsi = corsi futuri / in corso, Storico Corsi = corsi già conclusi
+        const isHistoryTab = adminTab === 'courses-history';
+        const coursesForTab = [...courses].reverse().filter(c => !!isCourseExpired(c.date) === isHistoryTab);
+
         // Ricerca / scansione codice ticket nella gestione corsi (check-in)
         const matchesCheckinSearch = (r) => {
           if (!checkinSearchQuery.trim()) return true;
@@ -1849,6 +1853,7 @@ if (window.emailjs) {
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <button onClick={() => setAdminTab('courses-management')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'courses-management' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>📚 Gestione Corsi & Iscritti</button>
+                      <button onClick={() => setAdminTab('courses-history')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'courses-history' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>🗂 Storico Corsi</button>
                       <button onClick={() => setAdminTab('brands-management')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'brands-management' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>🏷 Marchi & Sfondi</button>
                       <button onClick={() => { setEditingCourseId(null); setAdminTab('add-course'); }} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'add-course' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>➕ Nuovo Corso</button>
                       <button onClick={() => setAdminTab('branding')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'branding' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>🎨 Azienda</button>
@@ -1858,17 +1863,27 @@ if (window.emailjs) {
                   {/* ========================================================= */}
                   {/* SEZIONE: GESTIONE CORSI & ISCRITTI DIVISI PER CORSO       */}
                   {/* ========================================================= */}
-                  {adminTab === 'courses-management' && (
+                  {(adminTab === 'courses-management' || adminTab === 'courses-history') && (
                     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
                       <div className="flex justify-between items-center mb-6">
                         <div>
-                          <h3 className="text-lg font-bold text-slate-900">📚 Gestione Corsi & Iscritti</h3>
+                          <h3 className="text-lg font-bold text-slate-900">{isHistoryTab ? '🗂 Storico Corsi' : '📚 Gestione Corsi & Iscritti'}</h3>
                           <p className="text-xs text-slate-500 mt-1">Gli iscritti sono divisi per ogni corso. Espandi ciascun corso per gestire partecipanti, modifiche, eliminazione, scaricamento PDF e check-in all'accoglienza.</p>
                         </div>
                       </div>
 
+                      {isHistoryTab && (
+                        <p className="text-xs text-slate-500 -mt-3 mb-4">Corsi già conclusi: stesse funzioni della Gestione Corsi (iscritti, check-in, attestati, esportazioni).</p>
+                      )}
+
+                      {coursesForTab.length === 0 && (
+                        <p className="text-xs text-slate-400 italic py-8 text-center">
+                          {isHistoryTab ? 'Nessun corso concluso nello storico.' : 'Nessun corso in programma.'}
+                        </p>
+                      )}
+
                       <div className="space-y-4">
-                        {[...courses].reverse().map(course => {
+                        {coursesForTab.map(course => {
                           const courseRegs = registrations.filter(r => r.courseId === course.id || r.courseTitle === course.title);
                           const brandObj = brands.find(b => b.id === course.brand || b.name === course.brandName);
                           const cardColor = brandObj?.color || '#1b365d';
@@ -2300,7 +2315,7 @@ if (window.emailjs) {
 
                         <div className="pt-2 flex gap-3">
                           <button type="submit" className="flex-1 bg-[#1b365d] hover:bg-[#162d4f] text-white font-bold py-3 px-4 rounded-xl text-sm transition-colors shadow-md">{editingCourseId ? 'Salva Modifiche Corso' : 'Pubblica Corso nel Catalogo'}</button>
-                          <button type="button" onClick={() => { setEditingCourseId(null); setAdminTab('courses-management'); }} className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-3 px-4 rounded-xl text-sm transition-colors">Annulla</button>
+                          <button type="button" onClick={() => { setEditingCourseId(null); setAdminTab(isCourseExpired(newCourseData.date) ? 'courses-history' : 'courses-management'); }} className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-3 px-4 rounded-xl text-sm transition-colors">Annulla</button>
                         </div>
                       </form>
 
