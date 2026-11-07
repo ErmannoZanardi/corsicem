@@ -1218,7 +1218,8 @@ if (window.emailjs) {
         };
 
         const handleExportCourseTxt = (course, courseRegs, onlyPresent = false) => {
-          const regsToExport = onlyPresent ? courseRegs.filter(r => r.isPresent) : courseRegs;
+          const regsToExport = (onlyPresent ? courseRegs.filter(r => r.isPresent) : [...courseRegs])
+            .sort((a, b) => (a.fullName || '').trim().localeCompare((b.fullName || '').trim(), 'it', { sensitivity: 'base' }));
           
           let content = `=========================================\n`;
           content += `ELENCO ${onlyPresent ? 'PARTECIPANTI PRESENTI' : 'ISCRITTI'} - CORSO\n`;
