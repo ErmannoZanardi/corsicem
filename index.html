@@ -221,7 +221,7 @@
       const EMAILJS_SERVICE_ID = "service_miwig8q";
       const EMAILJS_ATTESTATO_TEMPLATE_ID = "template_attestato";
 
-      function buildAttestatoPdf(reg, { brands, courses, companyName, mode = 'open' }) {
+      function buildAttestatoPdf(reg, { brands, courses, companyName, signatures = null, mode = 'open' }) {
           const { jsPDF } = window.jspdf;
           const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
@@ -335,6 +335,22 @@
             doc.setLineWidth(0.5);
             doc.line(60, 180, 115, 180);
             doc.line(182, 180, 237, 180);
+
+            // Firme (immagini caricate dal backend) sopra le linee di firma
+            const drawSignature = (dataUrl, centerX) => {
+              if (!dataUrl) return;
+              try {
+                const props = doc.getImageProperties(dataUrl);
+                const maxW = 50, maxH = 16;
+                const ratio = Math.min(maxW / props.width, maxH / props.height);
+                const w = props.width * ratio;
+                const h = props.height * ratio;
+                doc.addImage(dataUrl, 'PNG', centerX - w / 2, 179 - h, w, h);
+              } catch (err) { console.error('Errore inserimento firma:', err); }
+            };
+            const speakerSigKey = Object.keys((signatures && signatures.speakers) || {}).find(k => k.trim().toLowerCase() === String(courseSpeaker).trim().toLowerCase());
+            drawSignature(speakerSigKey ? signatures.speakers[speakerSigKey] : null, 87.5);
+            drawSignature(signatures && signatures.company, 209.5);
             
             doc.setFont("helvetica", "normal");
             doc.setFontSize(8.5);
@@ -408,6 +424,36 @@
           }
         }
 
+      // Ridimensiona l'immagine di una firma (max 500x200 px, PNG con trasparenza) e la restituisce come data URL
+      function fileToSignatureDataUrl(file) {
+        return new Promise((resolve, reject) => {
+          if (!file || !file.type || !file.type.startsWith('image/')) {
+            reject(new Error('Seleziona un file immagine (PNG o JPG).'));
+            return;
+          }
+          if (file.size > 8 * 1024 * 1024) {
+            reject(new Error('Immagine troppo grande (massimo 8 MB).'));
+            return;
+          }
+          const reader = new FileReader();
+          reader.onerror = () => reject(new Error('Lettura del file non riuscita.'));
+          reader.onload = () => {
+            const img = new Image();
+            img.onerror = () => reject(new Error('Immagine non valida.'));
+            img.onload = () => {
+              const ratio = Math.min(1, 500 / img.width, 200 / img.height);
+              const canvas = document.createElement('canvas');
+              canvas.width = Math.max(1, Math.round(img.width * ratio));
+              canvas.height = Math.max(1, Math.round(img.height * ratio));
+              canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+              resolve(canvas.toDataURL('image/png'));
+            };
+            img.src = reader.result;
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+
       // Pagina pubblica aperta dal link ricevuto via email: index.html?attestato=CODICE
       function AttestatoPage({ code }) {
         const [state, setState] = useState({ status: 'loading' });
@@ -450,13 +496,17 @@
 
               let companyName = 'Azienda di prova';
               let brands = DEFAULT_BRANDS;
+              let signatures = null;
               try {
-                const { data: sData } = await supabaseClient.from('settings').select('key, value').in('key', ['company_name', 'brands_list', 'copyright_text']);
+                const { data: sData } = await supabaseClient.from('settings').select('key, value').in('key', ['company_name', 'brands_list', 'copyright_text', 'signatures']);
                 (sData || []).forEach(item => {
                   if (item.key === 'company_name' && item.value) companyName = item.value;
                   if (item.key === 'copyright_text' && item.value) setFooterText(item.value);
                   if (item.key === 'brands_list') {
                     try { brands = JSON.parse(item.value); } catch (e) {}
+                  }
+                  if (item.key === 'signatures') {
+                    try { signatures = JSON.parse(item.value); } catch (e) {}
                   }
                 });
               } catch (e) { console.error('Errore impostazioni attestato:', e); }
@@ -469,7 +519,7 @@
                 } catch (e) { console.error('Errore corso attestato:', e); }
               }
 
-              setState({ status: r.is_present ? 'ready' : 'notpresent', reg, companyName, brands, courses });
+              setState({ status: r.is_present ? 'ready' : 'notpresent', reg, companyName, brands, courses, signatures });
             } catch (err) {
               console.error('Errore caricamento attestato:', err);
               setState({ status: 'error' });
@@ -481,7 +531,7 @@
         const handleDownload = () => {
           setDownloading(true);
           try {
-            buildAttestatoPdf(state.reg, { brands: state.brands, courses: state.courses, companyName: state.companyName, mode: 'save' });
+            buildAttestatoPdf(state.reg, { brands: state.brands, courses: state.courses, companyName: state.companyName, signatures: state.signatures, mode: 'save' });
           } catch (err) {
             console.error('Errore generazione attestato:', err);
             alert("Errore durante la creazione del PDF. Riprova.");
@@ -559,6 +609,7 @@
         const [submitError, setSubmitError] = useState('');
         const [isSubmitting, setIsSubmitting] = useState(false);
         const submitLockRef = useRef(false); // blocco sincrono anti doppio click
+        const [signatures, setSignatures] = useState({ company: '', speakers: {} });
         const [sentAttestati, setSentAttestati] = useState([]);
         const [sendingAttestati, setSendingAttestati] = useState(false);
         const [scanInput, setScanInput] = useState('');
@@ -697,6 +748,12 @@
                   if (item.key === 'header_title') setHeaderTitle(item.value);
                   if (item.key === 'copyright_text') setCopyrightText(item.value);
                   if (item.key === 'admin_email') setAdminEmail(item.value);
+                  if (item.key === 'signatures') {
+                    try {
+                      const parsed = JSON.parse(item.value);
+                      setSignatures({ company: parsed.company || '', speakers: parsed.speakers || {} });
+                    } catch(e) {}
+                  }
                   if (item.key === 'brands_list') {
                     try { setBrands(JSON.parse(item.value)); } catch(e) {}
                   }
@@ -1089,6 +1146,43 @@ if (window.emailjs) {
             setAdminPin('');
           } else {
             setAdminError(true);
+          }
+        };
+
+        // Firme degli attestati: salvate subito nel database (chiave 'signatures')
+        const persistSignatures = async (next) => {
+          if (supabaseClient) {
+            const { error } = await supabaseClient.from('settings').upsert([{ key: 'signatures', value: JSON.stringify(next), updated_at: new Date() }]);
+            if (error) {
+              alert("Errore durante il salvataggio delle firme: " + error.message);
+              return false;
+            }
+          }
+          setSignatures(next);
+          return true;
+        };
+
+        const handleSignatureUpload = async (target, file) => {
+          if (!file) return;
+          try {
+            const dataUrl = await fileToSignatureDataUrl(file);
+            const next = target === 'company'
+              ? { ...signatures, company: dataUrl }
+              : { ...signatures, speakers: { ...signatures.speakers, [target]: dataUrl } };
+            await persistSignatures(next);
+          } catch (err) {
+            alert('Impossibile caricare la firma: ' + err.message);
+          }
+        };
+
+        const handleSignatureRemove = async (target) => {
+          if (!confirm(target === 'company' ? "Rimuovere la firma dell'azienda erogatrice?" : `Rimuovere la firma di ${target}?`)) return;
+          if (target === 'company') {
+            await persistSignatures({ ...signatures, company: '' });
+          } else {
+            const rest = { ...signatures.speakers };
+            delete rest[target];
+            await persistSignatures({ ...signatures, speakers: rest });
           }
         };
 
@@ -1597,7 +1691,7 @@ if (window.emailjs) {
         };
 
         const handleDownloadAttestato = (reg) => {
-          buildAttestatoPdf(reg, { brands, courses, companyName, mode: 'open' });
+          buildAttestatoPdf(reg, { brands, courses, companyName, signatures, mode: 'open' });
         };
 
         // Invio attestato via email: l'email contiene il link alla pagina di download del PDF
@@ -1764,6 +1858,12 @@ if (window.emailjs) {
 
         // Gestione Corsi = corsi futuri / in corso, Storico Corsi = corsi già conclusi
         const isHistoryTab = adminTab === 'courses-history';
+        // Relatori per cui gestire la firma: quelli dei corsi + quelli con firma già caricata
+        const signatureSpeakers = Array.from(new Set(
+          [...courses.map(c => c.speaker || 'Ermanno Zanardi'), ...Object.keys(signatures.speakers || {})]
+            .map(x => (x || '').trim()).filter(Boolean)
+        ));
+
         const courseStartMinutes = (c) => {
           const m = (c.time || '').match(/(\d{1,2})[:.](\d{2})/);
           return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : 0;
@@ -2556,6 +2656,55 @@ if (window.emailjs) {
                           <button type="submit" className="w-full bg-[#1b365d] hover:bg-[#162d4f] text-white font-bold py-3 px-4 rounded-xl text-sm transition-colors shadow-md">Salva Personalizzazioni sul Cloud</button>
                         </div>
                       </form>
+                      <div className="mt-8 pt-6 border-t border-slate-200 space-y-5">
+                        <div>
+                          <h4 className="text-sm font-black text-slate-900">✍ Firme sugli attestati</h4>
+                          <p className="text-xs text-slate-500 mt-1">Carica un'immagine della firma (meglio PNG con sfondo trasparente). Viene salvata subito e comparirà sopra le linee di firma dell'attestato.</p>
+                        </div>
+
+                        <div className="border border-slate-200 rounded-xl p-4 bg-slate-50">
+                          <p className="text-xs font-bold text-slate-700 mb-2">Azienda erogatrice del corso (sempre la stessa)</p>
+                          <div className="flex items-center gap-3 flex-wrap">
+                            {signatures.company ? (
+                              <img src={signatures.company} alt="Firma azienda" className="h-12 max-w-[160px] object-contain bg-white border border-slate-200 rounded p-1" />
+                            ) : (
+                              <span className="text-xs text-slate-400 italic">Nessuna firma caricata</span>
+                            )}
+                            <label className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-xs cursor-pointer">
+                              {signatures.company ? 'Sostituisci' : 'Carica firma'}
+                              <input type="file" accept="image/*" className="hidden" onChange={(e) => { handleSignatureUpload('company', e.target.files[0]); e.target.value = ''; }} />
+                            </label>
+                            {signatures.company && (
+                              <button type="button" onClick={() => handleSignatureRemove('company')} className="text-xs font-bold text-red-600 hover:underline">Rimuovi</button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-3">
+                          <p className="text-xs font-bold text-slate-700">Relatori (la firma viene scelta in base al relatore del corso)</p>
+                          {signatureSpeakers.map(name => {
+                            const sigKey = Object.keys(signatures.speakers || {}).find(k => k.trim().toLowerCase() === name.toLowerCase());
+                            const sig = sigKey ? signatures.speakers[sigKey] : '';
+                            return (
+                              <div key={name} className="flex items-center gap-3 flex-wrap bg-white border border-slate-200 rounded-lg p-3">
+                                <span className="text-xs font-bold text-slate-800 min-w-[140px]">🎤 {name}</span>
+                                {sig ? (
+                                  <img src={sig} alt={`Firma ${name}`} className="h-12 max-w-[160px] object-contain bg-white border border-slate-200 rounded p-1" />
+                                ) : (
+                                  <span className="text-xs text-slate-400 italic">Nessuna firma</span>
+                                )}
+                                <label className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-xs cursor-pointer">
+                                  {sig ? 'Sostituisci' : 'Carica firma'}
+                                  <input type="file" accept="image/*" className="hidden" onChange={(e) => { handleSignatureUpload(sigKey || name, e.target.files[0]); e.target.value = ''; }} />
+                                </label>
+                                {sig && (
+                                  <button type="button" onClick={() => handleSignatureRemove(sigKey || name)} className="text-xs font-bold text-red-600 hover:underline">Rimuovi</button>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
                   )}
 
