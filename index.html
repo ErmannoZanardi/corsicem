@@ -215,6 +215,9 @@
         const [submitError, setSubmitError] = useState('');
         const [isSubmitting, setIsSubmitting] = useState(false);
         const submitLockRef = useRef(false); // blocco sincrono anti doppio click
+        const [scanInput, setScanInput] = useState('');
+        const [scanResult, setScanResult] = useState(null);
+        const scanInputRef = useRef(null);
         const [adminPin, setAdminPin] = useState('');
         const [adminError, setAdminError] = useState(false);
         const [adminTab, setAdminTab] = useState('courses-management'); // Rinominato da archivio storico a gestione corsi
@@ -488,15 +491,42 @@
 
             if (error) {
               alert("Errore durante l'aggiornamento della presenza: " + error.message);
-              return;
+              return { ok: false, time: null };
             }
           }
 
-          setRegistrations(registrations.map(r => r.id === regId ? {
+          setRegistrations(prev => prev.map(r => r.id === regId ? {
             ...r,
             isPresent: newStatus,
             checkinTime: checkinTimestamp
           } : r));
+          return { ok: true, time: checkinTimestamp };
+        };
+
+        // Check-in automatico da QR code / codice ticket (campo in Gestione Corsi)
+        const processScan = async (rawCode) => {
+          const code = (rawCode || '').trim().toUpperCase();
+          if (!code) return;
+          setScanInput('');
+
+          const reg = registrations.find(r => (r.ticketCode || '').toUpperCase() === code);
+          if (!reg) {
+            setScanResult({ type: 'notfound', code });
+          } else if (reg.isPresent) {
+            setScanResult({ type: 'already', reg, time: reg.checkinTime });
+          } else {
+            const result = await handleToggleCheckin(reg.id, false);
+            setScanResult(result.ok ? { type: 'ok', reg, time: result.time } : { type: 'error', reg });
+          }
+          if (scanInputRef.current) scanInputRef.current.focus();
+        };
+
+        const handleScanChange = (value) => {
+          setScanInput(value);
+          // Codice ticket completo (nuovo o vecchio formato): check-in immediato senza premere Invio
+          if (/^(TICKET-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}|TICKET-\d{6})$/i.test(value.trim())) {
+            processScan(value);
+          }
         };
 
         const handleSubmit = async (e) => {
@@ -1905,6 +1935,55 @@ if (window.emailjs) {
                           <h3 className="text-lg font-bold text-slate-900">{isHistoryTab ? '🗂 Storico Corsi' : '📚 Gestione Corsi & Iscritti'}</h3>
                           <p className="text-xs text-slate-500 mt-1">Gli iscritti sono divisi per ogni corso. Espandi ciascun corso per gestire partecipanti, modifiche, eliminazione, scaricamento PDF e check-in all'accoglienza.</p>
                         </div>
+                      </div>
+
+                      <div className="mb-6 bg-slate-50 border-2 border-dashed border-[#1b365d]/30 rounded-2xl p-4">
+                        <label className="block text-xs font-black uppercase tracking-wider text-[#1b365d] mb-2">🎫 Check-in rapido con QR Code</label>
+                        <div className="flex gap-2">
+                          <input
+                            ref={scanInputRef}
+                            type="text"
+                            value={scanInput}
+                            onChange={(e) => handleScanChange(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); processScan(scanInput); } }}
+                            placeholder="Scansiona il QR code o digita il codice ticket (es. TICKET-ABCD-EFGH-JKLM) e premi Invio"
+                            autoComplete="off"
+                            className="flex-1 px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#1b365d]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => processScan(scanInput)}
+                            className="bg-[#1b365d] hover:bg-[#162d4f] text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-2xs"
+                          >
+                            ✓ Check-in
+                          </button>
+                        </div>
+                        {scanResult && scanResult.type === 'ok' && (
+                          <div className="mt-3 bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-xl p-3 text-sm">
+                            <p className="font-black">✅ Check-in effettuato alle {scanResult.time}</p>
+                            <p className="font-bold">{scanResult.reg.fullName} — {scanResult.reg.company}</p>
+                            <p className="text-xs">{scanResult.reg.courseTitle} ({scanResult.reg.date}) · {scanResult.reg.ticketCode}</p>
+                          </div>
+                        )}
+                        {scanResult && scanResult.type === 'already' && (
+                          <div className="mt-3 bg-amber-50 border border-amber-300 text-amber-800 rounded-xl p-3 text-sm">
+                            <p className="font-black">⚠ Già registrato{scanResult.time ? ` alle ${scanResult.time}` : ''}</p>
+                            <p className="font-bold">{scanResult.reg.fullName} — {scanResult.reg.company}</p>
+                            <p className="text-xs">{scanResult.reg.courseTitle} ({scanResult.reg.date}) · {scanResult.reg.ticketCode}</p>
+                          </div>
+                        )}
+                        {scanResult && scanResult.type === 'notfound' && (
+                          <div className="mt-3 bg-red-50 border border-red-300 text-red-700 rounded-xl p-3 text-sm">
+                            <p className="font-black">❌ Codice non trovato</p>
+                            <p className="text-xs font-mono">{scanResult.code}</p>
+                          </div>
+                        )}
+                        {scanResult && scanResult.type === 'error' && (
+                          <div className="mt-3 bg-red-50 border border-red-300 text-red-700 rounded-xl p-3 text-sm">
+                            <p className="font-black">❌ Errore nel salvataggio del check-in di {scanResult.reg.fullName}</p>
+                            <p className="text-xs">Riprova o usa il pulsante di presenza nell'elenco iscritti.</p>
+                          </div>
+                        )}
                       </div>
 
                       {isHistoryTab && (
