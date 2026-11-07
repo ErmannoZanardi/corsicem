@@ -61,6 +61,101 @@
         supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       }
 
+      // ==========================================
+      // PAGINA PUBBLICA DI VERIFICA AUTENTICITÀ ATTESTATO
+      // Si apre scansionando il QR dell'attestato: index.html?verifica=CODICE
+      // Interroga il database e mostra solo i dati minimi necessari.
+      // ==========================================
+      function VerifyPage({ code }) {
+        const [state, setState] = useState({ status: 'loading', data: null });
+
+        useEffect(() => {
+          const run = async () => {
+            if (!supabaseClient) {
+              setState({ status: 'error', data: null });
+              return;
+            }
+            try {
+              const cols = 'full_name, company, course_title, brand_name, date, is_present, checkin_time, ticket_code';
+              let query = supabaseClient.from('registrations').select(cols);
+              if (/^REG-\d+$/.test(code)) {
+                query = query.eq('id', Number(code.replace('REG-', '')));
+              } else {
+                query = query.eq('ticket_code', code);
+              }
+              const { data, error } = await query.limit(1);
+              if (error) throw error;
+              if (!data || data.length === 0) {
+                setState({ status: 'invalid', data: null });
+              } else {
+                setState({ status: 'found', data: data[0] });
+              }
+            } catch (err) {
+              console.error('Errore verifica attestato:', err);
+              setState({ status: 'error', data: null });
+            }
+          };
+          run();
+        }, [code]);
+
+        const { status, data } = state;
+        const authentic = status === 'found' && data.is_present;
+
+        return (
+          <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 font-sans">
+            <div className="w-full max-w-md bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+              <div className="bg-[#1b365d] text-white px-6 py-4">
+                <p className="text-xs uppercase tracking-wider text-amber-300 font-bold">Verifica attestato</p>
+                <h1 className="text-lg font-black">Controllo di autenticità</h1>
+              </div>
+              <div className="p-6 space-y-4">
+                <p className="text-xs text-slate-500">Codice verificato: <span className="font-mono font-bold text-slate-800">{code}</span></p>
+
+                {status === 'loading' && (
+                  <p className="text-sm text-slate-600">Verifica in corso, attendere...</p>
+                )}
+
+                {status === 'invalid' && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                    <p className="text-sm font-black text-red-700">❌ Attestato NON valido</p>
+                    <p className="text-xs text-red-600 mt-1">Il codice non corrisponde ad alcuna iscrizione registrata nel nostro database.</p>
+                  </div>
+                )}
+
+                {status === 'error' && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                    <p className="text-sm font-black text-amber-700">⚠ Verifica non disponibile</p>
+                    <p className="text-xs text-amber-700 mt-1">Impossibile contattare il database. Riprova più tardi.</p>
+                  </div>
+                )}
+
+                {status === 'found' && (
+                  <>
+                    {authentic ? (
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                        <p className="text-sm font-black text-emerald-700">✅ Attestato AUTENTICO</p>
+                        <p className="text-xs text-emerald-700 mt-1">Partecipazione al corso registrata nel database{data.checkin_time ? ` (check-in ore ${data.checkin_time})` : ''}.</p>
+                      </div>
+                    ) : (
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                        <p className="text-sm font-black text-amber-700">⚠ Iscrizione trovata, presenza non registrata</p>
+                        <p className="text-xs text-amber-700 mt-1">Il codice esiste ma la partecipazione al corso non risulta confermata dalla segreteria.</p>
+                      </div>
+                    )}
+                    <dl className="text-sm divide-y divide-slate-100 border border-slate-200 rounded-xl">
+                      <div className="p-3"><dt className="text-[11px] uppercase text-slate-400 font-bold">Partecipante</dt><dd className="font-bold text-slate-900">{data.full_name}</dd></div>
+                      <div className="p-3"><dt className="text-[11px] uppercase text-slate-400 font-bold">Azienda</dt><dd className="text-slate-800">{data.company}</dd></div>
+                      <div className="p-3"><dt className="text-[11px] uppercase text-slate-400 font-bold">Corso</dt><dd className="text-slate-800">{data.course_title} {data.brand_name ? `(${data.brand_name})` : ''}</dd></div>
+                      <div className="p-3"><dt className="text-[11px] uppercase text-slate-400 font-bold">Data del corso</dt><dd className="text-slate-800">{data.date}</dd></div>
+                    </dl>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      }
+
       function App() {
         const [view, setView] = useState('courses'); 
         const [selectedBrand, setSelectedBrand] = useState('all');
@@ -1146,7 +1241,9 @@ if (window.emailjs) {
           };
 
           // QR generato localmente (niente rete, niente problemi CORS)
-          const qrText = `ATTESTATO AUTENTICO - Corsi ${companyName} - Installatore: ${reg.fullName} - Corso: ${reg.courseTitle} - P.IVA: ${reg.vatNumber} - Data: ${reg.date}`;
+          // Il QR rimanda alla pagina di verifica che controlla l'iscrizione nel database
+          const baseUrl = window.location.href.split(/[?#]/)[0];
+          const qrText = `${baseUrl}?verifica=${encodeURIComponent(reg.ticketCode || ('REG-' + reg.id))}`;
           let qrDataUrl = null;
           try {
             const qr = qrcode(0, 'M');
@@ -2150,7 +2247,13 @@ if (window.emailjs) {
         );
       }
 
-      ReactDOM.render(<App />, document.getElementById('root'));
+      // Se l'indirizzo contiene ?verifica=CODICE mostra solo la pagina di verifica
+      // (senza caricare l'elenco completo di corsi e iscritti).
+      const verifyCodeParam = new URLSearchParams(window.location.search).get('verifica');
+      ReactDOM.render(
+        verifyCodeParam ? <VerifyPage code={verifyCodeParam.trim()} /> : <App />,
+        document.getElementById('root')
+      );
     </script>
   </body>
 </html>
