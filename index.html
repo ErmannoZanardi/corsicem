@@ -1280,11 +1280,11 @@ if (window.emailjs) {
 
             if (qrImgDataUrl) {
               try {
-                doc.addImage(qrImgDataUrl, 'PNG', 22, 153, 24, 24);
+                doc.addImage(qrImgDataUrl, 'PNG', 22, 170, 24, 24);
                 doc.setFont("helvetica", "bold");
                 doc.setFontSize(7.5);
                 doc.setTextColor(100, 110, 120);
-                doc.text("QR Autenticità", 34, 180, { align: 'center' });
+                doc.text("QR Autenticità", 34, 194, { align: 'center' });
               } catch(err) { console.error('Errore inserimento QR nel PDF:', err); }
             }
 
