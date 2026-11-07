@@ -1162,6 +1162,8 @@
           } else {
             alert("Servizio EmailJS non disponibile.");
           }
+        };
+
         const handleExportCourseTxt = (course, courseRegs, onlyPresent = false) => {
           const regsToExport = onlyPresent ? courseRegs.filter(r => r.isPresent) : courseRegs;
           
