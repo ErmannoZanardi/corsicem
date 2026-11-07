@@ -281,6 +281,22 @@
             };
 
             const cleanStr = dateString.toLowerCase();
+
+            // Formato numerico: 19/11/2026, 19-11-2026, 19.11.2026
+            // (con più giorni, es. "19-20/11/2026", vale la prima data completa trovata)
+            const numericMatch = cleanStr.match(/(?:^|\D)(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})(?!\d)/);
+            if (numericMatch) {
+              const nDay = parseInt(numericMatch[1], 10);
+              const nMonth = parseInt(numericMatch[2], 10);
+              const nYear = parseInt(numericMatch[3], 10);
+              if (nMonth >= 1 && nMonth <= 12 && nDay >= 1 && nDay <= 31) {
+                const numericDate = new Date(nYear, nMonth - 1, nDay);
+                const todayNum = new Date();
+                todayNum.setHours(0, 0, 0, 0);
+                return numericDate < todayNum;
+              }
+            }
+
             const words = cleanStr.replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(Boolean);
             
             let day = null;
