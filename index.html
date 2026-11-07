@@ -207,6 +207,350 @@
         );
       }
 
+      // ==========================================
+      // ATTESTATO: costanti, generatore PDF e pagina pubblica di download
+      // ==========================================
+      const DEFAULT_BRANDS = [
+        { id: 'tecnoalarm', name: 'TECNOALARM', logoUrl: '', color: '#8b1e1e', posterBgUrl: '', certificateBgUrl: '' },
+        { id: 'tecnofire', name: 'TECNOFIRE', logoUrl: '', color: '#b91c1c', posterBgUrl: '', certificateBgUrl: '' },
+        { id: 'nice', name: 'NICE', logoUrl: '', color: '#0369a1', posterBgUrl: '', certificateBgUrl: '' },
+        { id: 'dahua', name: 'DAHUA', logoUrl: '', color: '#4338ca', posterBgUrl: '', certificateBgUrl: '' }
+      ];
+
+      // Template EmailJS dedicato all'invio dell'attestato (da creare nella dashboard EmailJS)
+      const EMAILJS_SERVICE_ID = "service_miwig8q";
+      const EMAILJS_ATTESTATO_TEMPLATE_ID = "template_attestato";
+
+      function buildAttestatoPdf(reg, { brands, courses, companyName, mode = 'open' }) {
+          const { jsPDF } = window.jspdf;
+          const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+          const brandObj = brands.find(b => b.name === reg.brandName);
+          const brandColorHex = brandObj?.color || '#1b365d';
+          const brandCertBg = brandObj?.certificateBgUrl || '';
+
+          const matchedCourse = courses.find(c => c.id === reg.courseId || c.title === reg.courseTitle);
+          const courseSpeaker = matchedCourse?.speaker || 'Ermanno Zanardi';
+          const courseLevel = matchedCourse?.level || reg.level || 'N/D';
+
+          const hexToRgb = (hex) => {
+            let c = hex.replace('#','');
+            if(c.length === 3) c = c.split('').map(x => x + x).join('');
+            const num = parseInt(c, 16);
+            return [num >> 16, (num >> 8) & 255, num & 255];
+          };
+          const [r, g, b] = hexToRgb(brandColorHex);
+
+          const generateCertPdfContent = (bgImgData, qrImgDataUrl) => {
+            if (bgImgData) {
+              try {
+                doc.addImage(bgImgData, 'JPEG', 0, 0, 297, 210);
+              } catch (e) {}
+            } else {
+              doc.setFillColor(255, 255, 255);
+              doc.rect(0, 0, 297, 210, 'F');
+
+              doc.setDrawColor(r, g, b);
+              doc.setLineWidth(1.5);
+              doc.rect(12, 12, 273, 186);
+
+              doc.setDrawColor(210, 215, 220);
+              doc.setLineWidth(0.5);
+              doc.rect(15, 15, 267, 180);
+            }
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(14);
+            doc.setTextColor(r, g, b);
+            doc.text((companyName || "PORTALE FORMAZIONE").toUpperCase(), 148.5, 28, { align: 'center' });
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(10);
+            doc.setTextColor(100, 110, 120);
+            doc.text(`Attestato Ufficiale di Partecipazione - Marchio: ${reg.brandName || 'N/D'}`, 148.5, 35, { align: 'center' });
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(26);
+            doc.setTextColor(30, 41, 59);
+            doc.text("ATTESTATO DI PARTECIPAZIONE", 148.5, 62, { align: 'center' });
+
+            doc.setFont("helvetica", "italic");
+            doc.setFontSize(12);
+            doc.setTextColor(100, 110, 120);
+            doc.text("Si certifica con la presente che il professionista / installatore", 148.5, 76, { align: 'center' });
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(24);
+            doc.setTextColor(r, g, b);
+            doc.text(reg.fullName || 'Mario Rossi', 148.5, 93, { align: 'center' });
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(12);
+            doc.setTextColor(50, 60, 75);
+            doc.text(`in rappresentanza dell'azienda ${reg.company || 'Azienda'} (P.IVA: ${reg.vatNumber || 'N/D'}) - Città: ${reg.city || 'N/D'}`, 148.5, 103, { align: 'center' });
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(12);
+            doc.setTextColor(50, 60, 75);
+            doc.text("10/10", 253, 129, { align: 'center' });
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(8.5);
+            doc.text("Class.", 253, 124, { align: 'center' });
+
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(r, g, b);
+            doc.setFontSize(12);
+            doc.text(`Livello: ${courseLevel}`, 148.5, 142, { align: 'center' });              
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(12);
+            doc.setTextColor(100, 110, 120);
+            doc.text("ha frequentato con profitto il percorso formativo:", 148.5, 122, { align: 'center' });
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(18);
+            doc.setTextColor(30, 41, 59);
+            const splitCourseTitle = doc.splitTextToSize(reg.courseTitle || 'Corso Tecnico', 240);
+            doc.text(splitCourseTitle, 148.5, 135, { align: 'center' });
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(11);
+            doc.setTextColor(80, 90, 105);
+            doc.text(`Data di svolgimento: ${reg.date || 'N/D'}`, 148.5, 155, { align: 'center' });
+
+            if (qrImgDataUrl) {
+              try {
+                doc.addImage(qrImgDataUrl, 'PNG', 22, 169, 22, 22);
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(7.5);
+                doc.setTextColor(100, 110, 120);
+                doc.text("QR Autenticità", 33, 194, { align: 'center' });
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(6.0);
+                doc.text(reg.ticketCode || ('REG-' + reg.id), 33, 197, { align: 'center' });
+              } catch(err) { console.error('Errore inserimento QR nel PDF:', err); }
+            }
+
+            doc.setDrawColor(200, 205, 215);
+            doc.setLineWidth(0.5);
+            doc.line(60, 180, 115, 180);
+            doc.line(182, 180, 237, 180);
+            
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(8.5);
+            doc.setTextColor(80, 90, 105);
+            doc.text("Il Relatore", 87.5, 185, { align: 'center' });
+            doc.text("Azienda erogatrice del corso:", 209.5, 185, { align: 'center' });
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(10);
+            doc.setTextColor(r, g, b);
+            doc.text(courseSpeaker, 87.5, 190, { align: 'center' });
+            doc.text(companyName, 209.5, 190, { align: 'center' });
+
+            if (mode === 'save') {
+              const safeName = (reg.fullName || 'partecipante').replace(/[^A-Za-z0-9]+/g, '_');
+              doc.save('Attestato_' + safeName + '.pdf');
+            } else {
+              const pdfOutput = doc.output('bloburl');
+              window.open(pdfOutput, '_blank');
+            }
+          };
+
+          // QR generato localmente (niente rete, niente problemi CORS)
+          // Il QR rimanda alla pagina di verifica che controlla l'iscrizione nel database
+          const baseUrl = window.location.href.split(/[?#]/)[0];
+          const qrText = `${baseUrl}?verifica=${encodeURIComponent(reg.ticketCode || ('REG-' + reg.id))}`;
+          let qrDataUrl = null;
+          try {
+            const qr = qrcode(0, 'M');
+            qr.addData(qrText);
+            qr.make();
+            const count = qr.getModuleCount();
+            const cell = 8, margin = 4;
+            const size = (count + margin * 2) * cell;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, size, size);
+            ctx.fillStyle = '#000000';
+            for (let row = 0; row < count; row++) {
+              for (let col = 0; col < count; col++) {
+                if (qr.isDark(row, col)) ctx.fillRect((col + margin) * cell, (row + margin) * cell, cell, cell);
+              }
+            }
+            qrDataUrl = canvas.toDataURL('image/png');
+          } catch (err) {
+            console.error('Errore generazione QR attestato:', err);
+          }
+
+          if (brandCertBg) {
+            const certImg = new Image();
+            certImg.crossOrigin = 'Anonymous';
+            certImg.src = brandCertBg;
+            certImg.onload = () => {
+              try {
+                const canvasBg = document.createElement('canvas');
+                canvasBg.width = certImg.width;
+                canvasBg.height = certImg.height;
+                canvasBg.getContext('2d').drawImage(certImg, 0, 0);
+                generateCertPdfContent(canvasBg.toDataURL('image/jpeg'), qrDataUrl);
+              } catch (err) {
+                console.error('Errore sfondo attestato:', err);
+                generateCertPdfContent(null, qrDataUrl);
+              }
+            };
+            certImg.onerror = () => generateCertPdfContent(null, qrDataUrl);
+          } else {
+            generateCertPdfContent(null, qrDataUrl);
+          }
+        }
+
+      // Pagina pubblica aperta dal link ricevuto via email: index.html?attestato=CODICE
+      function AttestatoPage({ code }) {
+        const [state, setState] = useState({ status: 'loading' });
+        const [footerText, setFooterText] = useState('');
+        const [downloading, setDownloading] = useState(false);
+
+        useEffect(() => {
+          const run = async () => {
+            if (!supabaseClient) {
+              setState({ status: 'error' });
+              return;
+            }
+            try {
+              const cols = 'id, course_id, full_name, company, vat_number, city, course_title, brand_name, date, is_present, ticket_code';
+              let query = supabaseClient.from('registrations').select(cols);
+              if (/^REG-\d+$/.test(code)) {
+                query = query.eq('id', Number(code.replace('REG-', '')));
+              } else {
+                query = query.eq('ticket_code', code);
+              }
+              const { data, error } = await query.limit(1);
+              if (error) throw error;
+              if (!data || data.length === 0) {
+                setState({ status: 'invalid' });
+                return;
+              }
+              const r = data[0];
+              const reg = {
+                id: r.id,
+                courseId: r.course_id,
+                fullName: r.full_name,
+                company: r.company,
+                vatNumber: r.vat_number,
+                city: r.city,
+                courseTitle: r.course_title,
+                brandName: r.brand_name,
+                date: r.date,
+                ticketCode: r.ticket_code || ('REG-' + r.id)
+              };
+
+              let companyName = 'Azienda di prova';
+              let brands = DEFAULT_BRANDS;
+              try {
+                const { data: sData } = await supabaseClient.from('settings').select('key, value').in('key', ['company_name', 'brands_list', 'copyright_text']);
+                (sData || []).forEach(item => {
+                  if (item.key === 'company_name' && item.value) companyName = item.value;
+                  if (item.key === 'copyright_text' && item.value) setFooterText(item.value);
+                  if (item.key === 'brands_list') {
+                    try { brands = JSON.parse(item.value); } catch (e) {}
+                  }
+                });
+              } catch (e) { console.error('Errore impostazioni attestato:', e); }
+
+              let courses = [];
+              if (r.course_id) {
+                try {
+                  const { data: cData } = await supabaseClient.from('courses').select('id, title, speaker, level').eq('id', r.course_id).limit(1);
+                  if (cData) courses = cData;
+                } catch (e) { console.error('Errore corso attestato:', e); }
+              }
+
+              setState({ status: r.is_present ? 'ready' : 'notpresent', reg, companyName, brands, courses });
+            } catch (err) {
+              console.error('Errore caricamento attestato:', err);
+              setState({ status: 'error' });
+            }
+          };
+          run();
+        }, [code]);
+
+        const handleDownload = () => {
+          setDownloading(true);
+          try {
+            buildAttestatoPdf(state.reg, { brands: state.brands, courses: state.courses, companyName: state.companyName, mode: 'save' });
+          } catch (err) {
+            console.error('Errore generazione attestato:', err);
+            alert("Errore durante la creazione del PDF. Riprova.");
+          }
+          setTimeout(() => setDownloading(false), 2500);
+        };
+
+        const { status, reg } = state;
+
+        return (
+          <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
+            <div className="flex-1 flex items-center justify-center p-4">
+              <div className="w-full max-w-md bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+                <div className="bg-[#1b365d] text-white px-6 py-4">
+                  <p className="text-xs uppercase tracking-wider text-amber-300 font-bold">{state.companyName || 'Portale Formazione'}</p>
+                  <h1 className="text-lg font-black">Il tuo attestato di partecipazione</h1>
+                </div>
+                <div className="p-6 space-y-4">
+                  {status === 'loading' && <p className="text-sm text-slate-600">Caricamento in corso, attendere...</p>}
+
+                  {status === 'invalid' && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                      <p className="text-sm font-black text-red-700">❌ Link non valido</p>
+                      <p className="text-xs text-red-600 mt-1">Il codice non corrisponde ad alcuna iscrizione. Controlla di aver aperto il link completo ricevuto via email.</p>
+                    </div>
+                  )}
+
+                  {status === 'error' && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                      <p className="text-sm font-black text-amber-700">⚠ Servizio non disponibile</p>
+                      <p className="text-xs text-amber-700 mt-1">Impossibile contattare il database. Riprova più tardi.</p>
+                    </div>
+                  )}
+
+                  {status === 'notpresent' && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                      <p className="text-sm font-black text-amber-700">⚠ Attestato non ancora disponibile</p>
+                      <p className="text-xs text-amber-700 mt-1">La partecipazione al corso non risulta ancora confermata dalla segreteria. Contatta l'organizzazione.</p>
+                    </div>
+                  )}
+
+                  {status === 'ready' && (
+                    <>
+                      <dl className="text-sm divide-y divide-slate-100 border border-slate-200 rounded-xl">
+                        <div className="p-3"><dt className="text-[11px] uppercase text-slate-400 font-bold">Partecipante</dt><dd className="font-bold text-slate-900">{reg.fullName}</dd></div>
+                        <div className="p-3"><dt className="text-[11px] uppercase text-slate-400 font-bold">Azienda</dt><dd className="text-slate-800">{reg.company}</dd></div>
+                        <div className="p-3"><dt className="text-[11px] uppercase text-slate-400 font-bold">Corso</dt><dd className="text-slate-800">{reg.courseTitle} {reg.brandName ? `(${reg.brandName})` : ''}</dd></div>
+                        <div className="p-3"><dt className="text-[11px] uppercase text-slate-400 font-bold">Data del corso</dt><dd className="text-slate-800">{reg.date}</dd></div>
+                      </dl>
+                      <button
+                        onClick={handleDownload}
+                        disabled={downloading}
+                        className="w-full bg-[#1b365d] hover:bg-[#162d4f] disabled:opacity-60 text-white font-bold py-3 px-4 rounded-xl text-sm shadow-md"
+                      >
+                        {downloading ? 'Creazione PDF in corso...' : '📥 Scarica l\'attestato in PDF'}
+                      </button>
+                      <p className="text-[11px] text-slate-400 text-center">L'attestato contiene un QR code che ne verifica l'autenticità.</p>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+            <footer className="bg-[#1b365d] text-white border-t border-blue-900/50 py-6 text-center text-xs text-slate-300">
+              <p>{footerText || '© 2026 Portale Formazione Installatori Tecnici. Tutti i diritti riservati.'}</p>
+            </footer>
+          </div>
+        );
+      }
+
       function App() {
         const [view, setView] = useState('courses'); 
         const [selectedBrand, setSelectedBrand] = useState('all');
@@ -215,6 +559,8 @@
         const [submitError, setSubmitError] = useState('');
         const [isSubmitting, setIsSubmitting] = useState(false);
         const submitLockRef = useRef(false); // blocco sincrono anti doppio click
+        const [sentAttestati, setSentAttestati] = useState([]);
+        const [sendingAttestati, setSendingAttestati] = useState(false);
         const [scanInput, setScanInput] = useState('');
         const [scanResult, setScanResult] = useState(null);
         const scanInputRef = useRef(null);
@@ -1250,209 +1596,85 @@ if (window.emailjs) {
           }
         };
 
-        const handleDownloadAttestato = (reg, qrImgDataUrl = null) => {
-          const { jsPDF } = window.jspdf;
-          const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+        const handleDownloadAttestato = (reg) => {
+          buildAttestatoPdf(reg, { brands, courses, companyName, mode: 'open' });
+        };
 
-          const brandObj = brands.find(b => b.name === reg.brandName);
-          const brandColorHex = brandObj?.color || '#1b365d';
-          const brandCertBg = brandObj?.certificateBgUrl || '';
+        // Invio attestato via email: l'email contiene il link alla pagina di download del PDF
+        const buildAttestatoLink = (reg) => {
+          const base = window.location.href.split(/[?#]/)[0];
+          return `${base}?attestato=${encodeURIComponent(reg.ticketCode || ('REG-' + reg.id))}`;
+        };
 
-          const matchedCourse = courses.find(c => c.id === reg.courseId || c.title === reg.courseTitle);
-          const courseSpeaker = matchedCourse?.speaker || 'Ermanno Zanardi';
-          const courseLevel = matchedCourse?.level || reg.level || 'N/D';
-
-          const hexToRgb = (hex) => {
-            let c = hex.replace('#','');
-            if(c.length === 3) c = c.split('').map(x => x + x).join('');
-            const num = parseInt(c, 16);
-            return [num >> 16, (num >> 8) & 255, num & 255];
-          };
-          const [r, g, b] = hexToRgb(brandColorHex);
-
-          const generateCertPdfContent = (bgImgData, qrImgDataUrl) => {
-            if (bgImgData) {
-              try {
-                doc.addImage(bgImgData, 'JPEG', 0, 0, 297, 210);
-              } catch (e) {}
-            } else {
-              doc.setFillColor(255, 255, 255);
-              doc.rect(0, 0, 297, 210, 'F');
-
-              doc.setDrawColor(r, g, b);
-              doc.setLineWidth(1.5);
-              doc.rect(12, 12, 273, 186);
-
-              doc.setDrawColor(210, 215, 220);
-              doc.setLineWidth(0.5);
-              doc.rect(15, 15, 267, 180);
-            }
-
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(14);
-            doc.setTextColor(r, g, b);
-            doc.text((companyName || "PORTALE FORMAZIONE").toUpperCase(), 148.5, 28, { align: 'center' });
-
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(10);
-            doc.setTextColor(100, 110, 120);
-            doc.text(`Attestato Ufficiale di Partecipazione - Marchio: ${reg.brandName || 'N/D'}`, 148.5, 35, { align: 'center' });
-
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(26);
-            doc.setTextColor(30, 41, 59);
-            doc.text("ATTESTATO DI PARTECIPAZIONE", 148.5, 62, { align: 'center' });
-
-            doc.setFont("helvetica", "italic");
-            doc.setFontSize(12);
-            doc.setTextColor(100, 110, 120);
-            doc.text("Si certifica con la presente che il professionista / installatore", 148.5, 76, { align: 'center' });
-
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(24);
-            doc.setTextColor(r, g, b);
-            doc.text(reg.fullName || 'Mario Rossi', 148.5, 93, { align: 'center' });
-
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(12);
-            doc.setTextColor(50, 60, 75);
-            doc.text(`in rappresentanza dell'azienda ${reg.company || 'Azienda'} (P.IVA: ${reg.vatNumber || 'N/D'}) - Città: ${reg.city || 'N/D'}`, 148.5, 103, { align: 'center' });
-
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(12);
-            doc.setTextColor(50, 60, 75);
-            doc.text("10/10", 253, 129, { align: 'center' });
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(8.5);
-            doc.text("Class.", 253, 124, { align: 'center' });
-
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(r, g, b);
-            doc.setFontSize(12);
-            doc.text(`Livello: ${courseLevel}`, 148.5, 142, { align: 'center' });              
-
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(12);
-            doc.setTextColor(100, 110, 120);
-            doc.text("ha frequentato con profitto il percorso formativo:", 148.5, 122, { align: 'center' });
-
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(18);
-            doc.setTextColor(30, 41, 59);
-            const splitCourseTitle = doc.splitTextToSize(reg.courseTitle || 'Corso Tecnico', 240);
-            doc.text(splitCourseTitle, 148.5, 135, { align: 'center' });
-
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(11);
-            doc.setTextColor(80, 90, 105);
-            doc.text(`Data di svolgimento: ${reg.date || 'N/D'}`, 148.5, 155, { align: 'center' });
-
-            if (qrImgDataUrl) {
-              try {
-                doc.addImage(qrImgDataUrl, 'PNG', 22, 169, 22, 22);
-                doc.setFont("helvetica", "bold");
-                doc.setFontSize(7.5);
-                doc.setTextColor(100, 110, 120);
-                doc.text("QR Autenticità", 33, 194, { align: 'center' });
-                doc.setFont("helvetica", "normal");
-                doc.setFontSize(6.0);
-                doc.text(reg.ticketCode || ('REG-' + reg.id), 33, 197, { align: 'center' });
-              } catch(err) { console.error('Errore inserimento QR nel PDF:', err); }
-            }
-
-            doc.setDrawColor(200, 205, 215);
-            doc.setLineWidth(0.5);
-            doc.line(60, 180, 115, 180);
-            doc.line(182, 180, 237, 180);
-            
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(8.5);
-            doc.setTextColor(80, 90, 105);
-            doc.text("Il Relatore", 87.5, 185, { align: 'center' });
-            doc.text("Azienda erogatrice del corso:", 209.5, 185, { align: 'center' });
-
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(10);
-            doc.setTextColor(r, g, b);
-            doc.text(courseSpeaker, 87.5, 190, { align: 'center' });
-            doc.text(companyName, 209.5, 190, { align: 'center' });
-
-            const pdfOutput = doc.output('bloburl');
-            window.open(pdfOutput, '_blank');
-          };
-
-          // QR generato localmente (niente rete, niente problemi CORS)
-          // Il QR rimanda alla pagina di verifica che controlla l'iscrizione nel database
-          const baseUrl = window.location.href.split(/[?#]/)[0];
-          const qrText = `${baseUrl}?verifica=${encodeURIComponent(reg.ticketCode || ('REG-' + reg.id))}`;
-          let qrDataUrl = null;
-          try {
-            const qr = qrcode(0, 'M');
-            qr.addData(qrText);
-            qr.make();
-            const count = qr.getModuleCount();
-            const cell = 8, margin = 4;
-            const size = (count + margin * 2) * cell;
-            const canvas = document.createElement('canvas');
-            canvas.width = size;
-            canvas.height = size;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, size, size);
-            ctx.fillStyle = '#000000';
-            for (let row = 0; row < count; row++) {
-              for (let col = 0; col < count; col++) {
-                if (qr.isDark(row, col)) ctx.fillRect((col + margin) * cell, (row + margin) * cell, cell, cell);
-              }
-            }
-            qrDataUrl = canvas.toDataURL('image/png');
-          } catch (err) {
-            console.error('Errore generazione QR attestato:', err);
-          }
-
-          if (brandCertBg) {
-            const certImg = new Image();
-            certImg.crossOrigin = 'Anonymous';
-            certImg.src = brandCertBg;
-            certImg.onload = () => {
-              try {
-                const canvasBg = document.createElement('canvas');
-                canvasBg.width = certImg.width;
-                canvasBg.height = certImg.height;
-                canvasBg.getContext('2d').drawImage(certImg, 0, 0);
-                generateCertPdfContent(canvasBg.toDataURL('image/jpeg'), qrDataUrl);
-              } catch (err) {
-                console.error('Errore sfondo attestato:', err);
-                generateCertPdfContent(null, qrDataUrl);
-              }
-            };
-            certImg.onerror = () => generateCertPdfContent(null, qrDataUrl);
-          } else {
-            generateCertPdfContent(null, qrDataUrl);
-          }
+        const sendAttestatoEmailCore = async (reg) => {
+          const link = buildAttestatoLink(reg);
+          await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_ATTESTATO_TEMPLATE_ID, {
+            to_name: reg.fullName,
+            to_email: reg.email,
+            course_title: reg.courseTitle,
+            course_date: reg.date,
+            company_name: companyName,
+            ticket_code: reg.ticketCode || ('REG-' + reg.id),
+            attestato_url: link,
+            message: `Gentile ${reg.fullName},\n\ncongratulazioni per aver completato il corso "${reg.courseTitle}" (${reg.brandName}) del ${reg.date}.\n\nPuoi scaricare il tuo attestato di partecipazione a questo indirizzo:\n${link}\n\nCordiali saluti,\n${companyName}`
+          });
+          setSentAttestati(prev => prev.includes(reg.id) ? prev : [...prev, reg.id]);
         };
 
         const handleSendAttestatoEmail = async (reg) => {
-          if (!confirm(`Vuoi inviare l'attestato ufficiale con QR code via email a ${reg.fullName} (${reg.email})?`)) return;
-
-          if (window.emailjs) {
-            try {
-              await emailjs.send("service_miwig8q", "template_vtbeauc", {
-                to_name: reg.fullName,
-                to_email: reg.email,
-                course_title: reg.courseTitle,
-                course_date: reg.date,
-                company_name: companyName,
-                message: `Gentile ${reg.fullName},\n\nCongratulazioni per il completamento con successo del corso "${reg.courseTitle}" (${reg.brandName}) tenutosi in data ${reg.date}.\n\nIl tuo attestato ufficiale di partecipazione, protetto da QR Code di autenticità, è stato rilasciato da ${companyName}.\n\nGrazie per la partecipazione!`
-              });
-              alert(`Attestato inviato con successo a ${reg.email}!`);
-            } catch (err) {
-              console.error("Errore invio email:", err);
-              alert("Errore durante l'invio dell'email. Controlla la configurazione EmailJS.");
-            }
-          } else {
+          if (!window.emailjs) {
             alert("Servizio EmailJS non disponibile.");
+            return;
           }
+          if (!reg.isPresent) {
+            alert("Per inviare l'attestato la presenza deve essere registrata dalla segreteria (check-in).");
+            return;
+          }
+          if (!reg.email) {
+            alert("Questo iscritto non ha un indirizzo email.");
+            return;
+          }
+          if (!confirm(`Vuoi inviare il link per scaricare l'attestato a ${reg.fullName} (${reg.email})?`)) return;
+
+          setSendingAttestati(true);
+          try {
+            await sendAttestatoEmailCore(reg);
+            alert(`Attestato inviato con successo a ${reg.email}!`);
+          } catch (err) {
+            console.error("Errore invio email attestato:", err);
+            alert("Errore durante l'invio dell'email. Controlla che in EmailJS esista il template '" + EMAILJS_ATTESTATO_TEMPLATE_ID + "'.");
+          } finally {
+            setSendingAttestati(false);
+          }
+        };
+
+        // Invio massivo a tutti i presenti di un corso
+        const handleSendAttestatiToPresent = async (course, courseRegs) => {
+          if (!window.emailjs) {
+            alert("Servizio EmailJS non disponibile.");
+            return;
+          }
+          const targets = courseRegs.filter(r => r.isPresent && r.email);
+          if (targets.length === 0) {
+            alert("Nessun partecipante presente con indirizzo email per questo corso.");
+            return;
+          }
+          if (!confirm(`Inviare il link all'attestato a ${targets.length} partecipanti presenti al corso "${course.title}"?`)) return;
+
+          setSendingAttestati(true);
+          let okCount = 0;
+          const failed = [];
+          for (const r of targets) {
+            try {
+              await sendAttestatoEmailCore(r);
+              okCount++;
+            } catch (err) {
+              console.error("Errore invio attestato a " + r.email + ":", err);
+              failed.push(r.fullName);
+            }
+          }
+          setSendingAttestati(false);
+          alert(`Invii riusciti: ${okCount} su ${targets.length}.` + (failed.length ? `\n\nNon inviati:\n- ${failed.join('\n- ')}\n\nControlla che in EmailJS esista il template '${EMAILJS_ATTESTATO_TEMPLATE_ID}'.` : ''));
         };
 
         const handleExportCourseTxt = (course, courseRegs, onlyPresent = false) => {
@@ -2100,6 +2322,14 @@ if (window.emailjs) {
                                       >
                                         📄 TXT Solo Presenti
                                       </button>
+                                      <button
+                                        onClick={() => handleSendAttestatiToPresent(course, courseRegs)}
+                                        disabled={sendingAttestati}
+                                        className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-bold px-3 py-1.5 rounded-lg text-xs shadow-2xs"
+                                        title="Invia a tutti i presenti il link per scaricare l'attestato"
+                                      >
+                                        {sendingAttestati ? 'Invio in corso...' : '✉ Invia Attestati ai Presenti'}
+                                      </button>
                                     </div>
                                   </div>
 
@@ -2183,9 +2413,19 @@ if (window.emailjs) {
                                               </td>
 
                                               <td className="p-3 text-center">
-                                                <button onClick={() => handleDownloadAttestato(reg)} className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold px-3 py-1.5 rounded-lg border border-emerald-200 transition-colors">
-                                                  📜 PDF Attestato
-                                                </button>
+                                                <div className="flex flex-col items-center gap-1.5">
+                                                  <button onClick={() => handleDownloadAttestato(reg)} className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold px-3 py-1.5 rounded-lg border border-emerald-200 transition-colors">
+                                                    📜 PDF Attestato
+                                                  </button>
+                                                  <button
+                                                    onClick={() => handleSendAttestatoEmail(reg)}
+                                                    disabled={sendingAttestati || !reg.isPresent}
+                                                    title={reg.isPresent ? 'Invia al partecipante il link per scaricare l\'attestato' : 'Disponibile solo dopo il check-in'}
+                                                    className="bg-blue-50 hover:bg-blue-100 disabled:opacity-40 disabled:cursor-not-allowed text-blue-700 font-bold px-3 py-1.5 rounded-lg border border-blue-200 transition-colors"
+                                                  >
+                                                    {sentAttestati.includes(reg.id) ? '✓ Inviato (reinvia)' : '✉ Invia Email'}
+                                                  </button>
+                                                </div>
                                               </td>
 
                                               <td className="p-3 text-center">
@@ -2474,9 +2714,13 @@ if (window.emailjs) {
 
       // Se l'indirizzo contiene ?verifica=CODICE mostra solo la pagina di verifica
       // (senza caricare l'elenco completo di corsi e iscritti).
-      const verifyCodeParam = new URLSearchParams(window.location.search).get('verifica');
+      const urlParams = new URLSearchParams(window.location.search);
+      const verifyCodeParam = urlParams.get('verifica');
+      const attestatoCodeParam = urlParams.get('attestato');
       ReactDOM.render(
-        verifyCodeParam ? <VerifyPage code={verifyCodeParam.trim()} /> : <App />,
+        attestatoCodeParam ? <AttestatoPage code={attestatoCodeParam.trim()} />
+          : verifyCodeParam ? <VerifyPage code={verifyCodeParam.trim()} />
+          : <App />,
         document.getElementById('root')
       );
     </script>
