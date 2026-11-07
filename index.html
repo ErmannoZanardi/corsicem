@@ -1933,6 +1933,8 @@ if (window.emailjs) {
                                                       <input type="text" value={editRegData.company} onChange={(e) => setEditRegData({...editRegData, company: e.target.value})} placeholder="Azienda" className="px-2 py-1 bg-white border border-slate-300 rounded text-xs" />
                                                       <input type="text" value={editRegData.vatNumber} onChange={(e) => setEditRegData({...editRegData, vatNumber: e.target.value})} placeholder="P.IVA" className="px-2 py-1 bg-white border border-slate-300 rounded text-xs font-mono" />
                                                       <input type="email" value={editRegData.email} onChange={(e) => setEditRegData({...editRegData, email: e.target.value})} placeholder="Email" className="px-2 py-1 bg-white border border-slate-300 rounded text-xs" />
+                                                      <input type="tel" value={editRegData.phone} onChange={(e) => setEditRegData({...editRegData, phone: e.target.value})} placeholder="Cellulare" className="px-2 py-1 bg-white border border-slate-300 rounded text-xs" />
+                                                      <input type="text" value={editRegData.city} onChange={(e) => setEditRegData({...editRegData, city: e.target.value})} placeholder="Città" className="px-2 py-1 bg-white border border-slate-300 rounded text-xs" />
                                                     </div>
                                                     <div className="flex gap-2">
                                                       <button onClick={() => handleSaveRegistrationEdit(reg.id)} className="bg-emerald-600 text-white px-2.5 py-1 rounded font-bold">Salva</button>
