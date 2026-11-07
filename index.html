@@ -1583,7 +1583,7 @@ if (window.emailjs) {
                               {isClosed && (
                                 <div className="absolute top-0 right-0 bg-red-600 text-white text-[10px] font-black px-3.5 py-1 rounded-bl-xl shadow-md uppercase tracking-wider z-10 whitespace-nowrap">🔒 Iscrizioni chiuse</div>
                               )}
-                              <div className="flex justify-between items-center mb-3 pr-10 flex-wrap gap-2">
+                              <div className={`flex justify-between items-center mb-3 flex-wrap gap-2 ${isClosed ? 'pt-5 sm:pt-0 pr-10 sm:pr-44' : 'pr-10'}`}>
                                 <div className="flex items-center gap-2 bg-white/20 px-3 py-1 rounded-xl backdrop-blur-md border border-white/10">
                                   {brandObj?.logoUrl && <img src={brandObj.logoUrl} alt="" className="h-5 w-auto object-contain bg-white rounded p-0.5" />}
                                   <span className="text-white text-xs font-black tracking-wider">{course.brandName}</span>
