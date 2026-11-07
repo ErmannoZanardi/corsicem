@@ -71,8 +71,7 @@
         const [adminError, setAdminError] = useState(false);
         const [adminTab, setAdminTab] = useState('courses-management'); // Rinominato da archivio storico a gestione corsi
 
-        // Stato per il corso selezionato nella sezione Check-in Segreteria specifica
-        const [selectedCheckinCourseId, setSelectedCheckinCourseId] = useState('all');
+        // Ricerca / scansione ticket per il check-in nella gestione corsi
         const [checkinSearchQuery, setCheckinSearchQuery] = useState('');
 
         const [companyName, setCompanyName] = useState('Azienda di prova');
@@ -1286,15 +1285,10 @@ if (window.emailjs) {
           return acc;
         }, {});
 
-        // Filtraggio per la sezione Check-in per Corso specifico
-        const checkinCourseObj = courses.find(c => c.id === Number(selectedCheckinCourseId) || c.id === selectedCheckinCourseId);
-        const registrationsForSelectedCourse = selectedCheckinCourseId === 'all' 
-          ? registrations 
-          : registrations.filter(r => r.courseId === selectedCheckinCourseId || r.courseId === Number(selectedCheckinCourseId));
-
-        const filteredCheckinRegistrations = registrationsForSelectedCourse.filter(r => {
+        // Ricerca / scansione codice ticket nella gestione corsi (check-in)
+        const matchesCheckinSearch = (r) => {
           if (!checkinSearchQuery.trim()) return true;
-          const q = checkinSearchQuery.toLowerCase();
+          const q = checkinSearchQuery.trim().toLowerCase();
           return (
             (r.ticketCode && r.ticketCode.toLowerCase().includes(q)) ||
             (r.fullName && r.fullName.toLowerCase().includes(q)) ||
@@ -1302,9 +1296,7 @@ if (window.emailjs) {
             (r.vatNumber && r.vatNumber.toLowerCase().includes(q)) ||
             (r.email && r.email.toLowerCase().includes(q))
           );
-        });
-
-        const presentInCurrentSelection = registrationsForSelectedCourse.filter(r => r.isPresent).length;
+        };
 
         return (
           <div className="min-h-screen flex flex-col bg-slate-100 text-slate-800 font-sans">
@@ -1641,7 +1633,6 @@ if (window.emailjs) {
                       <p className="text-xs text-slate-300 mt-1">Gestione corsi, iscritti per corso, check-in con QR code, attestati e configurazioni</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <button onClick={() => setAdminTab('checkin')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'checkin' ? 'bg-[#d9381e] text-white shadow-md' : 'bg-white/20 text-white hover:bg-white/30'}`}>🎫 Segreteria Check-in (QR)</button>
                       <button onClick={() => setAdminTab('courses-management')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'courses-management' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>📚 Gestione Corsi & Iscritti</button>
                       <button onClick={() => setAdminTab('brands-management')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'brands-management' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>🏷 Marchi & Sfondi</button>
                       <button onClick={() => { setEditingCourseId(null); setAdminTab('add-course'); }} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'add-course' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>➕ Nuovo Corso</button>
@@ -1649,153 +1640,6 @@ if (window.emailjs) {
                       <button onClick={() => setAdminTab('branding')} className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-all ${adminTab === 'branding' ? 'bg-[#8b1e1e] text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}>🎨 Azienda</button>
                     </div>
                   </div>
-
-                  {/* ========================================================= */}
-                  {/* SEZIONE: SEGRETERIA - CHECK-IN SPECIFICO PER CORSO (QR)   */}
-                  {/* ========================================================= */}
-                  {adminTab === 'checkin' && (
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
-                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-                        <div>
-                          <span className="text-xs font-bold text-[#d9381e] uppercase tracking-wider block mb-1">Accoglienza in Sede per Corso</span>
-                          <h3 className="text-xl font-black text-slate-900">Segreteria - Check-in con QR Code / Ticket</h3>
-                          <p className="text-xs text-slate-500 mt-1">Digita o scansiona il codice ticket / QR code dell'utente per effettuare il check-in immediato all'arrivo.</p>
-                        </div>
-                        <div className="bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-right">
-                          <span className="text-[11px] font-bold text-slate-500 uppercase block">Presenti / Iscritti (Corso Selezionato)</span>
-                          <span className="text-2xl font-black text-emerald-600">{presentInCurrentSelection} <span className="text-sm font-semibold text-slate-400">/ {registrationsForSelectedCourse.length}</span></span>
-                        </div>
-                      </div>
-
-                      {/* Selettore del Corso specifico per il Check-in */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                        <div className="md:col-span-2">
-                          <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">Seleziona Corso da Gestire</label>
-                          <select
-                            value={selectedCheckinCourseId}
-                            onChange={(e) => setSelectedCheckinCourseId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                            className="w-full px-4 py-3 text-sm font-bold bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d] bg-white"
-                          >
-                            <option value="all">📁 Tutti i Corsi (Vista Globale)</option>
-                            {courses.map(c => (
-                              <option key={c.id} value={c.id}>
-                                [{c.brandName}] {c.title} ({c.date})
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="flex flex-col justify-end">
-                          {selectedCheckinCourseId !== 'all' && checkinCourseObj && (
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleExportCourseTxt(checkinCourseObj, registrationsForSelectedCourse, false)}
-                                className="flex-1 bg-white hover:bg-slate-50 text-slate-700 font-bold px-3 py-3 rounded-xl border border-slate-300 text-xs shadow-2xs flex items-center justify-center gap-1"
-                                title="Scarica TXT elenco totale iscritti"
-                              >
-                                📄 TXT Tutti
-                              </button>
-                              <button
-                                onClick={() => handleExportCourseTxt(checkinCourseObj, registrationsForSelectedCourse, true)}
-                                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-3 rounded-xl text-xs shadow-2xs flex items-center justify-center gap-1"
-                                title="Scarica TXT dei soli presenti"
-                              >
-                                📄 TXT Presenti
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Campo di ricerca rapida con QR Code / Ticket */}
-                      <div className="mb-6 relative">
-                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                          📷
-                        </div>
-                        <input
-                          type="text"
-                          value={checkinSearchQuery}
-                          onChange={(e) => setCheckinSearchQuery(e.target.value)}
-                          placeholder="Scansiona o digita il codice QR / Ticket (es. TICKET-548291), nome o P.IVA..."
-                          className="w-full pl-11 pr-4 py-4 text-base bg-emerald-50/50 border-2 border-emerald-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition-all shadow-sm font-bold text-slate-900"
-                        />
-                        {checkinSearchQuery && (
-                          <button
-                            onClick={() => setCheckinSearchQuery('')}
-                            className="absolute inset-y-0 right-0 pr-4 flex items-center text-xs text-slate-400 hover:text-slate-600 font-bold"
-                          >
-                            Pulisci ✕
-                          </button>
-                        )}
-                      </div>
-
-                      {filteredCheckinRegistrations.length === 0 ? (
-                        <div className="bg-slate-50 rounded-xl border border-slate-200 p-12 text-center text-slate-500">
-                          Nessun iscritto trovato corrispondente al codice o alla ricerca "{checkinSearchQuery}".
-                        </div>
-                      ) : (
-                        <div className="overflow-x-auto rounded-xl border border-slate-200">
-                          <table className="w-full text-left border-collapse">
-                            <thead>
-                              <tr className="bg-slate-50 border-b border-slate-200 text-xs text-slate-600 uppercase tracking-wider">
-                                <th className="p-4 font-bold">Codice QR / Ticket</th>
-                                <th className="p-4 font-bold">Partecipante</th>
-                                <th className="p-4 font-bold">Azienda / P.IVA</th>
-                                <th className="p-4 font-bold">Corso Assegnato</th>
-                                <th className="p-4 font-bold text-center">Stato Presenza</th>
-                                <th className="p-4 font-bold text-center">Azione Check-in</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-                              {filteredCheckinRegistrations.map((reg) => (
-                                <tr key={reg.id} className={`hover:bg-slate-50 transition-colors ${reg.isPresent ? 'bg-emerald-50/40' : ''}`}>
-                                  <td className="p-4 font-mono font-bold text-indigo-700 bg-indigo-50/50">
-                                    {reg.ticketCode || ('REG-' + reg.id)}
-                                  </td>
-                                  <td className="p-4">
-                                    <div className="font-extrabold text-slate-900">{reg.fullName}</div>
-                                    <div className="text-xs text-slate-500">{reg.city} • 📞 {reg.phone}</div>
-                                  </td>
-                                  <td className="p-4">
-                                    <div className="font-bold text-slate-800">{reg.company}</div>
-                                    <div className="text-xs text-slate-500 font-mono">P.IVA: {reg.vatNumber}</div>
-                                  </td>
-                                  <td className="p-4">
-                                    <span className="inline-block bg-red-50 text-[#8b1e1e] border border-red-200 text-[11px] font-bold px-2 py-0.5 rounded mb-1">{reg.brandName}</span>
-                                    <div className="text-xs font-bold text-slate-900">{reg.courseTitle}</div>
-                                    <div className="text-[11px] text-slate-500">📅 {reg.date}</div>
-                                  </td>
-                                  <td className="p-4 text-center">
-                                    {reg.isPresent ? (
-                                      <span className="inline-flex items-center gap-1.5 bg-emerald-100 text-emerald-800 font-black text-xs px-3 py-1.5 rounded-full shadow-2xs border border-emerald-200">
-                                        <span>✓</span> Presente ({reg.checkinTime || 'Registrato'})
-                                      </span>
-                                    ) : (
-                                      <span className="inline-flex items-center gap-1.5 bg-amber-100 text-amber-800 font-bold text-xs px-3 py-1.5 rounded-full shadow-2xs border border-amber-200">
-                                        <span>⏳</span> Non arrivato
-                                      </span>
-                                    )}
-                                  </td>
-                                  <td className="p-4 text-center">
-                                    <button
-                                      onClick={() => handleToggleCheckin(reg.id, reg.isPresent)}
-                                      className={`font-bold px-4 py-2.5 rounded-xl text-xs transition-all shadow-sm flex items-center justify-center gap-2 mx-auto ${
-                                        reg.isPresent 
-                                          ? 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-300' 
-                                          : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md'
-                                      }`}
-                                    >
-                                      {reg.isPresent ? 'Annulla Check-in' : '✓ Conferma Presenza'}
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-                  )}
 
                   {/* ========================================================= */}
                   {/* SEZIONE: GESTIONE CORSI & ISCRITTI DIVISI PER CORSO       */}
@@ -1905,8 +1749,30 @@ if (window.emailjs) {
                                     </div>
                                   </div>
 
+                                  {courseRegs.length > 0 && (
+                                    <div className="relative">
+                                      <input
+                                        type="text"
+                                        value={checkinSearchQuery}
+                                        onChange={(e) => setCheckinSearchQuery(e.target.value)}
+                                        placeholder="🔍 Scansiona il QR code o digita codice ticket, nome, azienda, email..."
+                                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#1b365d]"
+                                      />
+                                      {checkinSearchQuery && (
+                                        <button
+                                          onClick={() => setCheckinSearchQuery('')}
+                                          className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500 hover:text-slate-800"
+                                        >
+                                          ✕ Pulisci
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+
                                   {courseRegs.length === 0 ? (
                                     <p className="text-xs text-slate-400 italic py-6 text-center">Nessun utente iscritto a questo corso al momento.</p>
+                                  ) : courseRegs.filter(matchesCheckinSearch).length === 0 ? (
+                                    <p className="text-xs text-slate-400 italic py-6 text-center">Nessun iscritto corrispondente alla ricerca "{checkinSearchQuery}".</p>
                                   ) : (
                                     <div className="overflow-x-auto rounded-xl border border-slate-200">
                                       <table className="w-full text-left text-xs">
@@ -1921,7 +1787,7 @@ if (window.emailjs) {
                                           </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 text-slate-700">
-                                          {courseRegs.map(reg => (
+                                          {courseRegs.filter(matchesCheckinSearch).map(reg => (
                                             <tr key={reg.id} className={`hover:bg-slate-50 ${reg.isPresent ? 'bg-emerald-50/40' : ''}`}>
                                               <td className="p-3 font-mono font-bold text-indigo-700">{reg.ticketCode || ('REG-' + reg.id)}</td>
                                               
