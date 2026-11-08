@@ -553,7 +553,9 @@
       // Il QR contiene il contatto (nome, azienda, telefono, email, città, P.IVA):
       // inquadrandolo con la fotocamera dello smartphone si salva in rubrica.
       // ==========================================
-      const BADGE_WIDTH_MM = 148;
+      // Foglio A4 orizzontale diviso in 4 quadranti da 148,5 x 105 mm (un quarto di A4 = formato A6 orizzontale):
+      // il badge occupa un quadrante, gli altri riportano retro e argomenti del corso.
+      const BADGE_WIDTH_MM = 148.5;
       const BADGE_HEIGHT_MM = 105;
 
       function vCardEscape(value) {
@@ -611,101 +613,267 @@
         return canvas.toDataURL('image/png');
       }
 
-      function buildBadgePdf(reg, { brands, companyName }) {
+      // Argomenti del corso: converte la descrizione (HTML) in righe di testo
+      function courseDescriptionToLines(html) {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html || '';
+        const lines = [];
+        const walk = (node) => {
+          if (node.nodeType === Node.TEXT_NODE) {
+            const text = node.textContent.trim();
+            if (text) lines.push(text);
+          } else if (node.nodeType === Node.ELEMENT_NODE) {
+            if (node.nodeName === 'LI') {
+              const t = node.textContent.trim();
+              if (t) lines.push('• ' + t);
+            } else if (node.nodeName !== 'BR') {
+              node.childNodes.forEach(walk);
+            }
+          }
+        };
+        tempDiv.childNodes.forEach(walk);
+        return lines;
+      }
+
+      // Luogo dell'evento oppure, se è un link, "Online · Google Meet"
+      function badgeLocationText(course) {
+        const raw = String((course && course.location) || '').trim();
+        if (!raw) return '';
+        if (/^https?:\/\//i.test(raw)) {
+          try {
+            const host = new URL(raw).hostname.replace(/^www\./, '');
+            return host.includes('meet.google') ? 'Online · Google Meet' : 'Online · ' + host;
+          } catch (e) {
+            return 'Online';
+          }
+        }
+        return 'Sede: ' + raw;
+      }
+
+      function buildBadgePdf(reg, { brands, companyName, course }) {
         const { jsPDF } = window.jspdf;
-        const W = BADGE_WIDTH_MM;
-        const H = BADGE_HEIGHT_MM;
-        const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [W, H] });
+        const QW = BADGE_WIDTH_MM;
+        const QH = BADGE_HEIGHT_MM;
+        const PT = 0.3528; // 1 punto tipografico in mm
+        const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+        const c = course || {};
+        const courseTitle = c.title || reg.courseTitle || '';
+        const courseDate = c.date || reg.date || '';
+        const speaker = c.speaker || (course ? 'Ermanno Zanardi' : '');
+        const locationText = badgeLocationText(c);
 
         const brandObj = (brands || []).find(b => b.name === reg.brandName);
         const hex = (brandObj && brandObj.color) || '#1b365d';
         const rgb = /^#[0-9a-f]{6}$/i.test(hex) ? hex.replace('#', '').match(/.{2}/g).map(h => parseInt(h, 16)) : [27, 54, 93];
 
-        // Bordo sottile di taglio
-        doc.setDrawColor(200, 205, 215);
-        doc.setLineWidth(0.3);
-        doc.roundedRect(0.5, 0.5, W - 1, H - 1, 2, 2);
+        // Quadranti: badge in alto a destra, retro in alto a sinistra.
+        // Le due pagine interne (in basso) sono ruotate di 180° così, piegando il foglio, si leggono dritte.
+        const Q = {
+          badge:   { x: QW, y: 0,  rot: false },
+          back:    { x: 0,  y: 0,  rot: false },
+          inLeft:  { x: QW, y: QH, rot: true },
+          inRight: { x: 0,  y: QH, rot: true }
+        };
 
-        // Fascia colore marchio
-        doc.setFillColor(rgb[0], rgb[1], rgb[2]);
-        doc.rect(0.5, 0.5, W - 1, 13, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.text(String(reg.brandName || 'CORSO').toUpperCase(), 6, 8.6);
+        // Funzioni di disegno nel "sistema di lettura" di ogni quadrante (u verso destra, v verso il basso)
+        const txt = (q, str, u, v, o = {}) => {
+          const { size = 10, style = 'normal', color = [20, 30, 50], align = 'left' } = o;
+          doc.setFont('helvetica', style);
+          doc.setFontSize(size);
+          doc.setTextColor(color[0], color[1], color[2]);
+          let uu = u;
+          if (align === 'right') uu = u - doc.getTextWidth(str);
+          else if (align === 'center') uu = u - doc.getTextWidth(str) / 2;
+          if (q.rot) doc.text(str, q.x + QW - uu, q.y + QH - v, { angle: 180 });
+          else doc.text(str, q.x + uu, q.y + v);
+        };
+        const rect = (q, u, v, w, h, fill) => {
+          doc.setFillColor(fill[0], fill[1], fill[2]);
+          if (q.rot) doc.rect(q.x + QW - u - w, q.y + QH - v - h, w, h, 'F');
+          else doc.rect(q.x + u, q.y + v, w, h, 'F');
+        };
+        const line = (q, u1, v1, u2, v2, color) => {
+          doc.setDrawColor(color[0], color[1], color[2]);
+          doc.setLineWidth(0.2);
+          if (q.rot) doc.line(q.x + QW - u1, q.y + QH - v1, q.x + QW - u2, q.y + QH - v2);
+          else doc.line(q.x + u1, q.y + v1, q.x + u2, q.y + v2);
+        };
+
+        // Linee tratteggiate di piegatura
+        doc.setDrawColor(185, 190, 200);
+        doc.setLineWidth(0.2);
+        doc.setLineDashPattern([1.5, 1.5], 0);
+        doc.line(QW, 0, QW, QH * 2);
+        doc.line(0, QH, QW * 2, QH);
+        doc.setLineDashPattern([], 0);
+
+        const M = 8;
+        const GRAY = [90, 100, 115];
+        const DARK = [20, 30, 50];
+
+        // ================= BADGE (quadrante in alto a destra) =================
+        const qb = Q.badge;
+        rect(qb, 0, 0, QW, 17, rgb);
+        txt(qb, String(reg.brandName || 'CORSO').toUpperCase(), M, 11.2, { size: 15, style: 'bold', color: [255, 255, 255] });
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(7);
-        const orgLine = doc.splitTextToSize(String(companyName || ''), 48)[0] || '';
-        doc.text(orgLine, W - 6, 8.4, { align: 'right' });
+        doc.setFontSize(8);
+        const orgShort = doc.splitTextToSize(String(companyName || ''), 70)[0] || '';
+        txt(qb, orgShort, QW - M, 10.8, { size: 8, color: [255, 255, 255], align: 'right' });
 
-        const leftX = 6;
-        const qrSize = 28;
-        const qrX = W - 6 - qrSize;
         const hasQr = !!reg.shareContact; // QR contatto solo se il partecipante ha dato il consenso
-        const leftW = hasQr ? qrX - leftX - 3 : W - 12;
+        const qrSize = 34;
+        const qrX = QW - M - qrSize;
+        const leftW = hasQr ? qrX - M - 5 : QW - 2 * M;
 
-        // Nome: si riduce da solo finché sta in massimo 2 righe
-        const fullName = (reg.fullName || '').trim();
-        let nameSize = 26;
-        let nameLines;
-        doc.setFont('helvetica', 'bold');
-        while (true) {
-          doc.setFontSize(nameSize);
-          nameLines = doc.splitTextToSize(fullName, leftW);
-          const tooWide = nameLines.some(l => doc.getTextWidth(l) > leftW);
-          if ((nameLines.length <= 2 && !tooWide) || nameSize <= 12) break;
-          nameSize -= 1;
+        // Piè di pagina: luogo dell'evento o Meet
+        let footLines = [];
+        if (locationText) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(9);
+          footLines = doc.splitTextToSize(locationText, QW - 2 * M).slice(0, 2);
         }
-        const nameMm = nameSize * 0.3528;
-        const nameLineH = nameMm * 1.15;
+        const footLH = 4;
+        const footLineV = footLines.length ? QH - 6 - (footLines.length - 1) * footLH - 5 : QH - 8;
+        if (footLines.length) {
+          line(qb, M, footLineV, QW - M, footLineV, [215, 220, 228]);
+          footLines.forEach((l, i) => {
+            txt(qb, l, M, QH - 6 - (footLines.length - 1 - i) * footLH, { size: 9, color: GRAY });
+          });
+        }
 
-        // Azienda: max 2 righe
-        const compSize = 12;
-        const compMm = compSize * 0.3528;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(compSize);
-        const compLines = doc.splitTextToSize(String(reg.company || ''), leftW).slice(0, 2);
-        const compLineH = compMm * 1.2;
+        // Testi a sinistra: nome, azienda, data + titolo (grassetto), relatore
+        const topV = 22;
+        const avail = footLineV - 3 - topV;
 
-        // Blocco nome + azienda centrato verticalmente tra la fascia e il piè di pagina
-        const blockTop = 17;
-        const blockH = 40;
-        const totalH = nameLines.length * nameLineH + 3 + compLines.length * compLineH;
-        let y = blockTop + Math.max(0, (blockH - totalH) / 2) + nameMm * 0.85;
+        const buildBlocks = (nameSize) => {
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(nameSize);
+          const nameLines = doc.splitTextToSize((reg.fullName || '').trim(), leftW);
+          const nameTooWide = nameLines.some(l => doc.getTextWidth(l) > leftW);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(14);
+          const compLines = doc.splitTextToSize(String(reg.company || ''), leftW).slice(0, 2);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(11);
+          const titleLines = doc.splitTextToSize(`${courseDate}${courseDate && courseTitle ? ' · ' : ''}${courseTitle}`, leftW).slice(0, 3);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(10);
+          const speakerLines = speaker ? doc.splitTextToSize(`Relatore: ${speaker}`, leftW).slice(0, 2) : [];
+          const lhName = nameSize * PT * 1.15;
+          const total =
+            nameLines.length * lhName + 3 +
+            compLines.length * 14 * PT * 1.2 + 4 +
+            titleLines.length * 11 * PT * 1.2 + (speakerLines.length ? 2.5 + speakerLines.length * 10 * PT * 1.25 : 0);
+          return { nameLines, nameTooWide, compLines, titleLines, speakerLines, lhName, total };
+        };
 
-        doc.setTextColor(20, 30, 50);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(nameSize);
-        nameLines.forEach(line => { doc.text(line, leftX, y); y += nameLineH; });
+        let nameSize = 30;
+        let blk = buildBlocks(nameSize);
+        while ((blk.nameLines.length > 2 || blk.nameTooWide || blk.total > avail) && nameSize > 14) {
+          nameSize -= 1;
+          blk = buildBlocks(nameSize);
+        }
 
-        y += 3 - nameLineH + compMm * 0.85; // dalla riga base dell'ultimo rigo del nome alla prima riga dell'azienda
-        doc.setTextColor(80, 90, 105);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(compSize);
-        compLines.forEach(line => { doc.text(line, leftX, y); y += compLineH; });
+        let v = topV + Math.max(0, (avail - blk.total) / 2);
+        blk.nameLines.forEach(l => {
+          txt(qb, l, M, v + nameSize * PT * 0.82, { size: nameSize, style: 'bold', color: DARK });
+          v += blk.lhName;
+        });
+        v += 3;
+        blk.compLines.forEach(l => {
+          txt(qb, l, M, v + 14 * PT * 0.82, { size: 14, color: GRAY });
+          v += 14 * PT * 1.2;
+        });
+        v += 4;
+        blk.titleLines.forEach(l => {
+          txt(qb, l, M, v + 11 * PT * 0.82, { size: 11, style: 'bold', color: DARK });
+          v += 11 * PT * 1.2;
+        });
+        if (blk.speakerLines.length) {
+          v += 2.5;
+          blk.speakerLines.forEach(l => {
+            txt(qb, l, M, v + 10 * PT * 0.82, { size: 10, color: GRAY });
+            v += 10 * PT * 1.25;
+          });
+        }
 
         // QR code contatto (solo con consenso)
         if (hasQr) try {
           const qrUrl = qrPngDataUrl(buildVCard(reg));
-          doc.addImage(qrUrl, 'PNG', qrX, 18, qrSize, qrSize);
-          doc.setTextColor(100, 110, 120);
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(6);
-          doc.text('Inquadra con la fotocamera', qrX + qrSize / 2, 49.5, { align: 'center' });
-          doc.text('per salvare il contatto', qrX + qrSize / 2, 52.5, { align: 'center' });
+          doc.addImage(qrUrl, 'PNG', qb.x + qrX, qb.y + 24, qrSize, qrSize);
+          txt(qb, 'Inquadra con la fotocamera', qrX + qrSize / 2, 24 + qrSize + 4, { size: 6.5, style: 'bold', color: GRAY, align: 'center' });
+          txt(qb, 'per salvare il contatto', qrX + qrSize / 2, 24 + qrSize + 7, { size: 6.5, style: 'bold', color: GRAY, align: 'center' });
         } catch (err) {
           console.error('Errore QR badge:', err);
         }
 
-        // Piè di pagina: corso e data
-        doc.setDrawColor(225, 228, 235);
-        doc.setLineWidth(0.2);
-        doc.line(6, H - 11, W - 6, H - 11);
-        doc.setTextColor(110, 120, 135);
+        // ================= RETRO (quadrante in alto a sinistra): informazioni sul corso =================
+        const qk = Q.back;
+        rect(qk, 0, 0, QW, 10, rgb);
+        txt(qk, 'INFORMAZIONI SUL CORSO', M, 6.9, { size: 10, style: 'bold', color: [255, 255, 255] });
+        let kv = 17;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(13);
+        doc.splitTextToSize(courseTitle, QW - 2 * M).slice(0, 3).forEach(l => {
+          txt(qk, l, M, kv + 13 * PT * 0.82, { size: 13, style: 'bold', color: DARK });
+          kv += 13 * PT * 1.2;
+        });
+        kv += 3;
+        const infoRows = [
+          courseDate ? `Data: ${courseDate}${c.time ? '  ·  Orario: ' + c.time : ''}` : '',
+          c.duration ? `Durata: ${c.duration}` : '',
+          c.modality ? `Modalità: ${c.modality}` : '',
+          locationText,
+          speaker ? `Relatore: ${speaker}` : '',
+          `Organizzato da: ${companyName || ''}`
+        ].filter(Boolean);
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(7);
-        const footer = doc.splitTextToSize(`${reg.courseTitle || ''}  ·  ${reg.date || ''}`, W - 12)[0] || '';
-        doc.text(footer, 6, H - 6);
+        doc.setFontSize(10);
+        infoRows.forEach(r => {
+          doc.splitTextToSize(r, QW - 2 * M).slice(0, 2).forEach(l => {
+            txt(qk, l, M, kv + 10 * PT * 0.82, { size: 10, color: DARK });
+            kv += 10 * PT * 1.35;
+          });
+          kv += 1.2;
+        });
+        txt(qk, 'Argomenti del corso all\'interno', M, QH - 6, { size: 8, style: 'bold', color: GRAY });
+
+        // ================= PAGINE INTERNE (in basso, ruotate): argomenti del corso =================
+        const topicsRaw = courseDescriptionToLines(c.description);
+        const topics = topicsRaw.length ? topicsRaw : ['Argomenti del corso non ancora disponibili.'];
+        const IM = 10;
+        const contentTop = 17;
+        const contentH = QH - contentTop - 9;
+        let topicSize = 10;
+        let wrapped = [];
+        let perPage = 1;
+        for (; topicSize >= 6.5; topicSize -= 0.5) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(topicSize);
+          wrapped = [];
+          topics.forEach(t => { wrapped = wrapped.concat(doc.splitTextToSize(t, QW - 2 * IM)); });
+          perPage = Math.floor(contentH / (topicSize * PT * 1.3));
+          if (wrapped.length <= perPage * 2) break;
+        }
+        if (wrapped.length > perPage * 2) {
+          wrapped = wrapped.slice(0, perPage * 2);
+          wrapped[wrapped.length - 1] = wrapped[wrapped.length - 1].replace(/\s*$/, '') + ' …';
+        }
+        const topicLH = topicSize * PT * 1.3;
+
+        const drawTopicPage = (q, lines, title) => {
+          rect(q, 0, 0, QW, 10, rgb);
+          txt(q, title, IM, 6.9, { size: 10, style: 'bold', color: [255, 255, 255] });
+          lines.forEach((l, i) => {
+            txt(q, l, IM, contentTop + i * topicLH + topicSize * PT * 0.82, { size: topicSize, color: DARK });
+          });
+          txt(q, String(companyName || ''), IM, QH - 4, { size: 7, color: GRAY });
+        };
+        drawTopicPage(Q.inLeft, wrapped.slice(0, perPage), 'ARGOMENTI DEL CORSO');
+        if (wrapped.length > perPage) {
+          drawTopicPage(Q.inRight, wrapped.slice(perPage), 'ARGOMENTI DEL CORSO (segue)');
+        }
 
         // Apre il PDF con la finestra di stampa
         doc.autoPrint();
@@ -1963,7 +2131,8 @@ if (window.emailjs) {
 
         const handleDownloadBadge = (reg) => {
           try {
-            buildBadgePdf(reg, { brands, companyName });
+            const badgeCourse = courses.find(c => String(c.id) === String(reg.courseId)) || courses.find(c => c.title === reg.courseTitle);
+            buildBadgePdf(reg, { brands, companyName, course: badgeCourse });
           } catch (err) {
             console.error('Errore creazione badge:', err);
             alert('Errore durante la creazione del badge.');
