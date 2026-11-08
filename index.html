@@ -2494,39 +2494,39 @@ if (window.emailjs) {
                                       <h5 className="text-xs font-black uppercase tracking-wider text-slate-700">Elenco Partecipanti Iscritti a questo Corso</h5>
                                       <p className="text-[11px] text-slate-400">Gestisci l'accoglienza, modifica dati, scarica il PDF dell'attestato o esporta i report in TXT.</p>
                                     </div>
-                                    <div className="flex items-center gap-2 flex-wrap">
+                                    <div className="flex flex-wrap gap-2">
                                       <button
                                         onClick={() => handleExportCourseExcel(course, courseRegs)}
-                                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs shadow-2xs"
+                                        className="h-8 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border w-[calc(50%-0.25rem)] sm:w-44 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200"
                                         title="Esporta in Excel (.xlsx)"
                                       >
                                         📊 Excel
                                       </button>
                                       <button
                                         onClick={() => handleExportCourseCsv(course, courseRegs)}
-                                        className="bg-white hover:bg-slate-50 text-slate-700 font-bold px-3 py-1.5 rounded-lg border border-slate-300 text-xs shadow-2xs"
+                                        className="h-8 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border w-[calc(50%-0.25rem)] sm:w-44 bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
                                       >
                                         📥 CSV
                                       </button>
                                       <button
                                         onClick={() => handleExportCourseTxt(course, courseRegs, false)}
-                                        className="bg-white hover:bg-slate-50 text-slate-700 font-bold px-3 py-1.5 rounded-lg border border-slate-300 text-xs shadow-2xs"
+                                        className="h-8 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border w-[calc(50%-0.25rem)] sm:w-44 bg-sky-50 hover:bg-sky-100 text-sky-800 border-sky-200"
                                       >
                                         📄 TXT Tutti
                                       </button>
                                       <button
                                         onClick={() => handleExportCourseTxt(course, courseRegs, true)}
-                                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs shadow-2xs"
+                                        className="h-8 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border w-[calc(50%-0.25rem)] sm:w-44 bg-teal-50 hover:bg-teal-100 text-teal-800 border-teal-200"
                                       >
                                         📄 TXT Solo Presenti
                                       </button>
                                       <button
                                         onClick={() => handleSendAttestatiToPresent(course, courseRegs)}
                                         disabled={sendingAttestati}
-                                        className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-bold px-3 py-1.5 rounded-lg text-xs shadow-2xs"
+                                        className="h-8 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border w-[calc(50%-0.25rem)] sm:w-44 disabled:opacity-60 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border-indigo-200"
                                         title="Invia a tutti i presenti il link per scaricare l'attestato"
                                       >
-                                        {sendingAttestati ? 'Invio in corso...' : '✉ Invia Attestati ai Presenti'}
+                                        {sendingAttestati ? 'Invio in corso...' : '✉ Attestati ai Presenti'}
                                       </button>
                                     </div>
                                   </div>
@@ -2600,10 +2600,10 @@ if (window.emailjs) {
                                               <td className="p-3 text-center">
                                                 <button
                                                   onClick={() => handleToggleCheckin(reg.id, reg.isPresent)}
-                                                  className={`font-bold px-3 py-1.5 rounded-lg text-xs transition-colors shadow-2xs ${
+                                                  className={`h-8 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border w-44 ${
                                                     reg.isPresent 
-                                                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
-                                                      : 'bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200'
+                                                      ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200' 
+                                                      : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
                                                   }`}
                                                 >
                                                   {reg.isPresent ? `✓ Presente (${reg.checkinTime || ''})` : '⏳ Assente (Registra)'}
@@ -2612,14 +2612,14 @@ if (window.emailjs) {
 
                                               <td className="p-3 text-center">
                                                 <div className="flex flex-col items-center gap-1.5">
-                                                  <button onClick={() => handleDownloadAttestato(reg)} className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold px-3 py-1.5 rounded-lg border border-emerald-200 transition-colors">
+                                                  <button onClick={() => handleDownloadAttestato(reg)} className="h-8 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border w-44 bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200">
                                                     📜 PDF Attestato
                                                   </button>
                                                   <button
                                                     onClick={() => handleSendAttestatoEmail(reg)}
                                                     disabled={sendingAttestati || !reg.isPresent}
                                                     title={reg.isPresent ? 'Invia al partecipante il link per scaricare l\'attestato' : 'Disponibile solo dopo il check-in'}
-                                                    className="bg-blue-50 hover:bg-blue-100 disabled:opacity-40 disabled:cursor-not-allowed text-blue-700 font-bold px-3 py-1.5 rounded-lg border border-blue-200 transition-colors"
+                                                    className="h-8 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border w-44 disabled:opacity-40 disabled:cursor-not-allowed bg-sky-50 hover:bg-sky-100 text-sky-800 border-sky-200"
                                                   >
                                                     {sentAttestati.includes(reg.id) ? '✓ Inviato (reinvia)' : '✉ Invia Email'}
                                                   </button>
@@ -2628,9 +2628,9 @@ if (window.emailjs) {
 
                                               <td className="p-3 text-center">
                                                 {editingRegistrationId !== reg.id && (
-                                                  <div className="flex items-center justify-center gap-1">
-                                                    <button onClick={() => handleStartEditRegistration(reg)} className="text-blue-600 hover:text-blue-800 font-bold px-2.5 py-1 bg-blue-50 border border-blue-200 rounded-lg">Modifica</button>
-                                                    <button onClick={() => handleDeleteRegistration(reg.id)} className="text-red-600 hover:text-red-800 font-bold px-2.5 py-1 bg-red-50 border border-red-200 rounded-lg">Elimina</button>
+                                                  <div className="flex items-center justify-center gap-1.5">
+                                                    <button onClick={() => handleStartEditRegistration(reg)} className="h-8 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border w-24 bg-sky-50 hover:bg-sky-100 text-sky-800 border-sky-200">✏ Modifica</button>
+                                                    <button onClick={() => handleDeleteRegistration(reg.id)} className="h-8 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border w-24 bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-200">🗑 Elimina</button>
                                                   </div>
                                                 )}
                                               </td>
