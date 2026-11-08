@@ -2490,40 +2490,40 @@ if (window.emailjs) {
                               {isExpanded && (
                                 <div className="p-6 border-t border-slate-200 bg-white space-y-4">
                                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-100">
-                                    <div>
+                                    <div className="min-w-0">
                                       <h5 className="text-xs font-black uppercase tracking-wider text-slate-700">Elenco Partecipanti Iscritti a questo Corso</h5>
                                       <p className="text-[11px] text-slate-400">Gestisci l'accoglienza, modifica dati, scarica il PDF dell'attestato o esporta i report in TXT.</p>
                                     </div>
-                                    <div className="flex flex-wrap gap-2">
+                                    <div className="flex flex-wrap sm:flex-nowrap gap-1.5 shrink-0">
                                       <button
                                         onClick={() => handleExportCourseExcel(course, courseRegs)}
-                                        className="h-8 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border w-[calc(50%-0.25rem)] sm:w-44 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200"
+                                        className="h-8 inline-flex items-center justify-center gap-1 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border px-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200"
                                         title="Esporta in Excel (.xlsx)"
                                       >
                                         📊 Excel
                                       </button>
                                       <button
                                         onClick={() => handleExportCourseCsv(course, courseRegs)}
-                                        className="h-8 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border w-[calc(50%-0.25rem)] sm:w-44 bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
+                                        className="h-8 inline-flex items-center justify-center gap-1 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border px-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
                                       >
                                         📥 CSV
                                       </button>
                                       <button
                                         onClick={() => handleExportCourseTxt(course, courseRegs, false)}
-                                        className="h-8 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border w-[calc(50%-0.25rem)] sm:w-44 bg-sky-50 hover:bg-sky-100 text-sky-800 border-sky-200"
+                                        className="h-8 inline-flex items-center justify-center gap-1 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border px-2.5 bg-sky-50 hover:bg-sky-100 text-sky-800 border-sky-200"
                                       >
                                         📄 TXT Tutti
                                       </button>
                                       <button
                                         onClick={() => handleExportCourseTxt(course, courseRegs, true)}
-                                        className="h-8 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border w-[calc(50%-0.25rem)] sm:w-44 bg-teal-50 hover:bg-teal-100 text-teal-800 border-teal-200"
+                                        className="h-8 inline-flex items-center justify-center gap-1 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border px-2.5 bg-teal-50 hover:bg-teal-100 text-teal-800 border-teal-200"
                                       >
                                         📄 TXT Solo Presenti
                                       </button>
                                       <button
                                         onClick={() => handleSendAttestatiToPresent(course, courseRegs)}
                                         disabled={sendingAttestati}
-                                        className="h-8 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border w-[calc(50%-0.25rem)] sm:w-44 disabled:opacity-60 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border-indigo-200"
+                                        className="h-8 inline-flex items-center justify-center gap-1 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border px-2.5 disabled:opacity-60 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border-indigo-200"
                                         title="Invia a tutti i presenti il link per scaricare l'attestato"
                                       >
                                         {sendingAttestati ? 'Invio in corso...' : '✉ Attestati ai Presenti'}
