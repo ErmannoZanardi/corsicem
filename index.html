@@ -3219,9 +3219,8 @@ if (window.emailjs) {
                                                 </button>
                                                 <button
                                                   onClick={() => handleDownloadBadge(reg)}
-                                                  disabled={!reg.isPresent}
-                                                  title={reg.isPresent ? 'Stampa il badge con il QR code del contatto' : 'Disponibile dopo il check-in'}
-                                                  className="h-8 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border w-40 disabled:opacity-40 disabled:cursor-not-allowed bg-violet-50 hover:bg-violet-100 text-violet-800 border-violet-200"
+                                                  title="Stampa il badge (con il QR del ticket per il check-in e, se c'è il consenso, il QR del contatto)"
+                                                  className="h-8 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border w-40 bg-violet-50 hover:bg-violet-100 text-violet-800 border-violet-200"
                                                 >
                                                   🏷 Stampa Badge
                                                 </button>
