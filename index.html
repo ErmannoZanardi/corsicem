@@ -557,6 +557,8 @@
       // il badge occupa un quadrante, gli altri riportano retro e argomenti del corso.
       const BADGE_WIDTH_MM = 148.5;
       const BADGE_HEIGHT_MM = 105;
+      // Margine di sicurezza dai bordi esterni del foglio A4 (la stampante non stampa fino al bordo)
+      const BADGE_SAFE_MARGIN_MM = 7;
 
       function vCardEscape(value) {
         return String(value || '')
@@ -654,6 +656,7 @@
         const { jsPDF } = window.jspdf;
         const QW = BADGE_WIDTH_MM;
         const QH = BADGE_HEIGHT_MM;
+        const SAFE = BADGE_SAFE_MARGIN_MM;
         const PT = 0.3528; // 1 punto tipografico in mm
         const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
@@ -667,37 +670,52 @@
         const hex = (brandObj && brandObj.color) || '#1b365d';
         const rgb = /^#[0-9a-f]{6}$/i.test(hex) ? hex.replace('#', '').match(/.{2}/g).map(h => parseInt(h, 16)) : [27, 54, 93];
 
-        // Quadranti: badge in alto a destra, retro in alto a sinistra.
+        // Quadrante = zona del foglio con il proprio "sistema di lettura" (u verso destra, v verso il basso).
+        // I lati che coincidono con il bordo esterno dell'A4 vengono rientrati di SAFE mm:
+        // fasce colorate e testi restano dentro l'area stampabile.
+        const mkQuad = (x, y, rot) => {
+          const pl = x === 0 ? SAFE : 0;
+          const pr = x + QW >= QW * 2 ? SAFE : 0;
+          const pt = y === 0 ? SAFE : 0;
+          const pb = y + QH >= QH * 2 ? SAFE : 0;
+          const l = rot ? pr : pl;
+          const r = rot ? pl : pr;
+          const t = rot ? pb : pt;
+          const b = rot ? pt : pb;
+          return { x, y, rot, l, t, w: QW - l - r, h: QH - t - b };
+        };
+        // Badge in alto a destra, retro in alto a sinistra.
         // Le due pagine interne (in basso) sono ruotate di 180° così, piegando il foglio, si leggono dritte.
         const Q = {
-          badge:   { x: QW, y: 0,  rot: false },
-          back:    { x: 0,  y: 0,  rot: false },
-          inLeft:  { x: QW, y: QH, rot: true },
-          inRight: { x: 0,  y: QH, rot: true }
+          badge:   mkQuad(QW, 0, false),
+          back:    mkQuad(0, 0, false),
+          inLeft:  mkQuad(QW, QH, true),
+          inRight: mkQuad(0, QH, true)
         };
+        const px = (q, U) => (q.rot ? q.x + QW - U : q.x + U);
+        const py = (q, V) => (q.rot ? q.y + QH - V : q.y + V);
 
-        // Funzioni di disegno nel "sistema di lettura" di ogni quadrante (u verso destra, v verso il basso)
         const txt = (q, str, u, v, o = {}) => {
-          const { size = 10, style = 'normal', color = [20, 30, 50], align = 'left' } = o;
-          doc.setFont('helvetica', style);
+          const { size = 10, style = 'normal', color = [20, 30, 50], align = 'left', font = 'helvetica' } = o;
+          doc.setFont(font, style);
           doc.setFontSize(size);
           doc.setTextColor(color[0], color[1], color[2]);
           let uu = u;
           if (align === 'right') uu = u - doc.getTextWidth(str);
           else if (align === 'center') uu = u - doc.getTextWidth(str) / 2;
-          if (q.rot) doc.text(str, q.x + QW - uu, q.y + QH - v, { angle: 180 });
-          else doc.text(str, q.x + uu, q.y + v);
+          if (q.rot) doc.text(str, px(q, q.l + uu), py(q, q.t + v), { angle: 180 });
+          else doc.text(str, px(q, q.l + uu), py(q, q.t + v));
         };
         const rect = (q, u, v, w, h, fill) => {
           doc.setFillColor(fill[0], fill[1], fill[2]);
-          if (q.rot) doc.rect(q.x + QW - u - w, q.y + QH - v - h, w, h, 'F');
-          else doc.rect(q.x + u, q.y + v, w, h, 'F');
+          const x1 = px(q, q.l + u), x2 = px(q, q.l + u + w);
+          const y1 = py(q, q.t + v), y2 = py(q, q.t + v + h);
+          doc.rect(Math.min(x1, x2), Math.min(y1, y2), w, h, 'F');
         };
         const line = (q, u1, v1, u2, v2, color) => {
           doc.setDrawColor(color[0], color[1], color[2]);
           doc.setLineWidth(0.2);
-          if (q.rot) doc.line(q.x + QW - u1, q.y + QH - v1, q.x + QW - u2, q.y + QH - v2);
-          else doc.line(q.x + u1, q.y + v1, q.x + u2, q.y + v2);
+          doc.line(px(q, q.l + u1), py(q, q.t + v1), px(q, q.l + u2), py(q, q.t + v2));
         };
 
         // Linee tratteggiate di piegatura
@@ -714,31 +732,33 @@
 
         // ================= BADGE (quadrante in alto a destra) =================
         const qb = Q.badge;
-        rect(qb, 0, 0, QW, 17, rgb);
+        const BW = qb.w;
+        const BH = qb.h;
+        rect(qb, 0, 0, BW, 17, rgb);
         txt(qb, String(reg.brandName || 'CORSO').toUpperCase(), M, 11.2, { size: 15, style: 'bold', color: [255, 255, 255] });
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
         const orgShort = doc.splitTextToSize(String(companyName || ''), 70)[0] || '';
-        txt(qb, orgShort, QW - M, 10.8, { size: 8, color: [255, 255, 255], align: 'right' });
+        txt(qb, orgShort, BW - M, 10.8, { size: 8, color: [255, 255, 255], align: 'right' });
 
         const hasQr = !!reg.shareContact; // QR contatto solo se il partecipante ha dato il consenso
         const qrSize = 34;
-        const qrX = QW - M - qrSize;
-        const leftW = hasQr ? qrX - M - 5 : QW - 2 * M;
+        const qrX = BW - M - qrSize;
+        const leftW = hasQr ? qrX - M - 5 : BW - 2 * M;
 
         // Piè di pagina: luogo dell'evento o Meet
         let footLines = [];
         if (locationText) {
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(9);
-          footLines = doc.splitTextToSize(locationText, QW - 2 * M).slice(0, 2);
+          footLines = doc.splitTextToSize(locationText, BW - 2 * M).slice(0, 2);
         }
         const footLH = 4;
-        const footLineV = footLines.length ? QH - 6 - (footLines.length - 1) * footLH - 5 : QH - 8;
+        const footLineV = footLines.length ? BH - 6 - (footLines.length - 1) * footLH - 5 : BH - 8;
         if (footLines.length) {
-          line(qb, M, footLineV, QW - M, footLineV, [215, 220, 228]);
+          line(qb, M, footLineV, BW - M, footLineV, [215, 220, 228]);
           footLines.forEach((l, i) => {
-            txt(qb, l, M, QH - 6 - (footLines.length - 1 - i) * footLH, { size: 9, color: GRAY });
+            txt(qb, l, M, BH - 6 - (footLines.length - 1 - i) * footLH, { size: 9, color: GRAY });
           });
         }
 
@@ -801,7 +821,7 @@
         // QR code contatto (solo con consenso)
         if (hasQr) try {
           const qrUrl = qrPngDataUrl(buildVCard(reg));
-          doc.addImage(qrUrl, 'PNG', qb.x + qrX, qb.y + 24, qrSize, qrSize);
+          doc.addImage(qrUrl, 'PNG', qb.x + qb.l + qrX, qb.y + qb.t + 24, qrSize, qrSize);
           txt(qb, 'Inquadra con la fotocamera', qrX + qrSize / 2, 24 + qrSize + 4, { size: 6.5, style: 'bold', color: GRAY, align: 'center' });
           txt(qb, 'per salvare il contatto', qrX + qrSize / 2, 24 + qrSize + 7, { size: 6.5, style: 'bold', color: GRAY, align: 'center' });
         } catch (err) {
@@ -810,19 +830,21 @@
 
         // ================= RETRO (quadrante in alto a sinistra): informazioni sul corso =================
         const qk = Q.back;
-        rect(qk, 0, 0, QW, 10, rgb);
+        const KW = qk.w;
+        const KH = qk.h;
+        rect(qk, 0, 0, KW, 10, rgb);
         txt(qk, 'INFORMAZIONI SUL CORSO', M, 6.9, { size: 10, style: 'bold', color: [255, 255, 255] });
+
         // QR con il codice ticket per il check-in in segreteria
         const ticketCode = reg.ticketCode || ('REG-' + reg.id);
         const ckSize = 36;
-        const ckX = QW - M - ckSize;
+        const ckX = KW - M - ckSize;
         const infoW = ckX - M - 5;
         try {
           const ckUrl = qrPngDataUrl(ticketCode);
-          doc.addImage(ckUrl, 'PNG', qk.x + ckX, qk.y + 15, ckSize, ckSize);
+          doc.addImage(ckUrl, 'PNG', qk.x + qk.l + ckX, qk.y + qk.t + 15, ckSize, ckSize);
           txt(qk, 'CHECK-IN SEGRETERIA', ckX + ckSize / 2, 15 + ckSize + 4, { size: 7, style: 'bold', color: DARK, align: 'center' });
-          doc.setFont('courier', 'bold');
-          txt(qk, ticketCode, ckX + ckSize / 2, 15 + ckSize + 8.2, { size: 7, style: 'bold', color: GRAY, align: 'center' });
+          txt(qk, ticketCode, ckX + ckSize / 2, 15 + ckSize + 8.2, { size: 7, style: 'bold', color: GRAY, align: 'center', font: 'courier' });
         } catch (err) {
           console.error('Errore QR check-in:', err);
         }
@@ -852,14 +874,16 @@
           });
           kv += 1.2;
         });
-        txt(qk, 'Argomenti del corso all\'interno', M, QH - 6, { size: 8, style: 'bold', color: GRAY });
+        txt(qk, 'Argomenti del corso all\'interno', M, KH - 6, { size: 8, style: 'bold', color: GRAY });
 
         // ================= PAGINE INTERNE (in basso, ruotate): argomenti del corso =================
         const topicsRaw = courseDescriptionToLines(c.description);
         const topics = topicsRaw.length ? topicsRaw : ['Argomenti del corso non ancora disponibili.'];
         const IM = 10;
+        const IW = Q.inLeft.w;
+        const IH = Q.inLeft.h;
         const contentTop = 17;
-        const contentH = QH - contentTop - 9;
+        const contentH = IH - contentTop - 9;
         let topicSize = 10;
         let wrapped = [];
         let perPage = 1;
@@ -867,7 +891,7 @@
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(topicSize);
           wrapped = [];
-          topics.forEach(t => { wrapped = wrapped.concat(doc.splitTextToSize(t, QW - 2 * IM)); });
+          topics.forEach(t => { wrapped = wrapped.concat(doc.splitTextToSize(t, IW - 2 * IM)); });
           perPage = Math.floor(contentH / (topicSize * PT * 1.3));
           if (wrapped.length <= perPage * 2) break;
         }
@@ -878,12 +902,12 @@
         const topicLH = topicSize * PT * 1.3;
 
         const drawTopicPage = (q, lines, title) => {
-          rect(q, 0, 0, QW, 10, rgb);
+          rect(q, 0, 0, q.w, 10, rgb);
           txt(q, title, IM, 6.9, { size: 10, style: 'bold', color: [255, 255, 255] });
           lines.forEach((l, i) => {
             txt(q, l, IM, contentTop + i * topicLH + topicSize * PT * 0.82, { size: topicSize, color: DARK });
           });
-          txt(q, String(companyName || ''), IM, QH - 4, { size: 7, color: GRAY });
+          txt(q, String(companyName || ''), IM, q.h - 4, { size: 7, color: GRAY });
         };
         drawTopicPage(Q.inLeft, wrapped.slice(0, perPage), 'ARGOMENTI DEL CORSO');
         if (wrapped.length > perPage) {
