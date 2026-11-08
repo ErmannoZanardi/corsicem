@@ -650,7 +650,7 @@
         return 'Sede: ' + raw;
       }
 
-      function buildBadgePdf(reg, { brands, companyName, course }) {
+      function buildBadgePdf(reg, { brands, companyName, course, mode = 'open' }) {
         const { jsPDF } = window.jspdf;
         const QW = BADGE_WIDTH_MM;
         const QH = BADGE_HEIGHT_MM;
@@ -812,10 +812,25 @@
         const qk = Q.back;
         rect(qk, 0, 0, QW, 10, rgb);
         txt(qk, 'INFORMAZIONI SUL CORSO', M, 6.9, { size: 10, style: 'bold', color: [255, 255, 255] });
+        // QR con il codice ticket per il check-in in segreteria
+        const ticketCode = reg.ticketCode || ('REG-' + reg.id);
+        const ckSize = 36;
+        const ckX = QW - M - ckSize;
+        const infoW = ckX - M - 5;
+        try {
+          const ckUrl = qrPngDataUrl(ticketCode);
+          doc.addImage(ckUrl, 'PNG', qk.x + ckX, qk.y + 15, ckSize, ckSize);
+          txt(qk, 'CHECK-IN SEGRETERIA', ckX + ckSize / 2, 15 + ckSize + 4, { size: 7, style: 'bold', color: DARK, align: 'center' });
+          doc.setFont('courier', 'bold');
+          txt(qk, ticketCode, ckX + ckSize / 2, 15 + ckSize + 8.2, { size: 7, style: 'bold', color: GRAY, align: 'center' });
+        } catch (err) {
+          console.error('Errore QR check-in:', err);
+        }
+
         let kv = 17;
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(13);
-        doc.splitTextToSize(courseTitle, QW - 2 * M).slice(0, 3).forEach(l => {
+        doc.splitTextToSize(courseTitle, infoW).slice(0, 3).forEach(l => {
           txt(qk, l, M, kv + 13 * PT * 0.82, { size: 13, style: 'bold', color: DARK });
           kv += 13 * PT * 1.2;
         });
@@ -831,7 +846,7 @@
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
         infoRows.forEach(r => {
-          doc.splitTextToSize(r, QW - 2 * M).slice(0, 2).forEach(l => {
+          doc.splitTextToSize(r, infoW).slice(0, 2).forEach(l => {
             txt(qk, l, M, kv + 10 * PT * 0.82, { size: 10, color: DARK });
             kv += 10 * PT * 1.35;
           });
@@ -875,9 +890,169 @@
           drawTopicPage(Q.inRight, wrapped.slice(perPage), 'ARGOMENTI DEL CORSO (segue)');
         }
 
-        // Apre il PDF con la finestra di stampa
-        doc.autoPrint();
-        window.open(doc.output('bloburl'), '_blank');
+        if (mode === 'save') {
+          // Download diretto (link pubblico / dopo l'iscrizione)
+          const safeName = (reg.fullName || 'partecipante').replace(/[^A-Za-z0-9]+/g, '_');
+          doc.save('Badge_' + safeName + '.pdf');
+        } else {
+          // Apre il PDF con la finestra di stampa (segreteria)
+          doc.autoPrint();
+          window.open(doc.output('bloburl'), '_blank');
+        }
+      }
+
+      // Pagina pubblica per scaricare il proprio badge: index.html?badge=CODICE
+      function BadgePage({ code }) {
+        const [state, setState] = useState({ status: 'loading' });
+        const [footerText, setFooterText] = useState('');
+        const [downloading, setDownloading] = useState(false);
+
+        useEffect(() => {
+          const run = async () => {
+            if (!supabaseClient) {
+              setState({ status: 'error' });
+              return;
+            }
+            try {
+              const cols = 'id, course_id, full_name, company, vat_number, city, course_title, brand_name, date, ticket_code, share_contact';
+              let query = supabaseClient.from('registrations').select(cols);
+              if (/^REG-\d+$/.test(code)) {
+                query = query.eq('id', Number(code.replace('REG-', '')));
+              } else {
+                query = query.eq('ticket_code', code);
+              }
+              const { data, error } = await query.limit(1);
+              if (error) throw error;
+              if (!data || data.length === 0) {
+                setState({ status: 'invalid' });
+                return;
+              }
+              const r = data[0];
+              const reg = {
+                id: r.id,
+                courseId: r.course_id,
+                fullName: r.full_name,
+                company: r.company,
+                vatNumber: r.vat_number,
+                city: r.city,
+                courseTitle: r.course_title,
+                brandName: r.brand_name,
+                date: r.date,
+                ticketCode: r.ticket_code || ('REG-' + r.id),
+                shareContact: r.share_contact === true,
+                email: '',
+                phone: ''
+              };
+
+              // Telefono ed email servono solo se il partecipante ha acconsentito alla condivisione
+              if (reg.shareContact) {
+                try {
+                  const { data: cData } = await supabaseClient.from('registrations').select('email, phone').eq('id', r.id).limit(1);
+                  if (cData && cData[0]) {
+                    reg.email = cData[0].email || '';
+                    reg.phone = cData[0].phone || '';
+                  }
+                } catch (e) { console.error('Errore contatti badge:', e); }
+              }
+
+              let companyName = 'Azienda di prova';
+              let brands = DEFAULT_BRANDS;
+              try {
+                const { data: sData } = await supabaseClient.from('settings').select('key, value').in('key', ['company_name', 'brands_list', 'copyright_text']);
+                (sData || []).forEach(item => {
+                  if (item.key === 'company_name' && item.value) companyName = item.value;
+                  if (item.key === 'copyright_text' && item.value) setFooterText(item.value);
+                  if (item.key === 'brands_list') {
+                    try { brands = JSON.parse(item.value); } catch (e) {}
+                  }
+                });
+              } catch (e) { console.error('Errore impostazioni badge:', e); }
+
+              let course = null;
+              if (r.course_id) {
+                try {
+                  const { data: courseData } = await supabaseClient.from('courses').select('*').eq('id', r.course_id).limit(1);
+                  if (courseData && courseData[0]) course = courseData[0];
+                } catch (e) { console.error('Errore corso badge:', e); }
+              }
+
+              setState({ status: 'ready', reg, companyName, brands, course });
+            } catch (err) {
+              console.error('Errore caricamento badge:', err);
+              setState({ status: 'error' });
+            }
+          };
+          run();
+        }, [code]);
+
+        const handleDownload = () => {
+          setDownloading(true);
+          try {
+            buildBadgePdf(state.reg, { brands: state.brands, companyName: state.companyName, course: state.course, mode: 'save' });
+          } catch (err) {
+            console.error('Errore generazione badge:', err);
+            alert('Errore durante la creazione del badge. Riprova.');
+          }
+          setTimeout(() => setDownloading(false), 2500);
+        };
+
+        const { status, reg } = state;
+
+        return (
+          <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
+            <div className="flex-1 flex items-center justify-center p-4">
+              <div className="w-full max-w-md bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+                <div className="bg-[#1b365d] text-white px-6 py-4">
+                  <p className="text-xs uppercase tracking-wider text-amber-300 font-bold">{state.companyName || 'Portale Formazione'}</p>
+                  <h1 className="text-lg font-black">Il tuo badge per il corso</h1>
+                </div>
+                <div className="p-6 space-y-4">
+                  {status === 'loading' && <p className="text-sm text-slate-600">Caricamento in corso, attendere...</p>}
+
+                  {status === 'invalid' && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                      <p className="text-sm font-black text-red-700">❌ Link non valido</p>
+                      <p className="text-xs text-red-600 mt-1">Il codice non corrisponde ad alcuna iscrizione. Controlla di aver aperto il link completo ricevuto via email.</p>
+                    </div>
+                  )}
+
+                  {status === 'error' && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                      <p className="text-sm font-black text-amber-700">⚠ Servizio non disponibile</p>
+                      <p className="text-xs text-amber-700 mt-1">Impossibile contattare il database. Riprova più tardi.</p>
+                    </div>
+                  )}
+
+                  {status === 'ready' && (
+                    <>
+                      <dl className="text-sm divide-y divide-slate-100 border border-slate-200 rounded-xl">
+                        <div className="p-3"><dt className="text-[11px] uppercase text-slate-400 font-bold">Partecipante</dt><dd className="font-bold text-slate-900">{reg.fullName}</dd></div>
+                        <div className="p-3"><dt className="text-[11px] uppercase text-slate-400 font-bold">Azienda</dt><dd className="text-slate-800">{reg.company}</dd></div>
+                        <div className="p-3"><dt className="text-[11px] uppercase text-slate-400 font-bold">Corso</dt><dd className="text-slate-800">{reg.courseTitle} {reg.brandName ? `(${reg.brandName})` : ''}</dd></div>
+                        <div className="p-3"><dt className="text-[11px] uppercase text-slate-400 font-bold">Data del corso</dt><dd className="text-slate-800">{reg.date}</dd></div>
+                      </dl>
+                      <button
+                        onClick={handleDownload}
+                        disabled={downloading}
+                        className="w-full bg-[#1b365d] hover:bg-[#162d4f] disabled:opacity-60 text-white font-bold py-3 px-4 rounded-xl text-sm shadow-md"
+                      >
+                        {downloading ? 'Creazione PDF in corso...' : '🏷 Scarica il tuo badge in PDF'}
+                      </button>
+                      <div className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1">
+                        <p><strong>Come stamparlo:</strong> foglio A4 orizzontale, su una sola facciata, scala 100%.</p>
+                        <p><strong>Come piegarlo:</strong> a metà portando la metà inferiore dietro, poi ancora a metà portando la metà sinistra dietro.</p>
+                        <p>Porta il badge con te: all'ingresso la segreteria scansionerà il QR code del ticket per il check-in.</p>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+            <footer className="bg-[#1b365d] text-white border-t border-blue-900/50 py-6 text-center text-xs text-slate-300">
+              <p>{footerText || '© 2026 Portale Formazione Installatori Tecnici. Tutti i diritti riservati.'}</p>
+            </footer>
+          </div>
+        );
       }
 
       // Pagina pubblica aperta dal link ricevuto via email: index.html?attestato=CODICE
@@ -1032,6 +1207,7 @@
         const [selectedBrand, setSelectedBrand] = useState('all');
         const [selectedCourse, setSelectedCourse] = useState(null);
         const [submitted, setSubmitted] = useState(false);
+        const [lastRegistration, setLastRegistration] = useState(null);
         const [submitError, setSubmitError] = useState('');
         const [isSubmitting, setIsSubmitting] = useState(false);
         const submitLockRef = useRef(false); // blocco sincrono anti doppio click
@@ -1433,6 +1609,9 @@
           // QR code con il solo codice ticket: la segreteria lo scansiona nel campo di check-in
           const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(generatedTicketCode)}`;
 
+          // Link per scaricare il badge (generato al momento)
+          const badgeLink = `${window.location.href.split(/[?#]/)[0]}?badge=${encodeURIComponent(generatedTicketCode)}`;
+
           const newRegData = {
             course_id: selectedCourse.id,
             full_name: formData.fullName,
@@ -1479,7 +1658,8 @@ if (window.emailjs) {
                 company_name: companyName,
                 ticket_code: generatedTicketCode,
                 qr_code_url: qrCodeUrl,
-                message: `Grazie per esserti iscritto al corso:\n\nIl tuo codice di iscrizione: ${generatedTicketCode}\nQR code per l'accoglienza: ${qrCodeUrl}\n\nCorso: ${selectedCourse.title}\nMarchio: ${selectedCourse.brandName}\nData: ${selectedCourse.date}\nOrario: ${selectedCourse.time}\nSede / Piattaforma: ${selectedCourse.location}\nLivello: ${selectedCourse.level || 'Base'}\nRelatore: ${selectedCourse.speaker || 'Ermanno Zanardi'}\n\nTi aspettiamo!`
+                badge_url: badgeLink,
+                message: `Grazie per esserti iscritto al corso:\n\nIl tuo codice di iscrizione: ${generatedTicketCode}\nQR code per l'accoglienza: ${qrCodeUrl}\n\nScarica e stampa il tuo badge (con il QR code per il check-in): ${badgeLink}\n\nCorso: ${selectedCourse.title}\nMarchio: ${selectedCourse.brandName}\nData: ${selectedCourse.date}\nOrario: ${selectedCourse.time}\nSede / Piattaforma: ${selectedCourse.location}\nLivello: ${selectedCourse.level || 'Base'}\nRelatore: ${selectedCourse.speaker || 'Ermanno Zanardi'}\n\nTi aspettiamo!`
               });
 
               // Email di notifica per l'amministratore
@@ -1514,6 +1694,7 @@ if (window.emailjs) {
           };
 
           setRegistrations([localReg, ...registrations]);
+          setLastRegistration(localReg);
           setSubmitted(true);
         };
 
@@ -2665,6 +2846,17 @@ if (window.emailjs) {
                         <p>✉️ <strong>Email inviata a:</strong> {formData.email}</p>
                         <p className="text-emerald-700 font-semibold pt-1">✓ Codice di iscrizione e QR code inviati con successo tramite Gmail!</p>
                       </div>
+                      {lastRegistration && (
+                        <div className="mb-6 space-y-2">
+                          <button
+                            onClick={() => buildBadgePdf(lastRegistration, { brands, companyName, course: selectedCourse, mode: 'save' })}
+                            className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-xl text-sm transition-colors shadow-md"
+                          >
+                            🏷 Scarica il tuo badge (PDF)
+                          </button>
+                          <p className="text-[11px] text-slate-500 max-w-md mx-auto">Stampalo su un foglio A4 orizzontale e piegalo in quattro. Contiene il QR code del ticket che la segreteria scansionerà per il check-in. Troverai il link anche nell'email di conferma.</p>
+                        </div>
+                      )}
                       <button onClick={() => { setSubmitted(false); setSelectedCourse(null); }} className="bg-[#1b365d] hover:bg-[#162d4f] text-white font-bold py-2.5 px-6 rounded-xl text-sm transition-colors shadow-md">
                         Torna alla Home Corsi
                       </button>
@@ -3371,8 +3563,10 @@ if (window.emailjs) {
       const urlParams = new URLSearchParams(window.location.search);
       const verifyCodeParam = urlParams.get('verifica');
       const attestatoCodeParam = urlParams.get('attestato');
+      const badgeCodeParam = urlParams.get('badge');
       ReactDOM.render(
-        attestatoCodeParam ? <AttestatoPage code={attestatoCodeParam.trim()} />
+        badgeCodeParam ? <BadgePage code={badgeCodeParam.trim()} />
+          : attestatoCodeParam ? <AttestatoPage code={attestatoCodeParam.trim()} />
           : verifyCodeParam ? <VerifyPage code={verifyCodeParam.trim()} />
           : <App />,
         document.getElementById('root')
