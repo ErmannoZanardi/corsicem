@@ -2445,10 +2445,10 @@ if (window.emailjs) {
                                   </span>
                                 </div>
 
-                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                                <div className="flex flex-wrap gap-2">
                                   <button
                                     onClick={() => handleDownloadLocandina(course)}
-                                    className="w-full h-10 flex items-center justify-center gap-1.5 whitespace-nowrap bg-white hover:bg-slate-50 text-slate-700 font-bold px-2 rounded-xl text-xs transition-colors border border-slate-300"
+                                    className="h-8 w-[calc(50%-0.25rem)] sm:w-40 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold px-2 rounded-lg text-xs transition-colors border bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
                                     title="Visualizza la locandina del corso"
                                   >
                                     📄 Locandina
@@ -2456,7 +2456,7 @@ if (window.emailjs) {
 
                                   <button
                                     onClick={() => handleEditCourseClick(course)}
-                                    className="w-full h-10 flex items-center justify-center gap-1.5 whitespace-nowrap bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold px-2 rounded-xl text-xs transition-colors border border-blue-200"
+                                    className="h-8 w-[calc(50%-0.25rem)] sm:w-40 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold px-2 rounded-lg text-xs transition-colors border bg-sky-50 hover:bg-sky-100 text-sky-800 border-sky-200"
                                     title="Modifica Corso"
                                   >
                                     ✏ Modifica Corso
@@ -2464,7 +2464,7 @@ if (window.emailjs) {
 
                                   <button
                                     onClick={() => handleToggleRegistrationsClosed(course)}
-                                    className={`w-full h-10 flex items-center justify-center gap-1.5 whitespace-nowrap font-bold px-2 rounded-xl text-xs transition-colors border ${isRegClosed ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700' : 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600'}`}
+                                    className={`h-8 w-[calc(50%-0.25rem)] sm:w-40 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold px-2 rounded-lg text-xs transition-colors border ${isRegClosed ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'}`}
                                     title={isRegClosed ? 'Riapri le iscrizioni a questo corso' : 'Chiudi le iscrizioni a questo corso'}
                                   >
                                     {isRegClosed ? '🔓 Riapri Iscrizioni' : '🔒 Chiudi Iscrizioni'}
@@ -2472,7 +2472,7 @@ if (window.emailjs) {
 
                                   <button
                                     onClick={() => handleDeleteCourse(course.id)}
-                                    className="w-full h-10 flex items-center justify-center gap-1.5 whitespace-nowrap bg-red-50 hover:bg-red-100 text-red-700 font-bold px-2 rounded-xl text-xs transition-colors border border-red-200"
+                                    className="h-8 w-[calc(50%-0.25rem)] sm:w-40 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold px-2 rounded-lg text-xs transition-colors border bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-200"
                                     title="Elimina Corso"
                                   >
                                     🗑 Elimina
@@ -2480,7 +2480,7 @@ if (window.emailjs) {
 
                                   <button
                                     onClick={() => setExpandedArchiveCourseId(isExpanded ? null : course.id)}
-                                    className="w-full h-10 flex items-center justify-center gap-1.5 whitespace-nowrap bg-[#1b365d] hover:bg-[#162d4f] text-white font-bold px-2 rounded-xl text-xs transition-colors border border-[#1b365d]"
+                                    className="h-8 w-[calc(50%-0.25rem)] sm:w-40 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold px-2 rounded-lg text-xs transition-colors border bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border-indigo-200"
                                   >
                                     {isExpanded ? '▲ Chiudi Iscritti' : `▼ Iscritti (${courseRegs.length})`}
                                   </button>
