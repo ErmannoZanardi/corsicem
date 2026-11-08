@@ -2560,18 +2560,18 @@ if (window.emailjs) {
                                       <table className="w-full text-left text-xs">
                                         <thead>
                                           <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase">
-                                            <th className="p-3 font-bold">Ticket / QR</th>
+                                            <th className="p-3 font-bold whitespace-nowrap">Ticket / QR</th>
                                             <th className="p-3 font-bold">Partecipante</th>
                                             <th className="p-3 font-bold">Azienda / P.IVA</th>
-                                            <th className="p-3 font-bold text-center">Accoglienza Check-in</th>
-                                            <th className="p-3 font-bold text-center">Attestato PDF</th>
-                                            <th className="p-3 font-bold text-center">Azioni</th>
+                                            <th className="p-3 font-bold text-center w-44">Accoglienza Check-in</th>
+                                            <th className="p-3 font-bold text-center w-40">Attestato PDF</th>
+                                            <th className="p-3 font-bold text-center w-52">Azioni</th>
                                           </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 text-slate-700">
                                           {courseRegs.filter(matchesCheckinSearch).map(reg => (
                                             <tr key={reg.id} className={`hover:bg-slate-50 ${reg.isPresent ? 'bg-emerald-50/40' : ''}`}>
-                                              <td className="p-3 font-mono font-bold text-indigo-700">{reg.ticketCode || ('REG-' + reg.id)}</td>
+                                              <td className="p-3 font-mono text-[11px] font-bold text-indigo-700 whitespace-nowrap">{reg.ticketCode || ('REG-' + reg.id)}</td>
                                               
                                               {editingRegistrationId === reg.id ? (
                                                 <td className="p-3" colSpan="2">
@@ -2600,28 +2600,28 @@ if (window.emailjs) {
                                               <td className="p-3 text-center">
                                                 <button
                                                   onClick={() => handleToggleCheckin(reg.id, reg.isPresent)}
-                                                  className={`h-8 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border w-44 ${
+                                                  className={`h-8 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border w-40 ${
                                                     reg.isPresent 
                                                       ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200' 
                                                       : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
                                                   }`}
                                                 >
-                                                  {reg.isPresent ? `✓ Presente (${reg.checkinTime || ''})` : '⏳ Check-in Attesa'}
+                                                  {reg.isPresent ? `✓ Presente (${reg.checkinTime || ''})` : '⏳ Assente (Registra)'}
                                                 </button>
                                               </td>
 
                                               <td className="p-3 text-center">
                                                 <div className="flex flex-col items-center gap-1.5">
-                                                  <button onClick={() => handleDownloadAttestato(reg)} className="h-8 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border w-44 bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200">
+                                                  <button onClick={() => handleDownloadAttestato(reg)} className="h-8 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border w-36 bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200">
                                                     📜 PDF Attestato
                                                   </button>
                                                   <button
                                                     onClick={() => handleSendAttestatoEmail(reg)}
                                                     disabled={sendingAttestati || !reg.isPresent}
                                                     title={reg.isPresent ? 'Invia al partecipante il link per scaricare l\'attestato' : 'Disponibile solo dopo il check-in'}
-                                                    className="h-8 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border w-44 disabled:opacity-40 disabled:cursor-not-allowed bg-sky-50 hover:bg-sky-100 text-sky-800 border-sky-200"
+                                                    className="h-8 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border w-36 disabled:opacity-40 disabled:cursor-not-allowed bg-sky-50 hover:bg-sky-100 text-sky-800 border-sky-200"
                                                   >
-                                                    {sentAttestati.includes(reg.id) ? '✓ Inviato (reinvia)' : '✉ Invia Email'}
+                                                    {sentAttestati.includes(reg.id) ? '✓ Reinvia Email' : '✉ Invia Email'}
                                                   </button>
                                                 </div>
                                               </td>
@@ -2629,8 +2629,8 @@ if (window.emailjs) {
                                               <td className="p-3 text-center">
                                                 {editingRegistrationId !== reg.id && (
                                                   <div className="flex items-center justify-center gap-1.5">
-                                                    <button onClick={() => handleStartEditRegistration(reg)} className="h-8 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border w-24 bg-sky-50 hover:bg-sky-100 text-sky-800 border-sky-200">✏ Modifica</button>
-                                                    <button onClick={() => handleDeleteRegistration(reg.id)} className="h-8 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border w-24 bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-200">🗑 Elimina</button>
+                                                    <button onClick={() => handleStartEditRegistration(reg)} className="h-8 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border w-[5.5rem] bg-sky-50 hover:bg-sky-100 text-sky-800 border-sky-200">✏ Modifica</button>
+                                                    <button onClick={() => handleDeleteRegistration(reg.id)} className="h-8 flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border w-[5.5rem] bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-200">🗑 Elimina</button>
                                                   </div>
                                                 )}
                                               </td>
