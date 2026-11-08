@@ -1659,7 +1659,7 @@ if (window.emailjs) {
                 ticket_code: generatedTicketCode,
                 qr_code_url: qrCodeUrl,
                 badge_url: badgeLink,
-                message: `Grazie per esserti iscritto al corso:\n\nCorso: ${selectedCourse.title}\nMarchio: ${selectedCourse.brandName}\nData: ${selectedCourse.date}\nOrario: ${selectedCourse.time}\nSede / Piattaforma: ${selectedCourse.location}\nLivello: ${selectedCourse.level || 'Base'}\nRelatore: ${selectedCourse.speaker || 'Ermanno Zanardi'}\n\nTi aspettiamo!`
+                message: `Grazie per esserti iscritto al corso:\n\nScarica e stampa il tuo badge (con il QR code per il check-in): ${badgeLink}\n\nCorso: ${selectedCourse.title}\nMarchio: ${selectedCourse.brandName}\nData: ${selectedCourse.date}\nOrario: ${selectedCourse.time}\nSede / Piattaforma: ${selectedCourse.location}\nLivello: ${selectedCourse.level || 'Base'}\nRelatore: ${selectedCourse.speaker || 'Ermanno Zanardi'}\n\nTi aspettiamo!`
               });
 
               // Email di notifica per l'amministratore
@@ -1672,6 +1672,7 @@ if (window.emailjs) {
                   company_name: companyName,
                   ticket_code: generatedTicketCode,
                   qr_code_url: qrCodeUrl,
+                  badge_url: badgeLink,
                   message: `Nuova iscrizione ricevuta!\n\nCodice iscrizione: ${generatedTicketCode}\n\nPartecipante: ${formData.fullName}\nAzienda: ${formData.company} (P.IVA: ${formData.vatNumber})\nCorso: ${selectedCourse.title} (${selectedCourse.date} - ${selectedCourse.time})\nSede: ${selectedCourse.location}\nEmail: ${formData.email}\nTelefono: ${formData.phone}`
                 });
               }
