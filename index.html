@@ -555,8 +555,9 @@
       // ==========================================
       // Foglio A4 orizzontale diviso in 4 quadranti da 148,5 x 105 mm (un quarto di A4 = formato A6 orizzontale):
       // il badge occupa un quadrante, gli altri riportano retro e argomenti del corso.
-      const BADGE_WIDTH_MM = 148.5;
-      const BADGE_HEIGHT_MM = 105;
+      // Orizzontale: quadranti 148,5 x 105 mm su A4 orizzontale. Verticale: quadranti 105 x 148,5 mm su A4 verticale.
+      const BADGE_LONG_MM = 148.5;
+      const BADGE_SHORT_MM = 105;
       // Margine di sicurezza dai bordi esterni del foglio A4 (la stampante non stampa fino al bordo)
       const BADGE_SAFE_MARGIN_MM = 7;
 
@@ -652,13 +653,14 @@
         return 'Sede: ' + raw;
       }
 
-      function buildBadgePdf(reg, { brands, companyName, course, mode = 'open' }) {
+      function buildBadgePdf(reg, { brands, companyName, course, mode = 'open', orientation = 'landscape' }) {
         const { jsPDF } = window.jspdf;
-        const QW = BADGE_WIDTH_MM;
-        const QH = BADGE_HEIGHT_MM;
+        const portrait = orientation === 'portrait';
+        const QW = portrait ? BADGE_SHORT_MM : BADGE_LONG_MM;
+        const QH = portrait ? BADGE_LONG_MM : BADGE_SHORT_MM;
         const SAFE = BADGE_SAFE_MARGIN_MM;
         const PT = 0.3528; // 1 punto tipografico in mm
-        const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+        const doc = new jsPDF({ orientation: portrait ? 'portrait' : 'landscape', unit: 'mm', format: 'a4' });
 
         const c = course || {};
         const courseTitle = c.title || reg.courseTitle || '';
@@ -743,8 +745,9 @@
 
         const hasQr = !!reg.shareContact; // QR contatto solo se il partecipante ha dato il consenso
         const qrSize = 34;
-        const qrX = BW - M - qrSize;
-        const leftW = hasQr ? qrX - M - 5 : BW - 2 * M;
+        // Orizzontale: QR a destra del testo. Verticale: QR sotto il testo, centrato.
+        const qrX = portrait ? (BW - qrSize) / 2 : BW - M - qrSize;
+        const leftW = (hasQr && !portrait) ? qrX - M - 5 : BW - 2 * M;
 
         // Piè di pagina: luogo dell'evento o Meet
         let footLines = [];
@@ -764,7 +767,9 @@
 
         // Testi a sinistra: nome, azienda, data + titolo (grassetto), relatore
         const topV = 22;
-        const avail = footLineV - 3 - topV;
+        const qrBlockH = (hasQr && portrait) ? qrSize + 9 : 0;
+        const qrPortraitV = footLineV - 3 - qrBlockH;
+        const avail = (qrBlockH ? qrPortraitV - 3 : footLineV - 3) - topV;
 
         const buildBlocks = (nameSize) => {
           doc.setFont('helvetica', 'bold');
@@ -821,9 +826,10 @@
         // QR code contatto (solo con consenso)
         if (hasQr) try {
           const qrUrl = qrPngDataUrl(buildVCard(reg));
-          doc.addImage(qrUrl, 'PNG', qb.x + qb.l + qrX, qb.y + qb.t + 24, qrSize, qrSize);
-          txt(qb, 'Inquadra con la fotocamera', qrX + qrSize / 2, 24 + qrSize + 4, { size: 6.5, style: 'bold', color: GRAY, align: 'center' });
-          txt(qb, 'per salvare il contatto', qrX + qrSize / 2, 24 + qrSize + 7, { size: 6.5, style: 'bold', color: GRAY, align: 'center' });
+          const qrV = portrait ? qrPortraitV : 24;
+          doc.addImage(qrUrl, 'PNG', qb.x + qb.l + qrX, qb.y + qb.t + qrV, qrSize, qrSize);
+          txt(qb, 'Inquadra con la fotocamera', qrX + qrSize / 2, qrV + qrSize + 4, { size: 6.5, style: 'bold', color: GRAY, align: 'center' });
+          txt(qb, 'per salvare il contatto', qrX + qrSize / 2, qrV + qrSize + 7, { size: 6.5, style: 'bold', color: GRAY, align: 'center' });
         } catch (err) {
           console.error('Errore QR badge:', err);
         }
@@ -838,13 +844,15 @@
         // QR con il codice ticket per il check-in in segreteria
         const ticketCode = reg.ticketCode || ('REG-' + reg.id);
         const ckSize = 36;
-        const ckX = KW - M - ckSize;
-        const infoW = ckX - M - 5;
+        // Orizzontale: QR in alto a destra. Verticale: QR in basso, centrato.
+        const ckX = portrait ? (KW - ckSize) / 2 : KW - M - ckSize;
+        const ckV = portrait ? KH - 16 - 8.2 - ckSize : 15;
+        const infoW = portrait ? KW - 2 * M : ckX - M - 5;
         try {
           const ckUrl = qrPngDataUrl(ticketCode);
-          doc.addImage(ckUrl, 'PNG', qk.x + qk.l + ckX, qk.y + qk.t + 15, ckSize, ckSize);
-          txt(qk, 'CHECK-IN SEGRETERIA', ckX + ckSize / 2, 15 + ckSize + 4, { size: 7, style: 'bold', color: DARK, align: 'center' });
-          txt(qk, ticketCode, ckX + ckSize / 2, 15 + ckSize + 8.2, { size: 7, style: 'bold', color: GRAY, align: 'center', font: 'courier' });
+          doc.addImage(ckUrl, 'PNG', qk.x + qk.l + ckX, qk.y + qk.t + ckV, ckSize, ckSize);
+          txt(qk, 'CHECK-IN SEGRETERIA', ckX + ckSize / 2, ckV + ckSize + 4, { size: 7, style: 'bold', color: DARK, align: 'center' });
+          txt(qk, ticketCode, ckX + ckSize / 2, ckV + ckSize + 8.2, { size: 7, style: 'bold', color: GRAY, align: 'center', font: 'courier' });
         } catch (err) {
           console.error('Errore QR check-in:', err);
         }
@@ -981,11 +989,13 @@
 
               let companyName = 'Azienda di prova';
               let brands = DEFAULT_BRANDS;
+              let orientation = 'landscape';
               try {
-                const { data: sData } = await supabaseClient.from('settings').select('key, value').in('key', ['company_name', 'brands_list', 'copyright_text']);
+                const { data: sData } = await supabaseClient.from('settings').select('key, value').in('key', ['company_name', 'brands_list', 'copyright_text', 'badge_orientation']);
                 (sData || []).forEach(item => {
                   if (item.key === 'company_name' && item.value) companyName = item.value;
                   if (item.key === 'copyright_text' && item.value) setFooterText(item.value);
+                  if (item.key === 'badge_orientation' && item.value === 'portrait') orientation = 'portrait';
                   if (item.key === 'brands_list') {
                     try { brands = JSON.parse(item.value); } catch (e) {}
                   }
@@ -1000,7 +1010,7 @@
                 } catch (e) { console.error('Errore corso badge:', e); }
               }
 
-              setState({ status: 'ready', reg, companyName, brands, course });
+              setState({ status: 'ready', reg, companyName, brands, course, orientation });
             } catch (err) {
               console.error('Errore caricamento badge:', err);
               setState({ status: 'error' });
@@ -1012,7 +1022,7 @@
         const handleDownload = () => {
           setDownloading(true);
           try {
-            buildBadgePdf(state.reg, { brands: state.brands, companyName: state.companyName, course: state.course, mode: 'save' });
+            buildBadgePdf(state.reg, { brands: state.brands, companyName: state.companyName, course: state.course, mode: 'save', orientation: state.orientation });
           } catch (err) {
             console.error('Errore generazione badge:', err);
             alert('Errore durante la creazione del badge. Riprova.');
@@ -1063,7 +1073,7 @@
                         {downloading ? 'Creazione PDF in corso...' : '🏷 Scarica il tuo badge in PDF'}
                       </button>
                       <div className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1">
-                        <p><strong>Come stamparlo:</strong> foglio A4 orizzontale, su una sola facciata, scala 100%.</p>
+                        <p><strong>Come stamparlo:</strong> foglio A4 {state.orientation === 'portrait' ? 'verticale' : 'orizzontale'}, su una sola facciata, scala 100%.</p>
                         <p><strong>Come piegarlo:</strong> a metà portando la metà inferiore dietro, poi ancora a metà portando la metà sinistra dietro.</p>
                         <p>Porta il badge con te: all'ingresso la segreteria scansionerà il QR code del ticket per il check-in.</p>
                       </div>
@@ -1236,6 +1246,7 @@
         const [isSubmitting, setIsSubmitting] = useState(false);
         const submitLockRef = useRef(false); // blocco sincrono anti doppio click
         const [signatures, setSignatures] = useState({ company: '', speakers: {} });
+        const [badgeOrientation, setBadgeOrientation] = useState('landscape'); // 'landscape' | 'portrait'
         const [signingTarget, setSigningTarget] = useState(null); // 'company' oppure nome del relatore che sta firmando
         const [sentAttestati, setSentAttestati] = useState([]);
         const [sendingAttestati, setSendingAttestati] = useState(false);
@@ -1375,6 +1386,7 @@
                   if (item.key === 'header_title') setHeaderTitle(item.value);
                   if (item.key === 'copyright_text') setCopyrightText(item.value);
                   if (item.key === 'admin_email') setAdminEmail(item.value);
+                  if (item.key === 'badge_orientation' && (item.value === 'portrait' || item.value === 'landscape')) setBadgeOrientation(item.value);
                   if (item.key === 'signatures') {
                     try {
                       const parsed = JSON.parse(item.value);
@@ -1810,6 +1822,19 @@ if (window.emailjs) {
           }
           setSignatures(next);
           return true;
+        };
+
+        // Formato del badge (orizzontale / verticale): salvato nel database, vale anche per i badge scaricati dai partecipanti
+        const handleChangeBadgeOrientation = async (value) => {
+          const previous = badgeOrientation;
+          setBadgeOrientation(value);
+          if (supabaseClient) {
+            const { error } = await supabaseClient.from('settings').upsert([{ key: 'badge_orientation', value, updated_at: new Date() }]);
+            if (error) {
+              setBadgeOrientation(previous);
+              alert("Errore durante il salvataggio del formato del badge: " + error.message);
+            }
+          }
         };
 
         const handleSignatureSave = async (target, dataUrl) => {
@@ -2338,7 +2363,7 @@ if (window.emailjs) {
         const handleDownloadBadge = (reg) => {
           try {
             const badgeCourse = courses.find(c => String(c.id) === String(reg.courseId)) || courses.find(c => c.title === reg.courseTitle);
-            buildBadgePdf(reg, { brands, companyName, course: badgeCourse });
+            buildBadgePdf(reg, { brands, companyName, course: badgeCourse, orientation: badgeOrientation });
           } catch (err) {
             console.error('Errore creazione badge:', err);
             alert('Errore durante la creazione del badge.');
@@ -2874,12 +2899,12 @@ if (window.emailjs) {
                       {lastRegistration && (
                         <div className="mb-6 space-y-2">
                           <button
-                            onClick={() => buildBadgePdf(lastRegistration, { brands, companyName, course: selectedCourse, mode: 'save' })}
+                            onClick={() => buildBadgePdf(lastRegistration, { brands, companyName, course: selectedCourse, mode: 'save', orientation: badgeOrientation })}
                             className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-xl text-sm transition-colors shadow-md"
                           >
                             🏷 Scarica il tuo badge (PDF)
                           </button>
-                          <p className="text-[11px] text-slate-500 max-w-md mx-auto">Stampalo su un foglio A4 orizzontale e piegalo in quattro. Contiene il QR code del ticket che la segreteria scansionerà per il check-in. Troverai il link anche nell'email di conferma.</p>
+                          <p className="text-[11px] text-slate-500 max-w-md mx-auto">Stampalo su un foglio A4 {badgeOrientation === 'portrait' ? 'verticale' : 'orizzontale'} e piegalo in quattro. Contiene il QR code del ticket che la segreteria scansionerà per il check-in. Troverai il link anche nell'email di conferma.</p>
                         </div>
                       )}
                       <button onClick={() => { setSubmitted(false); setSelectedCourse(null); }} className="bg-[#1b365d] hover:bg-[#162d4f] text-white font-bold py-2.5 px-6 rounded-xl text-sm transition-colors shadow-md">
@@ -2937,6 +2962,27 @@ if (window.emailjs) {
                           <h3 className="text-lg font-bold text-slate-900">{isHistoryTab ? '🗂 Storico Corsi' : '📚 Gestione Corsi & Iscritti'}</h3>
                           <p className="text-xs text-slate-500 mt-1">Gli iscritti sono divisi per ogni corso. Espandi ciascun corso per gestire partecipanti, modifiche, eliminazione, scaricamento PDF e check-in all'accoglienza.</p>
                         </div>
+                      </div>
+
+                      <div className="mb-4 flex items-center gap-3 flex-wrap">
+                        <span className="text-xs font-bold text-slate-700">🏷 Formato badge:</span>
+                        <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => handleChangeBadgeOrientation('landscape')}
+                            className={`h-8 px-3 text-xs font-semibold transition-colors ${badgeOrientation === 'landscape' ? 'bg-violet-100 text-violet-900' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                          >
+                            ▭ Orizzontale
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleChangeBadgeOrientation('portrait')}
+                            className={`h-8 px-3 text-xs font-semibold border-l border-slate-200 transition-colors ${badgeOrientation === 'portrait' ? 'bg-violet-100 text-violet-900' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                          >
+                            ▯ Verticale
+                          </button>
+                        </div>
+                        <span className="text-[11px] text-slate-400">Vale anche per il badge scaricato dai partecipanti.</span>
                       </div>
 
                       <div className="mb-6 bg-slate-50 border-2 border-dashed border-[#1b365d]/30 rounded-2xl p-4">
