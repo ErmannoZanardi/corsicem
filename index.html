@@ -122,14 +122,8 @@
               return;
             }
             try {
-              const cols = 'full_name, company, course_title, brand_name, date, is_present, checkin_time, ticket_code';
-              let query = supabaseClient.from('registrations').select(cols);
-              if (/^REG-\d+$/.test(code)) {
-                query = query.eq('id', Number(code.replace('REG-', '')));
-              } else {
-                query = query.eq('ticket_code', code);
-              }
-              const { data, error } = await query.limit(1);
+              const { data: foundReg, error } = await supabaseClient.rpc('get_registration_public', { p_code: code });
+              const data = foundReg ? [foundReg] : [];
               if (error) throw error;
               if (!data || data.length === 0) {
                 setState({ status: 'invalid', data: null });
@@ -1175,14 +1169,8 @@
               return;
             }
             try {
-              const cols = 'id, course_id, full_name, company, vat_number, city, course_title, brand_name, date, ticket_code, share_contact';
-              let query = supabaseClient.from('registrations').select(cols);
-              if (/^REG-\d+$/.test(code)) {
-                query = query.eq('id', Number(code.replace('REG-', '')));
-              } else {
-                query = query.eq('ticket_code', code);
-              }
-              const { data, error } = await query.limit(1);
+              const { data: foundReg, error } = await supabaseClient.rpc('get_registration_public', { p_code: code });
+              const data = foundReg ? [foundReg] : [];
               if (error) throw error;
               if (!data || data.length === 0) {
                 setState({ status: 'invalid' });
@@ -1201,20 +1189,9 @@
                 date: r.date,
                 ticketCode: r.ticket_code || ('REG-' + r.id),
                 shareContact: r.share_contact === true,
-                email: '',
-                phone: ''
+                email: r.email || '',
+                phone: r.phone || ''
               };
-
-              // Telefono ed email servono solo se il partecipante ha acconsentito alla condivisione
-              if (reg.shareContact) {
-                try {
-                  const { data: cData } = await supabaseClient.from('registrations').select('email, phone').eq('id', r.id).limit(1);
-                  if (cData && cData[0]) {
-                    reg.email = cData[0].email || '';
-                    reg.phone = cData[0].phone || '';
-                  }
-                } catch (e) { console.error('Errore contatti badge:', e); }
-              }
 
               let companyName = 'Azienda di prova';
               let brands = DEFAULT_BRANDS;
@@ -1331,14 +1308,8 @@
               return;
             }
             try {
-              const cols = 'id, course_id, full_name, company, vat_number, city, course_title, brand_name, date, is_present, ticket_code';
-              let query = supabaseClient.from('registrations').select(cols);
-              if (/^REG-\d+$/.test(code)) {
-                query = query.eq('id', Number(code.replace('REG-', '')));
-              } else {
-                query = query.eq('ticket_code', code);
-              }
-              const { data, error } = await query.limit(1);
+              const { data: foundReg, error } = await supabaseClient.rpc('get_registration_public', { p_code: code });
+              const data = foundReg ? [foundReg] : [];
               if (error) throw error;
               if (!data || data.length === 0) {
                 setState({ status: 'invalid' });
@@ -1483,7 +1454,11 @@
         const [scanInput, setScanInput] = useState('');
         const [scanResult, setScanResult] = useState(null);
         const scanInputRef = useRef(null);
-        const [adminPin, setAdminPin] = useState('');
+        const [adminPin, setAdminPin] = useState(''); // password
+        const [adminLoginEmail, setAdminLoginEmail] = useState('');
+        const [adminLoginBusy, setAdminLoginBusy] = useState(false);
+        const [session, setSession] = useState(null); // utente loggato (admin / segreteria)
+        const [enrollmentCounts, setEnrollmentCounts] = useState({});
         const [adminError, setAdminError] = useState(false);
         const [adminTab, setAdminTab] = useState('courses-management'); // Rinominato da archivio storico a gestione corsi
 
@@ -1655,32 +1630,61 @@
                 setCourses(formattedCourses);
               }
 
-              const { data: regData, error: regError } = await supabaseClient.from('registrations').select('*').order('id', { ascending: false });
-              if (!regError && regData) {
-                const formattedRegs = regData.map(r => ({
-                  id: r.id,
-                  courseId: r.course_id,
-                  fullName: r.full_name,
-                  company: r.company,
-                  vatNumber: r.vat_number,
-                  email: r.email,
-                  phone: r.phone,
-                  city: r.city,
-                  courseTitle: r.course_title,
-                  brandName: r.brand_name,
-                  date: r.date,
-                  timestamp: r.timestamp,
-                  ticketCode: r.ticket_code || ('REG-' + r.id),
-                  shareContact: r.share_contact === true,
-                  isPresent: r.is_present || false,
-                  checkinTime: r.checkin_time || null
-                }));
-                setRegistrations(formattedRegs);
-              }
+              // Posti occupati per corso (solo numeri, senza dati personali)
+              try {
+                const { data: cnt } = await supabaseClient.rpc('course_enrollment_counts');
+                if (cnt) setEnrollmentCounts(cnt);
+              } catch (e) { console.error('Errore conteggio iscritti:', e); }
             }
           }
           fetchData();
         }, []);
+
+        // Sessione di accesso (admin / segreteria)
+        useEffect(() => {
+          if (!supabaseClient) return;
+          supabaseClient.auth.getSession().then(({ data }) => setSession((data && data.session) || null));
+          const { data: sub } = supabaseClient.auth.onAuthStateChange((_event, newSession) => setSession(newSession || null));
+          return () => { if (sub && sub.subscription) sub.subscription.unsubscribe(); };
+        }, []);
+
+        // Dati riservati: caricati solo se si è loggati
+        useEffect(() => {
+          if (!supabaseClient) return;
+          if (!session) {
+            setRegistrations([]);
+            return;
+          }
+          (async () => {
+            const { data: regData, error: regError } = await supabaseClient.from('registrations').select('*').order('id', { ascending: false });
+            if (!regError && regData) {
+              setRegistrations(regData.map(r => ({
+                id: r.id,
+                courseId: r.course_id,
+                fullName: r.full_name,
+                company: r.company,
+                vatNumber: r.vat_number,
+                email: r.email,
+                phone: r.phone,
+                city: r.city,
+                courseTitle: r.course_title,
+                brandName: r.brand_name,
+                date: r.date,
+                timestamp: r.timestamp,
+                ticketCode: r.ticket_code || ('REG-' + r.id),
+                shareContact: r.share_contact === true,
+                isPresent: r.is_present || false,
+                checkinTime: r.checkin_time || null
+              })));
+            } else if (regError) {
+              console.error('Errore caricamento iscrizioni:', regError);
+            }
+            try {
+              const { data: ae } = await supabaseClient.from('settings').select('value').eq('key', 'admin_email').limit(1);
+              if (ae && ae[0] && ae[0].value) setAdminEmail(ae[0].value);
+            } catch (e) {}
+          })();
+        }, [session]);
 
         useEffect(() => {
           setTempCompanyName(companyName);
@@ -1741,7 +1745,10 @@
         };
 
         const getCourseEnrollmentCount = (courseId) => {
-          return registrations.filter(r => r.courseId === courseId).length;
+          const local = registrations.filter(r => r.courseId === courseId).length;
+          if (session) return local;
+          const fromServer = enrollmentCounts[String(courseId)];
+          return fromServer !== undefined ? Math.max(Number(fromServer), local) : local;
         };
 
         const getCompanyEnrollmentCountForCourse = (courseId, vatNumber) => {
@@ -1869,7 +1876,7 @@
           // Codice ticket casuale e sicuro, con controllo che non esista già
           let generatedTicketCode = generateSecureTicketCode();
           for (let attempt = 0; attempt < 5; attempt++) {
-            const alreadyUsed = registrations.some(r => r.ticketCode === generatedTicketCode) || await ticketCodeExists(generatedTicketCode);
+            const alreadyUsed = registrations.some(r => r.ticketCode === generatedTicketCode);
             if (!alreadyUsed) break;
             generatedTicketCode = generateSecureTicketCode();
           }
@@ -1900,18 +1907,15 @@
 
           let insertedId = Date.now();
           if (supabaseClient) {
-            let { data, error } = await supabaseClient.from('registrations').insert([newRegData]).select();
-            if (error && /share_contact/i.test(error.message || '')) {
-              // La colonna del consenso non esiste ancora nel database: iscrizione senza consenso salvato
-              const { share_contact, ...withoutConsent } = newRegData;
-              ({ data, error } = await supabaseClient.from('registrations').insert([withoutConsent]).select());
-            }
+            // L'iscrizione passa dalla funzione del database: tutti i controlli (posti, iscrizioni chiuse,
+            // limite per azienda, email doppia) sono verificati dal server
+            const { data, error } = await supabaseClient.rpc('register_participant', { p: newRegData });
             if (error) {
-              setSubmitError("Errore di connessione al database cloud: " + error.message);
+              setSubmitError(error.code === 'P0001' ? error.message : "Errore di connessione al database cloud: " + error.message);
               return;
             }
-            if (data && data[0]) {
-              insertedId = data[0].id;
+            if (data && data.id) {
+              insertedId = data.id;
             }
           }
 
@@ -1931,10 +1935,10 @@ if (window.emailjs) {
               });
 
               // Email di notifica per l'amministratore
-              if (adminEmail) {
-                await emailjs.send("service_miwig8q", "template_vtbeauc", {
+              {
+                // Il destinatario è fisso nel template EmailJS "template_admin" (non passa più dal sito)
+                await emailjs.send("service_miwig8q", "template_admin", {
                   to_name: "Amministratore",
-                  to_email: adminEmail,
                   course_title: selectedCourse.title,
                   course_date: selectedCourse.date,
                   company_name: companyName,
@@ -1962,7 +1966,8 @@ if (window.emailjs) {
             checkinTime: null
           };
 
-          setRegistrations([localReg, ...registrations]);
+          setRegistrations(session ? [localReg, ...registrations] : registrations);
+          setEnrollmentCounts(prev => ({ ...prev, [String(selectedCourse.id)]: (Number(prev[String(selectedCourse.id)]) || 0) + 1 }));
           setLastRegistration(localReg);
           setSubmitted(true);
         };
@@ -2032,15 +2037,26 @@ if (window.emailjs) {
           alert('Iscrizione aggiornata con successo!');
         };
 
-        const handleAdminLogin = (e) => {
+        const handleAdminLogin = async (e) => {
           e.preventDefault();
-          if (adminPin === 'password') {
-            setAdminError(false);
-            setView('admin-dashboard');
-            setAdminPin('');
-          } else {
+          if (!supabaseClient) { setAdminError(true); return; }
+          setAdminLoginBusy(true);
+          const { error } = await supabaseClient.auth.signInWithPassword({ email: adminLoginEmail.trim(), password: adminPin });
+          setAdminLoginBusy(false);
+          if (error) {
             setAdminError(true);
+            return;
           }
+          setAdminError(false);
+          setAdminPin('');
+          setView('admin-dashboard');
+        };
+
+        const handleAdminLogout = async () => {
+          if (supabaseClient) await supabaseClient.auth.signOut();
+          setView('courses');
+          setSelectedCourse(null);
+          setSubmitted(false);
         };
 
         // Firme degli attestati: salvate subito nel database (chiave 'signatures')
@@ -2860,18 +2876,25 @@ if (window.emailjs) {
                 <div>
                   {view !== 'admin-dashboard' && view !== 'admin-login' ? (
                     <button
-                      onClick={() => { setView('admin-login'); setAdminError(false); }}
+                      onClick={() => { setView(session ? 'admin-dashboard' : 'admin-login'); setAdminError(false); }}
                       className="bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs sm:text-sm font-bold transition-all px-4 py-2 rounded-xl uppercase tracking-wider flex items-center gap-2 shadow-2xs backdrop-blur-sm active:scale-95"
                     >
                       <span>🔒</span> Admin / Segreteria
                     </button>
                   ) : (
-                    <button
+                    <div className="flex items-center gap-2">
+<button
                       onClick={() => { setView('courses'); setSelectedCourse(null); setSubmitted(false); }}
                       className="bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold transition-all px-4 py-2 rounded-xl shadow-md flex items-center gap-2 active:scale-95"
                     >
                       <span>🏠</span> Home Corsi
                     </button>
+                    {session && (
+                      <button onClick={handleAdminLogout} className="bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs sm:text-sm font-bold transition-all px-4 py-2 rounded-xl flex items-center gap-2">
+                        <span>🚪</span> Esci
+                      </button>
+                    )}
+                    </div>
                   )}
                 </div>
 
@@ -3169,7 +3192,7 @@ if (window.emailjs) {
                 </div>
               )}
 
-              {view === 'admin-login' && (
+              {(view === 'admin-login' || (view === 'admin-dashboard' && !session)) && (
                 <div className="max-w-md mx-auto bg-white rounded-2xl border border-slate-200 shadow-xl p-8 mt-12">
                   <div className="text-center mb-6">
                     <div className="w-12 h-12 bg-blue-50 text-[#1b365d] rounded-xl flex items-center justify-center mx-auto mb-3 text-xl font-bold shadow">🔒</div>
@@ -3178,18 +3201,22 @@ if (window.emailjs) {
                   </div>
                   <form onSubmit={handleAdminLogin} className="space-y-4">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">PIN di Accesso</label>
-                      <input type="password" required value={adminPin} onChange={(e) => setAdminPin(e.target.value)} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d] text-center tracking-widest text-lg" placeholder="••••••••" />
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Email</label>
+                      <input type="email" required autoComplete="username" value={adminLoginEmail} onChange={(e) => setAdminLoginEmail(e.target.value)} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" />
                     </div>
-                    {adminError && <p className="text-xs text-red-600 text-center font-semibold">PIN errato</p>}
-                    <button type="submit" className="w-full bg-[#1b365d] hover:bg-[#162d4f] text-white font-bold py-3 px-4 rounded-xl text-sm transition-colors shadow-md">
-                      Accedi al Pannello
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Password</label>
+                      <input type="password" required autoComplete="current-password" value={adminPin} onChange={(e) => setAdminPin(e.target.value)} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" />
+                    </div>
+                    {adminError && <p className="text-xs text-red-600 text-center font-semibold">Email o password errata</p>}
+                    <button type="submit" disabled={adminLoginBusy} className="w-full bg-[#1b365d] hover:bg-[#162d4f] disabled:opacity-60 text-white font-bold py-3 px-4 rounded-xl text-sm transition-colors shadow-md">
+                      {adminLoginBusy ? 'Accesso in corso...' : 'Accedi al Pannello'}
                     </button>
                   </form>
                 </div>
               )}
 
-              {view === 'admin-dashboard' && (
+              {view === 'admin-dashboard' && session && (
                 <div>
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 bg-[#1b365d] text-white p-6 rounded-2xl shadow-md">
                     <div>
@@ -3667,7 +3694,7 @@ if (window.emailjs) {
                           <input type="text" required value={tempCopyrightText} onChange={(e) => setTempCopyrightText(e.target.value)} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="Es. © 2026 Nome Azienda..." />
                         </div>
                         <div>
-                          <label className="block text-xs font-semibold text-slate-700 mb-1">Email Riferimento Admin (notifiche nuove iscrizioni) *</label>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">Email admin (promemoria: il destinatario delle notifiche si imposta nel template EmailJS template_admin) *</label>
                           <input type="email" required value={tempAdminEmail} onChange={(e) => setTempAdminEmail(e.target.value)} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="es. ermanno.zanardi69@gmail.com" />
                         </div>
                         <div className="pt-2 md:col-span-2">
