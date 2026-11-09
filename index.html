@@ -563,11 +563,26 @@
           .replace(/,/g, '\\,');
       }
 
+      const SURNAME_PARTICLES = ['de','di','del','della','dello','dei','degli','delle','da','dal','dalla','dai','lo','la','le','li','van','von','der','den','mc','mac','d','dell','dall','san','santa','ben','el','al'];
+      // Solo per le vecchie iscrizioni senza campi separati: divisione "a intuito"
+      function splitFullName(fullName) {
+        const parts = (fullName || '').trim().replace(/\s+/g, ' ').split(' ').filter(Boolean);
+        if (parts.length <= 1) return { firstName: '', lastName: parts[0] || '' };
+        let i = parts.length - 1;
+        while (i > 1 && SURNAME_PARTICLES.includes(parts[i - 1].toLowerCase().replace(/['’]$/, ''))) i--;
+        return { firstName: parts.slice(0, i).join(' '), lastName: parts.slice(i).join(' ') };
+      }
+      // Nome/cognome reali se presenti, altrimenti divisione automatica
+      function regNames(r) {
+        if (r && (r.lastName || r.firstName)) return { firstName: r.firstName || '', lastName: r.lastName || '' };
+        return splitFullName(r && r.fullName);
+      }
+
       function buildVCard(reg) {
         const fullName = (reg.fullName || '').trim().replace(/\s+/g, ' ');
-        const parts = fullName.split(' ');
-        const family = parts.length > 1 ? parts[parts.length - 1] : '';
-        const given = parts.length > 1 ? parts.slice(0, -1).join(' ') : fullName;
+        const nm = regNames(reg);
+        const family = nm.lastName;
+        const given = nm.firstName;
         const phone = (reg.phone || '').replace(/[^\d+]/g, '');
         const lines = [
           'BEGIN:VCARD',
@@ -1181,6 +1196,8 @@
                 id: r.id,
                 courseId: r.course_id,
                 fullName: r.full_name,
+                firstName: r.first_name || '',
+                lastName: r.last_name || '',
                 company: r.company,
                 vatNumber: r.vat_number,
                 city: r.city,
@@ -1320,6 +1337,8 @@
                 id: r.id,
                 courseId: r.course_id,
                 fullName: r.full_name,
+                firstName: r.first_name || '',
+                lastName: r.last_name || '',
                 company: r.company,
                 vatNumber: r.vat_number,
                 city: r.city,
@@ -1494,7 +1513,8 @@
 
         const [editingRegistrationId, setEditingRegistrationId] = useState(null);
         const [editRegData, setEditRegData] = useState({
-          fullName: '',
+          firstName: '',
+          lastName: '',
           company: '',
           vatNumber: '',
           email: '',
@@ -1662,6 +1682,8 @@
                 id: r.id,
                 courseId: r.course_id,
                 fullName: r.full_name,
+                firstName: r.first_name || '',
+                lastName: r.last_name || '',
                 company: r.company,
                 vatNumber: r.vat_number,
                 email: r.email,
@@ -1695,7 +1717,8 @@
         }, [companyName, companyLogo, headerTitle, copyrightText, adminEmail]);
 
         const [formData, setFormData] = useState({
-          fullName: '',
+          firstName: '',
+          lastName: '',
           company: '',
           vatNumber: '',
           email: '',
@@ -1889,7 +1912,9 @@
 
           const newRegData = {
             course_id: selectedCourse.id,
-            full_name: formData.fullName,
+            full_name: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
+            first_name: formData.firstName.trim(),
+            last_name: formData.lastName.trim(),
             company: formData.company,
             vat_number: formData.vatNumber,
             email: formData.email,
@@ -1923,7 +1948,7 @@ if (window.emailjs) {
             try {
               // Email di conferma all'iscritto con tutti i dettagli dell'evento
               await emailjs.send("service_miwig8q", "template_vtbeauc", {
-                to_name: formData.fullName,
+                to_name: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
                 to_email: formData.email,
                 course_title: selectedCourse.title,
                 course_date: selectedCourse.date,
@@ -1953,7 +1978,7 @@ if (window.emailjs) {
                   ticket_code: generatedTicketCode,
                   qr_code_url: qrCodeUrl,
                   badge_url: badgeLink,
-                  message: `Nuova iscrizione ricevuta!\n\nCodice iscrizione: ${generatedTicketCode}\n\nPartecipante: ${formData.fullName}\nAzienda: ${formData.company} (P.IVA: ${formData.vatNumber})\nCorso: ${selectedCourse.title} (${selectedCourse.date} - ${selectedCourse.time})\nSede: ${selectedCourse.location}\nEmail: ${formData.email}\nTelefono: ${formData.phone}`
+                  message: `Nuova iscrizione ricevuta!\n\nCodice iscrizione: ${generatedTicketCode}\n\nPartecipante: ${formData.lastName.trim()} ${formData.firstName.trim()}\nAzienda: ${formData.company} (P.IVA: ${formData.vatNumber})\nCorso: ${selectedCourse.title} (${selectedCourse.date} - ${selectedCourse.time})\nSede: ${selectedCourse.location}\nEmail: ${formData.email}\nTelefono: ${formData.phone}`
                 });
               }
             } catch (err) {
@@ -1996,7 +2021,8 @@ if (window.emailjs) {
         const handleStartEditRegistration = (reg) => {
           setEditingRegistrationId(reg.id);
           setEditRegData({
-            fullName: reg.fullName || '',
+            firstName: regNames(reg).firstName,
+            lastName: regNames(reg).lastName,
             company: reg.company || '',
             vatNumber: reg.vatNumber || '',
             email: reg.email || '',
@@ -2008,7 +2034,9 @@ if (window.emailjs) {
 
         const handleSaveRegistrationEdit = async (regId) => {
           const updatePayload = {
-            full_name: editRegData.fullName,
+            full_name: `${editRegData.firstName.trim()} ${editRegData.lastName.trim()}`.trim(),
+            first_name: editRegData.firstName.trim(),
+            last_name: editRegData.lastName.trim(),
             company: editRegData.company,
             vat_number: editRegData.vatNumber,
             email: editRegData.email,
@@ -2019,6 +2047,11 @@ if (window.emailjs) {
 
           if (supabaseClient) {
             let { error } = await supabaseClient.from('registrations').update(updatePayload).eq('id', regId);
+            if (error && /first_name|last_name/i.test(error.message || '')) {
+              const { first_name, last_name, ...noSplit } = updatePayload;
+              ({ error } = await supabaseClient.from('registrations').update(noSplit).eq('id', regId));
+              if (!error) alert("Dati salvati, ma nome e cognome separati non sono stati registrati: esegui prima lo script SQL 4_nome_cognome.sql.");
+            }
             if (error && /share_contact/i.test(error.message || '')) {
               const { share_contact, ...withoutConsent } = updatePayload;
               ({ error } = await supabaseClient.from('registrations').update(withoutConsent).eq('id', regId));
@@ -2032,7 +2065,9 @@ if (window.emailjs) {
 
           setRegistrations(registrations.map(r => r.id === regId ? {
             ...r,
-            fullName: editRegData.fullName,
+            fullName: `${editRegData.firstName.trim()} ${editRegData.lastName.trim()}`.trim(),
+            firstName: editRegData.firstName.trim(),
+            lastName: editRegData.lastName.trim(),
             company: editRegData.company,
             vatNumber: editRegData.vatNumber,
             email: editRegData.email,
@@ -2729,9 +2764,14 @@ if (window.emailjs) {
           alert(`Invii riusciti: ${okCount} su ${targets.length}.` + (failed.length ? `\n\nNon inviati:\n- ${failed.join('\n- ')}\n\nControlla che in EmailJS esista il template '${EMAILJS_ATTESTATO_TEMPLATE_ID}'.` : ''));
         };
 
+        const sortBySurname = (regs) => [...regs].sort((a, b) => {
+          const A = regNames(a), B = regNames(b);
+          const opt = { sensitivity: 'base' };
+          return A.lastName.localeCompare(B.lastName, 'it', opt) || A.firstName.localeCompare(B.firstName, 'it', opt);
+        });
+
         const handleExportCourseTxt = (course, courseRegs, onlyPresent = false) => {
-          const regsToExport = (onlyPresent ? courseRegs.filter(r => r.isPresent) : [...courseRegs])
-            .sort((a, b) => (a.fullName || '').trim().localeCompare((b.fullName || '').trim(), 'it', { sensitivity: 'base' }));
+          const regsToExport = sortBySurname(onlyPresent ? courseRegs.filter(r => r.isPresent) : courseRegs);
           
           let content = `=========================================\n`;
           content += `ELENCO ${onlyPresent ? 'PARTECIPANTI PRESENTI' : 'ISCRITTI'} - CORSO\n`;
@@ -2745,7 +2785,8 @@ if (window.emailjs) {
           content += `=========================================\n\n`;
 
           regsToExport.forEach((r, idx) => {
-            content += `[${idx + 1}] Partecipante: ${r.fullName}\n`;
+            { const n = regNames(r); content += `[${idx + 1}] Cognome: ${n.lastName}\n`;
+            content += `    Nome: ${n.firstName}\n`; }
             content += `    Azienda: ${r.company} (P.IVA: ${r.vatNumber})\n`;
             content += `    Città: ${r.city}\n`;
             content += `    Codice Biglietto / QR: ${r.ticketCode || ('REG-' + r.id)}\n`;
@@ -2766,9 +2807,10 @@ if (window.emailjs) {
         };
 
         const handleExportCourseCsv = (course, courseRegs) => {
-          let csv = 'ID,Codice Ticket,Nome e Cognome,Azienda,Partita IVA,Città,Email,Telefono,Presente,Ora Check-in,Data Iscrizione,Corso,Marchio\n';
-          courseRegs.forEach(r => {
-            csv += `"${r.id}","${r.ticketCode || 'REG-' + r.id}","${r.fullName}","${r.company}","${r.vatNumber}","${r.city}","${r.email}","${r.phone}","${r.isPresent ? 'Sì' : 'No'}","${r.checkinTime || ''}","${r.timestamp}","${r.courseTitle}","${r.brandName}"\n`;
+          let csv = 'ID,Codice Ticket,Cognome,Nome,Azienda,Partita IVA,Città,Email,Telefono,Presente,Ora Check-in,Data Iscrizione,Corso,Marchio\n';
+          sortBySurname(courseRegs).forEach(r => {
+            const n = regNames(r);
+            csv += `"${r.id}","${r.ticketCode || 'REG-' + r.id}","${n.lastName}","${n.firstName}","${r.company}","${r.vatNumber}","${r.city}","${r.email}","${r.phone}","${r.isPresent ? 'Sì' : 'No'}","${r.checkinTime || ''}","${r.timestamp}","${r.courseTitle}","${r.brandName}"\n`;
           });
 
           const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -2781,10 +2823,11 @@ if (window.emailjs) {
         };
 
         const handleExportCourseExcel = (course, courseRegs) => {
-          const dataToExport = courseRegs.map(r => ({
+          const dataToExport = sortBySurname(courseRegs).map(r => ({
             "ID Iscrizione": r.id,
             "Codice Ticket / QR": r.ticketCode || ('REG-' + r.id),
-            "Nome Partecipante": r.fullName,
+            "Cognome": regNames(r).lastName,
+            "Nome": regNames(r).firstName,
             "Azienda": r.company,
             "Partita IVA": r.vatNumber,
             "Città": r.city,
@@ -3115,9 +3158,15 @@ if (window.emailjs) {
                               )}
 
                               <form onSubmit={handleSubmit} className="space-y-4">
-                                <div>
-                                  <label className="block text-xs font-semibold text-slate-700 mb-1">Nome e Cognome del Partecipante *</label>
-                                  <input type="text" name="fullName" required value={formData.fullName} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="Mario Rossi" />
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                  <div>
+                                    <label className="block text-xs font-semibold text-slate-700 mb-1">Nome *</label>
+                                    <input type="text" name="firstName" required autoComplete="given-name" value={formData.firstName} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="Mario" />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-semibold text-slate-700 mb-1">Cognome *</label>
+                                    <input type="text" name="lastName" required autoComplete="family-name" value={formData.lastName} onChange={handleInputChange} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1b365d]" placeholder="Rossi" />
+                                  </div>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                   <div>
@@ -3175,7 +3224,7 @@ if (window.emailjs) {
                       <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl font-bold shadow-inner">✓</div>
                       <h3 className="text-xl font-bold text-slate-900 mb-2">Iscrizione Effettuata con Successo!</h3>
                       <p className="text-slate-600 text-sm mb-6 leading-relaxed">
-                        Grazie <strong>{formData.fullName}</strong> ({formData.company}). Abbiamo registrato la tua richiesta per il corso <strong>{selectedCourse.title}</strong>. Riceverai un'email con il tuo codice ticket e QR code per l'accesso in segreteria.
+                        Grazie <strong>{formData.firstName} {formData.lastName}</strong> ({formData.company}). Abbiamo registrato la tua richiesta per il corso <strong>{selectedCourse.title}</strong>. Riceverai un'email con il tuo codice ticket e QR code per l'accesso in segreteria.
                       </p>
                       <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-xs text-slate-700 mb-6 text-left space-y-2">
                         <p>✉️ <strong>Email inviata a:</strong> {formData.email}</p>
@@ -3512,13 +3561,14 @@ if (window.emailjs) {
                                         <tbody className="divide-y divide-slate-100 text-slate-700">
                                           {courseRegs.filter(matchesCheckinSearch).map(reg => (
                                             <tr key={reg.id} className={`hover:bg-slate-50 ${reg.isPresent ? 'bg-emerald-50/40' : ''}`}>
-                                              <td className="p-3 font-mono text-[11px] font-bold text-indigo-700 whitespace-nowrap">{reg.ticketCode || ('REG-' + reg.id)}</td>
+                                              <td className="p-3 font-mono text-[11px] font-bold text-indigo-700 whitespace-nowrap"><div>{reg.ticketCode || ('REG-' + reg.id)}</div>{reg.timestamp && <div className="font-sans font-normal text-[10px] text-slate-500 mt-0.5">🕒 {reg.timestamp}</div>}</td>
                                               
                                               {editingRegistrationId === reg.id ? (
                                                 <td className="p-3" colSpan="2">
                                                   <div className="bg-blue-50 p-3 rounded-lg border border-blue-200 space-y-2">
                                                     <div className="grid grid-cols-2 gap-2">
-                                                      <input type="text" value={editRegData.fullName} onChange={(e) => setEditRegData({...editRegData, fullName: e.target.value})} placeholder="Nome" className="px-2 py-1 bg-white border border-slate-300 rounded text-xs" />
+                                                      <input type="text" value={editRegData.firstName} onChange={(e) => setEditRegData({...editRegData, firstName: e.target.value})} placeholder="Nome" className="px-2 py-1 bg-white border border-slate-300 rounded text-xs" />
+                                                      <input type="text" value={editRegData.lastName} onChange={(e) => setEditRegData({...editRegData, lastName: e.target.value})} placeholder="Cognome" className="px-2 py-1 bg-white border border-slate-300 rounded text-xs" />
                                                       <input type="text" value={editRegData.company} onChange={(e) => setEditRegData({...editRegData, company: e.target.value})} placeholder="Azienda" className="px-2 py-1 bg-white border border-slate-300 rounded text-xs" />
                                                       <input type="text" value={editRegData.vatNumber} onChange={(e) => setEditRegData({...editRegData, vatNumber: e.target.value})} placeholder="P.IVA" className="px-2 py-1 bg-white border border-slate-300 rounded text-xs font-mono" />
                                                       <input type="email" value={editRegData.email} onChange={(e) => setEditRegData({...editRegData, email: e.target.value})} placeholder="Email" className="px-2 py-1 bg-white border border-slate-300 rounded text-xs" />
