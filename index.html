@@ -3785,6 +3785,34 @@ if (window.emailjs) {
                           );
                         })}
                       </div>
+                      {adminTab === 'courses-management' && (
+                      <div className="mt-8 border-t border-slate-200 pt-6">
+                        <h4 className="text-sm font-bold text-slate-900 mb-3">Corsi in Catalogo (Attiva / Disattiva Rapida)</h4>
+                        <div className="space-y-2 max-h-96 overflow-y-auto">
+                          {courses.map(c => {
+                            const bObj = brands.find(b => b.id === c.id || b.name === c.brandName);
+                            const isActive = c.isActive !== false;
+                            return (
+                              <div key={c.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs gap-2">
+                                <div className="truncate pr-2">
+                                  <span className="font-bold uppercase" style={{color: bObj?.color || '#8b1e1e'}}>{bObj?.name || c.brandName}:</span> <span className="font-semibold text-slate-900">{c.title}</span> {(c.code || makeCourseCode(c.date, c.time)) && <span title="ID corso" className="font-mono text-[10px] font-bold text-slate-600 bg-white border border-slate-300 rounded px-1.5 py-0.5 ml-1">ID {c.code || makeCourseCode(c.date, c.time)}</span>} <span className="text-slate-500 font-normal">({c.level || 'Base'})</span>
+                                </div>
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                  <button
+                                    onClick={() => handleToggleCourseActive(c)}
+                                    className={`px-3 py-1 rounded-lg font-bold text-xs transition-colors shadow-sm ${isActive ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-300 text-slate-700 hover:bg-slate-400'}`}
+                                  >
+                                    {isActive ? '✓ Attivo' : '✕ Disattivo'}
+                                  </button>
+                                  <button onClick={() => handleEditCourseClick(c)} className="text-blue-600 hover:text-blue-800 font-bold px-2.5 py-1 bg-white border border-blue-200 rounded-lg text-xs">Modifica</button>
+                                  <button onClick={() => handleDeleteCourse(c.id)} className="text-red-600 hover:text-red-800 font-bold px-2.5 py-1 bg-white border border-red-200 rounded-lg text-xs">Elimina</button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      )}
                     </div>
                   )}
 
@@ -4086,33 +4114,6 @@ if (window.emailjs) {
                           <button type="button" onClick={() => { setEditingCourseId(null); setAdminTab(isCourseExpired(newCourseData.date) ? 'courses-history' : 'courses-management'); }} className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-3 px-4 rounded-xl text-sm transition-colors">Annulla</button>
                         </div>
                       </form>
-
-                      <div className="mt-8 border-t border-slate-200 pt-6">
-                        <h4 className="text-sm font-bold text-slate-900 mb-3">Corsi in Catalogo (Attiva / Disattiva Rapida)</h4>
-                        <div className="space-y-2 max-h-60 overflow-y-auto">
-                          {courses.map(c => {
-                            const bObj = brands.find(b => b.id === c.id || b.name === c.brandName);
-                            const isActive = c.isActive !== false;
-                            return (
-                              <div key={c.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs gap-2">
-                                <div className="truncate pr-2">
-                                  <span className="font-bold uppercase" style={{color: bObj?.color || '#8b1e1e'}}>{bObj?.name || c.brandName}:</span> <span className="font-semibold text-slate-900">{c.title}</span> <span className="text-slate-500 font-normal">({c.level || 'Base'})</span>
-                                </div>
-                                <div className="flex items-center gap-2 flex-shrink-0">
-                                  <button
-                                    onClick={() => handleToggleCourseActive(c)}
-                                    className={`px-3 py-1 rounded-lg font-bold text-xs transition-colors shadow-sm ${isActive ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-300 text-slate-700 hover:bg-slate-400'}`}
-                                  >
-                                    {isActive ? '✓ Attivo' : '✕ Disattivo'}
-                                  </button>
-                                  <button onClick={() => handleEditCourseClick(c)} className="text-blue-600 hover:text-blue-800 font-bold px-2.5 py-1 bg-white border border-blue-200 rounded-lg text-xs">Modifica</button>
-                                  <button onClick={() => handleDeleteCourse(c.id)} className="text-red-600 hover:text-red-800 font-bold px-2.5 py-1 bg-white border border-red-200 rounded-lg text-xs">Elimina</button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
                     </div>
                   )}
                 </div>
