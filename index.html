@@ -2806,6 +2806,67 @@ if (window.emailjs) {
           URL.revokeObjectURL(url);
         };
 
+        const handleExportCourseAccoglienza = (course, courseRegs) => {
+          const { jsPDF } = window.jspdf;
+          const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+          const rows = sortBySurname(courseRegs);
+          const M = 10, rowH = 7, headH = 8;
+          const cols = [
+            { t: '#', w: 10 }, { t: 'Cognome', w: 48 }, { t: 'Nome', w: 40 },
+            { t: 'Azienda', w: 76 }, { t: 'Telefono', w: 38 }, { t: 'Presenza', w: 30 }, { t: 'Note', w: 35 }
+          ];
+          const fit = (txt, w) => {
+            let t = String(txt || '');
+            if (doc.getTextWidth(t) <= w - 3) return t;
+            while (t.length > 1 && doc.getTextWidth(t + '…') > w - 3) t = t.slice(0, -1);
+            return t + '…';
+          };
+          const header = (page, pages) => {
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(27, 54, 93);
+            doc.text(`Accoglienza - ${course.title}`, M, 14);
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(90);
+            const presenti = courseRegs.filter(r => r.isPresent).length;
+            doc.text(`${course.date}${course.time ? ' - ' + course.time : ''}   |   Iscritti: ${courseRegs.length}   |   Presenti: ${presenti}   |   Pagina ${page}/${pages}`, M, 19);
+            let x = M; const y = 23;
+            doc.setFillColor(27, 54, 93); doc.rect(M, y, 277, headH, 'F');
+            doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+            cols.forEach(c => { doc.text(c.t, x + 1.5, y + 5.3); x += c.w; });
+            return y + headH;
+          };
+          const perPage = Math.floor((210 - 12 - 31) / rowH);
+          const pages = Math.max(1, Math.ceil(rows.length / perPage));
+          for (let pg = 0; pg < pages; pg++) {
+            if (pg > 0) doc.addPage();
+            let y = header(pg + 1, pages);
+            rows.slice(pg * perPage, (pg + 1) * perPage).forEach((r, i) => {
+              const n = regNames(r);
+              if (i % 2 === 1) { doc.setFillColor(243, 246, 250); doc.rect(M, y, 277, rowH, 'F'); }
+              doc.setDrawColor(210); doc.setLineWidth(0.1); doc.line(M, y + rowH, M + 277, y + rowH);
+              doc.setTextColor(20); doc.setFontSize(9.5);
+              let x = M;
+              const vals = [String(pg * perPage + i + 1), n.lastName, n.firstName, r.company, r.phone];
+              vals.forEach((v, k) => {
+                doc.setFont('helvetica', k === 1 ? 'bold' : 'normal');
+                doc.text(fit(v, cols[k].w), x + 1.5, y + 4.9);
+                x += cols[k].w;
+              });
+              // casella presenza
+              doc.setDrawColor(60); doc.setLineWidth(0.3); doc.rect(x + 2, y + 1.5, 4, 4);
+              if (r.isPresent) {
+                doc.setDrawColor(22, 120, 60); doc.setLineWidth(0.6);
+                doc.line(x + 2.8, y + 3.6, x + 3.8, y + 4.8); doc.line(x + 3.8, y + 4.8, x + 5.6, y + 2.2);
+                doc.setTextColor(22, 120, 60); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
+                doc.text('Presente' + (r.checkinTime ? '' : ''), x + 8, y + 4.7);
+              } else {
+                doc.setTextColor(150); doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+                doc.text('Assente', x + 8, y + 4.7);
+              }
+              y += rowH;
+            });
+          }
+          doc.save(`accoglienza_${course.title.toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 30)}.pdf`);
+        };
+
         const handleExportCourseCsv = (course, courseRegs) => {
           let csv = 'ID,Codice Ticket,Cognome,Nome,Azienda,Partita IVA,Città,Email,Telefono,Presente,Ora Check-in,Data Iscrizione,Corso,Marchio\n';
           sortBySurname(courseRegs).forEach(r => {
@@ -3491,6 +3552,13 @@ if (window.emailjs) {
                                         title="Esporta in Excel (.xlsx)"
                                       >
                                         📊 Excel
+                                      </button>
+                                      <button
+                                        onClick={() => handleExportCourseAccoglienza(course, courseRegs)}
+                                        className="h-8 inline-flex items-center justify-center gap-1 whitespace-nowrap font-semibold rounded-lg text-xs transition-colors border px-2.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-200"
+                                        title="Elenco compatto A4 orizzontale per l'accoglienza, ordinato per cognome"
+                                      >
+                                        🖨️ Lista Accoglienza
                                       </button>
                                       <button
                                         onClick={() => handleExportCourseCsv(course, courseRegs)}
