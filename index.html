@@ -1780,7 +1780,7 @@
               <div className="flex gap-2 items-stretch flex-shrink-0">
                 <select value={courseId} onChange={e => setCourseId(e.target.value)} className="flex-1 min-w-0 px-2 py-2 border border-slate-300 rounded-xl text-xs bg-white font-semibold">
                   {courses.map(c => (
-                    <option key={c.id} value={String(c.id)}>{(c.code || '') + (c.code ? ' · ' : '')}{c.date} · {c.title}</option>
+                    <option key={c.id} value={String(c.id)}>{c.date} · {c.title}</option>
                   ))}
                 </select>
                 <div className="bg-white rounded-xl border border-slate-200 px-3 flex flex-col items-center justify-center leading-none whitespace-nowrap">
@@ -1800,7 +1800,10 @@
                       {chip('missing', `Mancano ${Math.max(0, counts.total - counts.present)}`)}
                       {chip('present', `Presenti ${counts.present}`)}
                     </div>
-                    <input value={listQuery} onChange={e => setListQuery(e.target.value)} placeholder="Cerca cognome, nome o azienda" className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm bg-white flex-shrink-0" />
+                    <div className="relative flex-shrink-0">
+                      <input value={listQuery} onChange={e => setListQuery(e.target.value)} placeholder="Cerca cognome, nome o azienda" className="w-full pl-3 pr-10 py-2 border border-slate-300 rounded-xl text-sm bg-white" />
+                      {listQuery && <button type="button" onClick={() => setListQuery('')} aria-label="Cancella ricerca" className="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 font-black text-sm leading-none">✕</button>}
+                    </div>
                     <div className="flex-1 min-h-0 overflow-y-auto bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
                       {shown.length === 0 && <div className="p-4 text-sm text-slate-400 text-center">Nessun partecipante</div>}
                       {shown.length > 0 && <div className="px-3 py-1.5 text-[10px] text-slate-400 bg-slate-50">Tocca un nome per segnare la presenza a mano (o annullarla)</div>}
