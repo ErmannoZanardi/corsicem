@@ -316,6 +316,12 @@
             doc.setFontSize(11);
             doc.setTextColor(80, 90, 105);
             doc.text(`Data di svolgimento: ${reg.date || 'N/D'}`, 148.5, 155, { align: 'center' });
+            const certCourseId = courseIdLabel(matchedCourse);
+            if (certCourseId) {
+              doc.setFontSize(8);
+              doc.setTextColor(120, 130, 145);
+              doc.text(`ID corso: ${certCourseId}`, 148.5, 161, { align: 'center' });
+            }
 
             if (qrImgDataUrl) {
               try {
@@ -566,6 +572,18 @@
           .replace(/\r?\n/g, '\\n')
           .replace(/;/g, '\\;')
           .replace(/,/g, '\\,');
+      }
+
+      // ID corso da stampare (codice salvato, oppure AAMMGG_HHMM calcolato da data e ora)
+      function courseIdLabel(c) {
+        if (!c) return '';
+        if (c.code && String(c.code).trim()) return String(c.code).trim();
+        const d = parseCourseDateTop(c.date);
+        if (!d || isNaN(d.getTime())) return '';
+        const t = String(c.time || '').match(/(\d{1,2})[:.](\d{2})/);
+        const hh = t ? String(t[1]).padStart(2, '0') : '00';
+        const mm = t ? t[2] : '00';
+        return `${String(d.getFullYear()).slice(-2)}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}_${hh}${mm}`;
       }
 
       // QR code come immagine (data URL) per un testo/indirizzo qualsiasi
@@ -1040,7 +1058,7 @@
         kv += 3;
         const infoRows = [
           courseDate ? `Data: ${courseDate}${c.time ? '  ·  Orario: ' + c.time : ''}` : '',
-          c.duration ? `Durata: ${c.duration}` : '',
+          (c.duration || courseIdLabel(c)) ? [c.duration ? `Durata: ${c.duration}` : '', courseIdLabel(c) ? `ID corso: ${courseIdLabel(c)}` : ''].filter(Boolean).join('  ·  ') : '',
           c.modality ? `Modalità: ${c.modality}` : '',
           locationText,
           speaker ? `Relatore: ${speaker}` : '',
@@ -1383,7 +1401,7 @@
               let courses = [];
               if (r.course_id) {
                 try {
-                  const { data: cData } = await supabaseClient.from('courses').select('id, title, speaker, level').eq('id', r.course_id).limit(1);
+                  const { data: cData } = await supabaseClient.from('courses').select('id, title, speaker, level, code, date, time').eq('id', r.course_id).limit(1);
                   if (cData) courses = cData;
                 } catch (e) { console.error('Errore corso attestato:', e); }
               }
