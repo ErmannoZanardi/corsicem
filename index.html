@@ -1688,6 +1688,12 @@
           else setPassword('');
         };
 
+        useEffect(() => {
+          if (!result) return;
+          const t = setTimeout(() => setResult(null), result.type === 'ok' ? 3000 : 4500);
+          return () => clearTimeout(t);
+        }, [result]);
+
         const course = courses.find(c => String(c.id) === String(courseId));
         const box = result && ({
           ok:       { bg: 'bg-emerald-600', icon: '✅', title: 'CHECK-IN OK' },
@@ -1715,73 +1721,67 @@
         }
 
         return (
-          <div className="min-h-screen bg-slate-100 pb-10">
-            <div className="bg-[#1b365d] text-white px-4 py-3 flex items-center justify-between">
+          <div className="h-[100dvh] bg-slate-100 flex flex-col overflow-hidden">
+            <div className="bg-[#1b365d] text-white px-3 py-2 flex items-center justify-between flex-shrink-0">
               <span className="font-black text-sm">📱 Check-in Accoglienza</span>
               <button onClick={async () => { stopCamera(); await supabaseClient.auth.signOut(); }} className="text-xs bg-white/15 rounded-lg px-3 py-1.5 font-semibold">Esci</button>
             </div>
-            <div className="max-w-md mx-auto p-4 space-y-4">
-              <select value={courseId} onChange={e => setCourseId(e.target.value)} className="w-full px-3 py-3 border border-slate-300 rounded-xl text-sm bg-white font-semibold">
-                {courses.map(c => (
-                  <option key={c.id} value={String(c.id)}>{(c.code || '') + (c.code ? ' · ' : '')}{c.date} · {c.title}</option>
-                ))}
-              </select>
-
-              <div className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center justify-between">
-                <div className="text-xs text-slate-500 min-w-0 pr-3">
-                  <div className="font-bold text-slate-800 truncate">{course ? course.title : '—'}</div>
-                  <div>{course ? `${course.date} (${course.time})` : ''}</div>
-                </div>
-                <div className="text-right whitespace-nowrap">
-                  <div className="text-3xl font-black text-[#1b365d] leading-none">{counts.present}<span className="text-slate-400 text-xl"> / {counts.total}</span></div>
-                  <div className="text-[10px] uppercase font-bold text-slate-400 mt-1">presenti</div>
+            <div className="flex-1 min-h-0 flex flex-col gap-2 p-3 max-w-md w-full mx-auto">
+              <div className="flex gap-2 items-stretch flex-shrink-0">
+                <select value={courseId} onChange={e => setCourseId(e.target.value)} className="flex-1 min-w-0 px-2 py-2 border border-slate-300 rounded-xl text-xs bg-white font-semibold">
+                  {courses.map(c => (
+                    <option key={c.id} value={String(c.id)}>{(c.code || '') + (c.code ? ' · ' : '')}{c.date} · {c.title}</option>
+                  ))}
+                </select>
+                <div className="bg-white rounded-xl border border-slate-200 px-3 flex flex-col items-center justify-center leading-none whitespace-nowrap">
+                  <div className="text-xl font-black text-[#1b365d]">{counts.present}<span className="text-slate-400 text-sm"> / {counts.total}</span></div>
+                  <div className="text-[9px] uppercase font-bold text-slate-400 mt-0.5">presenti</div>
                 </div>
               </div>
 
-              <div className="bg-black rounded-2xl overflow-hidden relative aspect-square">
+              <div className="bg-black rounded-2xl overflow-hidden relative flex-1 min-h-[180px]">
                 <video ref={videoRef} muted playsInline autoPlay className="absolute inset-0 w-full h-full object-cover"></video>
                 <canvas ref={canvasRef} className="hidden"></canvas>
-                {cameraOn && <div className="absolute inset-10 border-4 border-white/70 rounded-2xl pointer-events-none"></div>}
+                {cameraOn && <div className="absolute inset-8 border-4 border-white/60 rounded-2xl pointer-events-none"></div>}
                 {!cameraOn && (
                   <div className="absolute inset-0 bg-black flex flex-col items-center justify-center gap-3 text-white p-6 text-center">
-                    <div className="text-5xl">📷</div>
+                    <div className="text-4xl">📷</div>
                     <button onClick={startCamera} className="bg-emerald-600 hover:bg-emerald-700 font-black px-6 py-3 rounded-xl text-base">Attiva fotocamera</button>
                     {cameraError && <p className="text-xs text-red-300">{cameraError}</p>}
                   </div>
                 )}
+                {cameraOn && <button onClick={stopCamera} className="absolute top-2 right-2 text-[10px] font-semibold text-white bg-black/50 rounded-lg px-2 py-1">Spegni</button>}
+
+                {box && (
+                  <div className={`${box.bg} text-white absolute inset-x-2 bottom-2 rounded-2xl px-4 py-3 text-center shadow-xl`} onClick={() => setResult(null)}>
+                    <div className="text-base font-black">{box.icon} {box.title}{result.type === 'ok' ? ` · ${result.time}` : ''}</div>
+                    {result.reg && <div className="text-lg font-bold leading-tight mt-0.5">{result.reg.full_name}</div>}
+                    {result.reg && <div className="text-xs opacity-90">{result.reg.company}</div>}
+                    {result.type === 'already' && <div className="text-xs mt-0.5">già entrato{result.time ? ` alle ${result.time}` : ''}</div>}
+                    {result.type === 'wrong' && <div className="text-xs mt-0.5">Iscritto a: {result.reg.course_title} ({result.reg.date})</div>}
+                    {result.type === 'notfound' && <div className="text-xs font-mono mt-0.5 break-all">{result.code}</div>}
+                    {result.type === 'error' && <div className="text-xs mt-0.5 break-words">{result.msg}</div>}
+                  </div>
+                )}
               </div>
-              {cameraOn && <p className="text-[11px] text-center text-slate-500">{scanInfo} · tieni il QR dritto, a 15-25 cm, ben illuminato</p>}
-              {cameraOn && <button onClick={stopCamera} className="w-full text-xs font-semibold text-slate-600 bg-white border border-slate-300 rounded-xl py-2">Spegni fotocamera</button>}
 
-              {box && (
-                <div className={`${box.bg} text-white rounded-2xl p-5 text-center shadow-lg`} onClick={() => setResult(null)}>
-                  <div className="text-4xl">{box.icon}</div>
-                  <div className="text-xl font-black mt-1">{box.title}</div>
-                  {result.reg && <div className="text-lg font-bold mt-2">{result.reg.full_name}</div>}
-                  {result.reg && <div className="text-sm opacity-90">{result.reg.company}</div>}
-                  {result.type === 'ok' && <div className="text-sm mt-1">alle {result.time}</div>}
-                  {result.type === 'already' && <div className="text-sm mt-1">già entrato{result.time ? ` alle ${result.time}` : ''}</div>}
-                  {result.type === 'wrong' && <div className="text-sm mt-1">Iscritto a: {result.reg.course_title} ({result.reg.date})</div>}
-                  {result.type === 'notfound' && <div className="text-xs font-mono mt-1 break-all">{result.code}</div>}
-                  {result.type === 'error' && <div className="text-xs mt-1 break-words">{result.msg}</div>}
-                </div>
-              )}
-
-              <form onSubmit={e => { e.preventDefault(); processCode(manual); setManual(''); }} className="flex gap-2">
-                <input value={manual} onChange={e => setManual(e.target.value)} placeholder="Codice a mano: TICKET-XXXX-XXXX-XXXX" className="flex-1 min-w-0 px-3 py-3 border border-slate-300 rounded-xl text-sm font-mono bg-white" autoCapitalize="characters" autoCorrect="off" />
+              <form onSubmit={e => { e.preventDefault(); processCode(manual); setManual(''); }} className="flex gap-2 flex-shrink-0">
+                <input value={manual} onChange={e => setManual(e.target.value)} placeholder="Codice a mano: TICKET-XXXX-XXXX-XXXX" className="flex-1 min-w-0 px-3 py-2 border border-slate-300 rounded-xl text-xs font-mono bg-white" autoCapitalize="characters" autoCorrect="off" />
                 <button className="bg-[#1b365d] text-white font-bold px-4 rounded-xl text-sm">OK</button>
               </form>
 
-              {recent.length > 0 && (
-                <div className="bg-white rounded-2xl border border-slate-200 p-4">
-                  <div className="text-[11px] uppercase font-black text-slate-400 mb-2">Ultimi check-in</div>
-                  <ul className="divide-y divide-slate-100 text-sm">
-                    {recent.map((r, i) => (
-                      <li key={i} className="py-1.5 flex justify-between gap-2"><span className="font-semibold text-slate-800 truncate">{r.name} <span className="text-slate-400 font-normal">· {r.company}</span></span><span className="text-slate-500 font-mono text-xs">{r.time}</span></li>
+              <div className="bg-white rounded-xl border border-slate-200 px-3 py-2 flex-shrink-0">
+                <div className="text-[10px] uppercase font-black text-slate-400 mb-1">Ultimi check-in</div>
+                {recent.length === 0 ? (
+                  <div className="text-xs text-slate-400">Nessuno ancora{cameraOn && scanInfo ? ` · ${scanInfo}` : ''}</div>
+                ) : (
+                  <ul className="divide-y divide-slate-100 text-xs">
+                    {recent.slice(0, 3).map((r, i) => (
+                      <li key={i} className="py-1 flex justify-between gap-2"><span className="font-semibold text-slate-800 truncate">{r.name} <span className="text-slate-400 font-normal">· {r.company}</span></span><span className="text-slate-500 font-mono">{r.time}</span></li>
                     ))}
                   </ul>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         );
