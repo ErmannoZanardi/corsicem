@@ -34,6 +34,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <!-- Generazione QR code locale (nessuna chiamata a servizi esterni) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
     <!-- SheetJS (xlsx) per l'esportazione dei file Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script type="text/javascript">
@@ -1451,6 +1452,319 @@
             <footer className="bg-[#1b365d] text-white border-t border-blue-900/50 py-6 text-center text-xs text-slate-300">
               <p>{footerText || '© 2026 Portale Formazione Installatori Tecnici. Tutti i diritti riservati.'}</p>
             </footer>
+          </div>
+        );
+      }
+
+      const parseCourseDateTop = (dateString) => {
+          if (!dateString) return null;
+          try {
+            const months = {
+              gen: 0, gennaio: 0,
+              feb: 1, febbraio: 1,
+              mar: 2, marzo: 2,
+              apr: 3, aprile: 3,
+              mag: 4, maggio: 4,
+              giu: 5, giugno: 5,
+              lug: 6, luglio: 6,
+              ago: 7, agosto: 7,
+              set: 8, settembre: 8,
+              ott: 9, ottobre: 9,
+              nov: 10, novembre: 10,
+              dic: 11, dicembre: 11
+            };
+
+            const cleanStr = dateString.toLowerCase();
+
+            // Formato numerico: 19/11/2026, 19-11-2026, 19.11.2026
+            // (con più giorni, es. "19-20/11/2026", vale la prima data completa trovata)
+            const numericMatch = cleanStr.match(/(?:^|\D)(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})(?!\d)/);
+            if (numericMatch) {
+              const nDay = parseInt(numericMatch[1], 10);
+              const nMonth = parseInt(numericMatch[2], 10);
+              const nYear = parseInt(numericMatch[3], 10);
+              if (nMonth >= 1 && nMonth <= 12 && nDay >= 1 && nDay <= 31) {
+                return new Date(nYear, nMonth - 1, nDay);
+              }
+            }
+
+            const words = cleanStr.replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(Boolean);
+
+            let day = null;
+            let month = null;
+            let year = 2026;
+
+            for (let i = 0; i < words.length; i++) {
+              const w = words[i];
+              if (!isNaN(w)) {
+                const num = parseInt(w, 10);
+                if (num > 31 && num >= 2000) {
+                  year = num;
+                } else if (num >= 1 && num <= 31 && !day) {
+                  day = num;
+                }
+              } else {
+                for (let key in months) {
+                  if (w.startsWith(key)) {
+                    month = months[key];
+                    break;
+                  }
+                }
+              }
+            }
+
+            if (day !== null && month !== null) {
+              return new Date(year, month, day);
+            }
+          } catch (e) {
+            console.error("Errore parsing data corso:", e);
+          }
+          return null;
+        };
+
+      // ==========================================
+      // SCANNER CHECK-IN PER SMARTPHONE  (apri:  index.html?checkin )
+      // ==========================================
+      function CheckinPage() {
+        const [session, setSession] = useState(null);
+        const [authReady, setAuthReady] = useState(false);
+        const [email, setEmail] = useState('');
+        const [password, setPassword] = useState('');
+        const [loginError, setLoginError] = useState('');
+        const [busy, setBusy] = useState(false);
+        const [courses, setCourses] = useState([]);
+        const [courseId, setCourseId] = useState(() => { try { return localStorage.getItem('checkinCourse') || ''; } catch (e) { return ''; } });
+        const [counts, setCounts] = useState({ total: 0, present: 0 });
+        const [result, setResult] = useState(null);
+        const [recent, setRecent] = useState([]);
+        const [manual, setManual] = useState('');
+        const [cameraOn, setCameraOn] = useState(false);
+        const [cameraError, setCameraError] = useState('');
+        const videoRef = useRef(null);
+        const canvasRef = useRef(null);
+        const streamRef = useRef(null);
+        const rafRef = useRef(null);
+        const lockRef = useRef(false);
+        const lastRef = useRef({ code: '', at: 0 });
+        const courseIdRef = useRef(courseId);
+        courseIdRef.current = courseId;
+
+        useEffect(() => {
+          if (!supabaseClient) { setAuthReady(true); return; }
+          supabaseClient.auth.getSession().then(({ data }) => { setSession((data && data.session) || null); setAuthReady(true); });
+          const { data: sub } = supabaseClient.auth.onAuthStateChange((_e, s) => setSession(s || null));
+          return () => sub.subscription.unsubscribe();
+        }, []);
+
+        useEffect(() => {
+          if (!session || !supabaseClient) return;
+          supabaseClient.from('courses').select('id,title,date,time,brand_name,code').then(({ data }) => {
+            const list = (data || []).map(c => ({ ...c, d: parseCourseDateTop(c.date) }));
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            // prima i corsi di oggi / futuri (dal più vicino), poi i passati (dal più recente)
+            list.sort((a, b) => {
+              const ta = a.d ? a.d.getTime() : 9e15, tb = b.d ? b.d.getTime() : 9e15;
+              const fa = ta >= today.getTime(), fb = tb >= today.getTime();
+              if (fa !== fb) return fa ? -1 : 1;
+              return fa ? ta - tb : tb - ta;
+            });
+            setCourses(list);
+            if (!courseIdRef.current && list[0]) setCourseId(String(list[0].id));
+          });
+        }, [session]);
+
+        const refreshCounts = async (cid) => {
+          if (!cid || !supabaseClient) return;
+          const { data } = await supabaseClient.from('registrations').select('id,is_present').eq('course_id', cid);
+          if (data) setCounts({ total: data.length, present: data.filter(r => r.is_present).length });
+        };
+        useEffect(() => {
+          try { if (courseId) localStorage.setItem('checkinCourse', courseId); } catch (e) {}
+          setRecent([]); setResult(null);
+          refreshCounts(courseId);
+        }, [courseId]);
+
+        const beep = (ok) => {
+          try {
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            const ctx = new Ctx(); const o = ctx.createOscillator(); const g = ctx.createGain();
+            o.frequency.value = ok ? 880 : 220; o.type = 'sine'; g.gain.value = 0.15;
+            o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + (ok ? 0.12 : 0.35));
+          } catch (e) {}
+        };
+
+        const processCode = async (raw) => {
+          const code = String(raw || '').trim().toUpperCase();
+          if (!code || lockRef.current) return;
+          const now = Date.now();
+          if (lastRef.current.code === code && now - lastRef.current.at < 4000) return;
+          lastRef.current = { code, at: now };
+          lockRef.current = true;
+          try {
+            const { data, error } = await supabaseClient.from('registrations').select('*').eq('ticket_code', code).limit(1);
+            if (error) { setResult({ type: 'error', msg: error.message }); beep(false); return; }
+            const reg = data && data[0];
+            if (!reg) { setResult({ type: 'notfound', code }); beep(false); if (navigator.vibrate) navigator.vibrate([200, 100, 200]); return; }
+            if (String(reg.course_id) !== String(courseIdRef.current)) {
+              setResult({ type: 'wrong', reg }); beep(false); if (navigator.vibrate) navigator.vibrate([200, 100, 200]); return;
+            }
+            if (reg.is_present) {
+              setResult({ type: 'already', reg, time: reg.checkin_time }); beep(false); if (navigator.vibrate) navigator.vibrate(300); return;
+            }
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const { error: upErr } = await supabaseClient.from('registrations').update({ is_present: true, checkin_time: time }).eq('id', reg.id);
+            if (upErr) { setResult({ type: 'error', msg: upErr.message }); beep(false); return; }
+            setResult({ type: 'ok', reg, time });
+            setRecent(prev => [{ name: reg.full_name, company: reg.company, time }, ...prev].slice(0, 6));
+            beep(true); if (navigator.vibrate) navigator.vibrate(120);
+            refreshCounts(courseIdRef.current);
+          } finally {
+            setTimeout(() => { lockRef.current = false; }, 1500);
+          }
+        };
+
+        const stopCamera = () => {
+          if (rafRef.current) cancelAnimationFrame(rafRef.current);
+          rafRef.current = null;
+          if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+          setCameraOn(false);
+        };
+
+        const startCamera = async () => {
+          setCameraError('');
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            setCameraError('Fotocamera non disponibile: il sito deve essere aperto in HTTPS.'); return;
+          }
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+            streamRef.current = stream;
+            const v = videoRef.current;
+            v.srcObject = stream; v.setAttribute('playsinline', 'true');
+            await v.play();
+            setCameraOn(true);
+            let lastTick = 0;
+            const tick = (t) => {
+              rafRef.current = requestAnimationFrame(tick);
+              if (t - lastTick < 120 || v.readyState < 2 || !v.videoWidth) return;
+              lastTick = t;
+              const cv = canvasRef.current; const scale = Math.min(1, 640 / v.videoWidth);
+              cv.width = Math.round(v.videoWidth * scale); cv.height = Math.round(v.videoHeight * scale);
+              const ctx = cv.getContext('2d', { willReadFrequently: true });
+              ctx.drawImage(v, 0, 0, cv.width, cv.height);
+              const img = ctx.getImageData(0, 0, cv.width, cv.height);
+              const q = window.jsQR && window.jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+              if (q && q.data) processCode(q.data);
+            };
+            rafRef.current = requestAnimationFrame(tick);
+          } catch (e) {
+            setCameraError('Impossibile usare la fotocamera: consenti l\'accesso nelle impostazioni del browser. (' + (e.message || e.name) + ')');
+          }
+        };
+        useEffect(() => () => stopCamera(), []);
+
+        const doLogin = async (e) => {
+          e.preventDefault();
+          setBusy(true); setLoginError('');
+          const { error } = await supabaseClient.auth.signInWithPassword({ email: email.trim(), password });
+          setBusy(false);
+          if (error) setLoginError('Email o password non corretti.');
+          else setPassword('');
+        };
+
+        const course = courses.find(c => String(c.id) === String(courseId));
+        const box = result && ({
+          ok:       { bg: 'bg-emerald-600', icon: '✅', title: 'CHECK-IN OK' },
+          already:  { bg: 'bg-amber-500',   icon: '⚠️', title: 'GIÀ REGISTRATO' },
+          wrong:    { bg: 'bg-red-600',     icon: '⛔', title: 'ALTRO CORSO' },
+          notfound: { bg: 'bg-red-600',     icon: '❌', title: 'CODICE NON TROVATO' },
+          error:    { bg: 'bg-red-700',     icon: '❌', title: 'ERRORE' }
+        })[result.type];
+
+        if (!authReady) return <div className="min-h-screen flex items-center justify-center text-slate-500">Caricamento…</div>;
+
+        if (!session) {
+          return (
+            <div className="min-h-screen bg-[#1b365d] flex items-center justify-center p-5">
+              <form onSubmit={doLogin} className="w-full max-w-sm bg-white rounded-2xl p-6 space-y-4 shadow-xl">
+                <h1 className="text-lg font-black text-slate-900">📱 Check-in Accoglienza</h1>
+                <p className="text-xs text-slate-500">Accedi con le credenziali dello staff.</p>
+                <input type="email" required autoComplete="username" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" className="w-full px-4 py-3 border border-slate-300 rounded-xl text-base" />
+                <input type="password" required autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" className="w-full px-4 py-3 border border-slate-300 rounded-xl text-base" />
+                {loginError && <p className="text-sm font-semibold text-red-600">{loginError}</p>}
+                <button disabled={busy} className="w-full bg-[#1b365d] text-white font-bold py-3 rounded-xl text-base disabled:opacity-60">{busy ? 'Accesso…' : 'Accedi'}</button>
+              </form>
+            </div>
+          );
+        }
+
+        return (
+          <div className="min-h-screen bg-slate-100 pb-10">
+            <div className="bg-[#1b365d] text-white px-4 py-3 flex items-center justify-between">
+              <span className="font-black text-sm">📱 Check-in Accoglienza</span>
+              <button onClick={async () => { stopCamera(); await supabaseClient.auth.signOut(); }} className="text-xs bg-white/15 rounded-lg px-3 py-1.5 font-semibold">Esci</button>
+            </div>
+            <div className="max-w-md mx-auto p-4 space-y-4">
+              <select value={courseId} onChange={e => setCourseId(e.target.value)} className="w-full px-3 py-3 border border-slate-300 rounded-xl text-sm bg-white font-semibold">
+                {courses.map(c => (
+                  <option key={c.id} value={String(c.id)}>{(c.code || '') + (c.code ? ' · ' : '')}{c.date} · {c.title}</option>
+                ))}
+              </select>
+
+              <div className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center justify-between">
+                <div className="text-xs text-slate-500 min-w-0 pr-3">
+                  <div className="font-bold text-slate-800 truncate">{course ? course.title : '—'}</div>
+                  <div>{course ? `${course.date} (${course.time})` : ''}</div>
+                </div>
+                <div className="text-right whitespace-nowrap">
+                  <div className="text-3xl font-black text-[#1b365d] leading-none">{counts.present}<span className="text-slate-400 text-xl"> / {counts.total}</span></div>
+                  <div className="text-[10px] uppercase font-bold text-slate-400 mt-1">presenti</div>
+                </div>
+              </div>
+
+              <div className="bg-black rounded-2xl overflow-hidden relative aspect-square">
+                <video ref={videoRef} muted playsInline className={`w-full h-full object-cover ${cameraOn ? '' : 'hidden'}`}></video>
+                <canvas ref={canvasRef} className="hidden"></canvas>
+                {cameraOn && <div className="absolute inset-10 border-4 border-white/70 rounded-2xl pointer-events-none"></div>}
+                {!cameraOn && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white p-6 text-center">
+                    <div className="text-5xl">📷</div>
+                    <button onClick={startCamera} className="bg-emerald-600 hover:bg-emerald-700 font-black px-6 py-3 rounded-xl text-base">Attiva fotocamera</button>
+                    {cameraError && <p className="text-xs text-red-300">{cameraError}</p>}
+                  </div>
+                )}
+              </div>
+              {cameraOn && <button onClick={stopCamera} className="w-full text-xs font-semibold text-slate-600 bg-white border border-slate-300 rounded-xl py-2">Spegni fotocamera</button>}
+
+              {box && (
+                <div className={`${box.bg} text-white rounded-2xl p-5 text-center shadow-lg`} onClick={() => setResult(null)}>
+                  <div className="text-4xl">{box.icon}</div>
+                  <div className="text-xl font-black mt-1">{box.title}</div>
+                  {result.reg && <div className="text-lg font-bold mt-2">{result.reg.full_name}</div>}
+                  {result.reg && <div className="text-sm opacity-90">{result.reg.company}</div>}
+                  {result.type === 'ok' && <div className="text-sm mt-1">alle {result.time}</div>}
+                  {result.type === 'already' && <div className="text-sm mt-1">già entrato{result.time ? ` alle ${result.time}` : ''}</div>}
+                  {result.type === 'wrong' && <div className="text-sm mt-1">Iscritto a: {result.reg.course_title} ({result.reg.date})</div>}
+                  {result.type === 'notfound' && <div className="text-xs font-mono mt-1 break-all">{result.code}</div>}
+                  {result.type === 'error' && <div className="text-xs mt-1 break-words">{result.msg}</div>}
+                </div>
+              )}
+
+              <form onSubmit={e => { e.preventDefault(); processCode(manual); setManual(''); }} className="flex gap-2">
+                <input value={manual} onChange={e => setManual(e.target.value)} placeholder="Codice a mano: TICKET-XXXX-XXXX-XXXX" className="flex-1 min-w-0 px-3 py-3 border border-slate-300 rounded-xl text-sm font-mono bg-white" autoCapitalize="characters" autoCorrect="off" />
+                <button className="bg-[#1b365d] text-white font-bold px-4 rounded-xl text-sm">OK</button>
+              </form>
+
+              {recent.length > 0 && (
+                <div className="bg-white rounded-2xl border border-slate-200 p-4">
+                  <div className="text-[11px] uppercase font-black text-slate-400 mb-2">Ultimi check-in</div>
+                  <ul className="divide-y divide-slate-100 text-sm">
+                    {recent.map((r, i) => (
+                      <li key={i} className="py-1.5 flex justify-between gap-2"><span className="font-semibold text-slate-800 truncate">{r.name} <span className="text-slate-400 font-normal">· {r.company}</span></span><span className="text-slate-500 font-mono text-xs">{r.time}</span></li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           </div>
         );
       }
@@ -3442,7 +3756,7 @@ if (window.emailjs) {
                       </div>
 
                       <div className="mb-6 bg-slate-50 border-2 border-dashed border-[#1b365d]/30 rounded-2xl p-4">
-                        <label className="block text-xs font-black uppercase tracking-wider text-[#1b365d] mb-2">🎫 Check-in rapido con QR Code</label>
+                        <div className="flex items-center justify-between gap-2 mb-2 flex-wrap"><label className="block text-xs font-black uppercase tracking-wider text-[#1b365d]">🎫 Check-in rapido con QR Code</label><a href={`${window.location.href.split(/[?#]/)[0]}?checkin`} target="_blank" rel="noreferrer" className="text-[11px] font-bold text-sky-800 bg-sky-50 border border-sky-200 rounded-lg px-2.5 py-1">📱 Apri lo scanner per smartphone</a></div>
                         <div className="flex gap-2">
                           <input
                             ref={scanInputRef}
@@ -4113,8 +4427,10 @@ if (window.emailjs) {
       const verifyCodeParam = urlParams.get('verifica');
       const attestatoCodeParam = urlParams.get('attestato');
       const badgeCodeParam = urlParams.get('badge');
+      const checkinParam = urlParams.has('checkin');
       ReactDOM.render(
-        badgeCodeParam ? <BadgePage code={badgeCodeParam.trim()} />
+        checkinParam ? <CheckinPage />
+          : badgeCodeParam ? <BadgePage code={badgeCodeParam.trim()} />
           : attestatoCodeParam ? <AttestatoPage code={attestatoCodeParam.trim()} />
           : verifyCodeParam ? <VerifyPage code={verifyCodeParam.trim()} />
           : <App />,
