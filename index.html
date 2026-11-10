@@ -1562,6 +1562,12 @@
         const frameRef = useRef(0);
         const lastOtherRef = useRef(0);
         const [scanInfo, setScanInfo] = useState('');
+        const [tab, setTab] = useState('scan');
+        const [listRows, setListRows] = useState([]);
+        const [listFilter, setListFilter] = useState('all');
+        const [listQuery, setListQuery] = useState('');
+        const [confirmRow, setConfirmRow] = useState(null);
+        const [confirmBusy, setConfirmBusy] = useState(false);
         const lastRef = useRef({ code: '', at: 0 });
         const courseIdRef = useRef(courseId);
         courseIdRef.current = courseId;
@@ -1594,9 +1600,21 @@
 
         const refreshCounts = async (cid) => {
           if (!cid || !supabaseClient) return;
-          const { data } = await supabaseClient.from('registrations').select('id,is_present').eq('course_id', cid);
-          if (data) setCounts({ total: data.length, present: data.filter(r => r.is_present).length });
+          const { data } = await supabaseClient.from('registrations').select('id,full_name,first_name,last_name,company,phone,is_present,checkin_time').eq('course_id', cid);
+          if (!data) return;
+          setCounts({ total: data.length, present: data.filter(r => r.is_present).length });
+          const rows = data.map(r => {
+            const nm = regNames({ fullName: r.full_name, firstName: r.first_name, lastName: r.last_name });
+            return { id: r.id, lastName: nm.lastName, firstName: nm.firstName, company: r.company, phone: r.phone, present: r.is_present === true, time: r.checkin_time };
+          }).sort((x, y) => x.lastName.localeCompare(y.lastName, 'it', { sensitivity: 'base' }) || x.firstName.localeCompare(y.firstName, 'it', { sensitivity: 'base' }));
+          setListRows(rows);
         };
+        // aggiornamento periodico (anche per i check-in fatti da altri telefoni)
+        useEffect(() => {
+          if (!session || !courseId) return;
+          const id = setInterval(() => { if (!document.hidden) refreshCounts(courseIdRef.current); }, 5000);
+          return () => clearInterval(id);
+        }, [session, courseId]);
         useEffect(() => {
           try { if (courseId) localStorage.setItem('checkinCourse', courseId); } catch (e) {}
           setRecent([]); setResult(null);
@@ -1640,6 +1658,22 @@
           } finally {
             setTimeout(() => { lockRef.current = false; }, 1500);
           }
+        };
+
+        // Presenza manuale dalla lista (per chi ha dimenticato il QR) e annullamento
+        const applyManual = async (row) => {
+          setConfirmBusy(true);
+          const makePresent = !row.present;
+          const time = makePresent ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
+          const { error } = await supabaseClient.from('registrations').update({ is_present: makePresent, checkin_time: time }).eq('id', row.id);
+          setConfirmBusy(false);
+          setConfirmRow(null);
+          if (error) { setResult({ type: 'error', msg: error.message }); beep(false); setTab('scan'); return; }
+          if (makePresent) {
+            setRecent(prev => [{ name: `${row.lastName} ${row.firstName}`, company: row.company, time: time + ' ✋' }, ...prev].slice(0, 6));
+            beep(true); if (navigator.vibrate) navigator.vibrate(120);
+          }
+          refreshCounts(courseIdRef.current);
         };
 
         const stopCamera = () => {
@@ -1738,6 +1772,10 @@
               <span className="font-black text-sm">📱 Check-in Accoglienza</span>
               <button onClick={async () => { stopCamera(); await supabaseClient.auth.signOut(); }} className="text-xs bg-white/15 rounded-lg px-3 py-1.5 font-semibold">Esci</button>
             </div>
+            <div className="grid grid-cols-2 bg-white border-b border-slate-200 flex-shrink-0 text-sm font-bold">
+              <button onClick={() => setTab('scan')} className={`py-2.5 ${tab === 'scan' ? 'text-[#1b365d] border-b-4 border-[#1b365d]' : 'text-slate-400 border-b-4 border-transparent'}`}>📷 Scanner</button>
+              <button onClick={() => { stopCamera(); setTab('list'); refreshCounts(courseIdRef.current); }} className={`py-2.5 ${tab === 'list' ? 'text-[#1b365d] border-b-4 border-[#1b365d]' : 'text-slate-400 border-b-4 border-transparent'}`}>📋 Lista · mancano {Math.max(0, counts.total - counts.present)}</button>
+            </div>
             <div className="flex-1 min-h-0 flex flex-col gap-2 p-3 max-w-md w-full mx-auto">
               <div className="flex gap-2 items-stretch flex-shrink-0">
                 <select value={courseId} onChange={e => setCourseId(e.target.value)} className="flex-1 min-w-0 px-2 py-2 border border-slate-300 rounded-xl text-xs bg-white font-semibold">
@@ -1751,6 +1789,35 @@
                 </div>
               </div>
 
+              {tab === 'list' ? (() => {
+                const q = listQuery.trim().toLowerCase();
+                const shown = listRows.filter(r => (listFilter === 'all' || (listFilter === 'missing' ? !r.present : r.present)) && (!q || (r.lastName + ' ' + r.firstName + ' ' + (r.company || '')).toLowerCase().includes(q)));
+                const chip = (key, label) => <button key={key} onClick={() => setListFilter(key)} className={`flex-1 py-1.5 rounded-lg text-xs font-bold border ${listFilter === key ? 'bg-[#1b365d] text-white border-[#1b365d]' : 'bg-white text-slate-600 border-slate-300'}`}>{label}</button>;
+                return (
+                  <>
+                    <div className="flex gap-1.5 flex-shrink-0">
+                      {chip('all', `Tutti ${counts.total}`)}
+                      {chip('missing', `Mancano ${Math.max(0, counts.total - counts.present)}`)}
+                      {chip('present', `Presenti ${counts.present}`)}
+                    </div>
+                    <input value={listQuery} onChange={e => setListQuery(e.target.value)} placeholder="Cerca cognome, nome o azienda" className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm bg-white flex-shrink-0" />
+                    <div className="flex-1 min-h-0 overflow-y-auto bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
+                      {shown.length === 0 && <div className="p-4 text-sm text-slate-400 text-center">Nessun partecipante</div>}
+                      {shown.length > 0 && <div className="px-3 py-1.5 text-[10px] text-slate-400 bg-slate-50">Tocca un nome per segnare la presenza a mano (o annullarla)</div>}
+                      {shown.map(r => (
+                        <div key={r.id} onClick={() => setConfirmRow(r)} className={`px-3 py-2 flex items-center gap-2 cursor-pointer active:bg-slate-100 ${r.present ? 'bg-emerald-50' : 'bg-white'}`}>
+                          <div className="text-lg flex-shrink-0">{r.present ? '✅' : '⬜'}</div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm leading-tight truncate"><span className="font-extrabold text-slate-900">{r.lastName}</span> <span className="text-slate-700">{r.firstName}</span></div>
+                            <div className="text-[11px] text-slate-500 truncate">{r.company}{r.present && r.time ? ` · entrato ${r.time}` : ''}</div>
+                          </div>
+                          {r.phone && <a href={`tel:${String(r.phone).replace(/[^\d+]/g, '')}`} onClick={e => e.stopPropagation()} className="text-xs font-mono font-semibold text-sky-800 bg-sky-50 border border-sky-200 rounded-lg px-2 py-1.5 whitespace-nowrap">📞 {r.phone}</a>}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                );
+              })() : (<>
               <div className="bg-black rounded-2xl overflow-hidden relative flex-1 min-h-[180px]">
                 <video ref={videoRef} muted playsInline autoPlay className="absolute inset-0 w-full h-full object-cover"></video>
                 <canvas ref={canvasRef} className="hidden"></canvas>
@@ -1794,7 +1861,22 @@
                   </ul>
                 )}
               </div>
+              </>)}
             </div>
+            {confirmRow && (
+              <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-4" onClick={() => !confirmBusy && setConfirmRow(null)}>
+                <div className="bg-white rounded-2xl p-5 w-full max-w-sm shadow-2xl" onClick={e => e.stopPropagation()}>
+                  <div className="text-xs font-black uppercase text-slate-400 mb-1">{confirmRow.present ? 'Annulla presenza' : 'Presenza manuale'}</div>
+                  <div className="text-lg font-extrabold text-slate-900 leading-tight">{confirmRow.lastName} {confirmRow.firstName}</div>
+                  <div className="text-sm text-slate-500 mb-4">{confirmRow.company}</div>
+                  <p className="text-sm text-slate-700 mb-4">{confirmRow.present ? `Risulta presente${confirmRow.time ? ' dalle ' + confirmRow.time : ''}. Vuoi toglierlo dai presenti?` : 'Segnare questo partecipante come presente, senza QR code?'}</p>
+                  <div className="flex gap-2">
+                    <button disabled={confirmBusy} onClick={() => setConfirmRow(null)} className="flex-1 py-3 rounded-xl border border-slate-300 font-bold text-slate-700 text-sm">Annulla</button>
+                    <button disabled={confirmBusy} onClick={() => applyManual(confirmRow)} className={`flex-1 py-3 rounded-xl font-black text-white text-sm ${confirmRow.present ? 'bg-red-600' : 'bg-emerald-600'} disabled:opacity-60`}>{confirmBusy ? '…' : confirmRow.present ? 'Togli presenza' : '✓ Segna presente'}</button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         );
       }
