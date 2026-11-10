@@ -2447,6 +2447,7 @@ if (window.emailjs) {
             try {
               // Email di conferma all'iscritto con tutti i dettagli dell'evento
               await emailjs.send("service_miwig8q", "template_vtbeauc", {
+                subject: `Conferma iscrizione al corso: ${selectedCourse.title}`,
                 to_name: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
                 to_email: formData.email,
                 course_title: selectedCourse.title,
@@ -2469,6 +2470,7 @@ if (window.emailjs) {
                   } catch (e) { console.error('Errore lettura email admin:', e); }
                 }
                 if (notifyEmail) await emailjs.send("service_miwig8q", "template_vtbeauc", {
+                  subject: `Nuova iscrizione: ${formData.lastName.trim()} ${formData.firstName.trim()} - ${selectedCourse.title}`,
                   to_name: "Amministratore",
                   to_email: notifyEmail,
                   course_title: selectedCourse.title,
